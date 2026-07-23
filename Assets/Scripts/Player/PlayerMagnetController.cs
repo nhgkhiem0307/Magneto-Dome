@@ -102,6 +102,7 @@ public class PlayerMagnetController : MonoBehaviour
                 }
                 else if (magObj.currentPolarity == currentGlovePolarity && Input.GetMouseButtonDown(0))
                 {
+                    targetRb.isKinematic = false; ////////////////////////////////////////////////////////////////////////
                     magObj.isMovingAsBullet = true;
                     magObj.shooterOwner = this; 
 

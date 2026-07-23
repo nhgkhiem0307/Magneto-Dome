@@ -16,12 +16,13 @@ public class MagneticObject : MonoBehaviour
     
     [HideInInspector] public PlayerMagnetController shooterOwner; 
 
-    [Header("Inventory Settings (New)")]
+    [Header("Inventory Settings")]
     [Tooltip("Kéo file ItemData tương ứng vào đây (Ví dụ: bàn/ghế kéo file NormalAmmoData)")]
     public ItemData itemData; 
 
     private Rigidbody rb;
     private Material mat;
+    private MagneticAura auraScript;
 
     void Start()
     {
@@ -29,13 +30,19 @@ public class MagneticObject : MonoBehaviour
         
         Renderer rend = GetComponent<Renderer>();
         if (rend != null) mat = rend.material;
+
+        // Đã sửa lỗi CS0411: Thêm Generic Type <MagneticAura>
+        auraScript = GetComponent<MagneticAura>();
         
+        RefreshAura();
         SetColorBasedOnPolarity();
     }
 
     public void SetPolarity(Polarity newPolarity)
     {
+        // Đã sửa lỗi CS0103: Đồng bộ dùng biến currentPolarity
         currentPolarity = newPolarity;
+        RefreshAura();
         SetColorBasedOnPolarity();
     }
 
@@ -47,12 +54,21 @@ public class MagneticObject : MonoBehaviour
         else mat.color = Color.white;
     }
 
+    public void RefreshAura()
+    {
+        if (auraScript != null)
+        {
+            // Đã sửa lỗi CS0103: Truyền đúng biến currentPolarity vào Aura
+            auraScript.UpdateAura(currentPolarity);
+        }
+    }
+
     void OnCollisionEnter(Collision collision)
     {
         if (!isMovingAsBullet) return;
 
         // Bỏ qua va chạm với chính người bắn ra nó
-        if (collision.collider.gameObject == shooterOwner.gameObject) return;
+        if (shooterOwner != null && collision.collider.gameObject == shooterOwner.gameObject) return;
 
         // Trúng đối thủ (Player khác hoặc Kẻ địch)
         if (collision.collider.CompareTag("Player"))
@@ -67,14 +83,17 @@ public class MagneticObject : MonoBehaviour
             {
                 // Đạn Spike dính vào người đối thủ
                 transform.SetParent(collision.transform);
-                rb.isKinematic = true;
-                rb.useGravity = false;
+                if (rb != null)
+                {
+                    rb.isKinematic = true;
+                    rb.useGravity = false;
+                }
                 isMovingAsBullet = false;
                 return;
             }
         }
 
-        // Nếu là thùng TNT thì kích nổ khi va chạm mạnh
+        // Nếu là thùng TNT thì kích nổ khi va chạm
         if (objectType == ObjectType.TNT)
         {
             Explode();
@@ -91,14 +110,14 @@ public class MagneticObject : MonoBehaviour
         if (rb != null)
         {
             rb.useGravity = true;
-            rb.linearDamping = 0.05f; // Khôi phục lại giá trị mặc định của Unity 6
+            rb.linearDamping = 0.05f; // Giá trị mặc định của Unity 6
         }
     }
 
     void Explode()
     {
         float explosionRadius = 6f;
-        float explosionForce = 10f;
+        float explosionForce = 15f;
         float tntDamage = 35f;
 
         Debug.Log("<color=red><b>TNT BARREL EXPLODED!</b></color>");
@@ -110,12 +129,14 @@ public class MagneticObject : MonoBehaviour
 
         foreach (Collider hit in colliders)
         {
+            // 1. Tác động lực đẩy lên các vật thể vật lý môi trường (Rigidbody)
             Rigidbody targetRb = hit.GetComponent<Rigidbody>();
             if (targetRb != null && targetRb != rb)
             {
                 targetRb.AddExplosionForce(explosionForce, transform.position, explosionRadius, 1f, ForceMode.Impulse);
             }
 
+            // 2. Sát thương và Lực văng cho Player / Dummy (CharacterController)
             if (hit.CompareTag("Player"))
             {
                 PlayerHealth health = hit.GetComponent<PlayerHealth>();
@@ -127,6 +148,16 @@ public class MagneticObject : MonoBehaviour
                     float damageMultiplier = 1f - (distance / explosionRadius);
                     health.TakeDamage(tntDamage * Mathf.Clamp01(damageMultiplier));
                 }
+
+                // Đẩy văng nhân vật dùng CharacterController theo hướng vụ nổ
+                Vector3 explodeDir = (hit.transform.position - transform.position).normalized;
+                explodeDir.y = 0.4f; // Hất nhẹ lên không trung
+
+                FPSMovement playerMove = hit.GetComponent<FPSMovement>();
+                DummyGravity dummyGrav = hit.GetComponent<DummyGravity>();
+
+                if (playerMove != null) playerMove.AddImpact(explodeDir, explosionForce * 2f);
+                if (dummyGrav != null) dummyGrav.AddImpact(explodeDir, explosionForce * 2f);
             }
         }
 

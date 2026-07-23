@@ -5,11 +5,8 @@ public class DummyMagnetTarget : MonoBehaviour
     [Header("Dummy Polarity")]
     public MagneticObject.Polarity currentGlovePolarity = MagneticObject.Polarity.Positive;
 
-    private Renderer dummyRenderer;
-
     void Start()
     {
-        dummyRenderer = GetComponent<Renderer>();
         UpdateDummyColor();
     }
 
@@ -19,15 +16,13 @@ public class DummyMagnetTarget : MonoBehaviour
         UpdateDummyColor();
     }
 
-    void UpdateDummyColor()
+    public void UpdateDummyColor()
     {
-        if (dummyRenderer == null) return;
-
-        if (currentGlovePolarity == MagneticObject.Polarity.Positive)
-            dummyRenderer.material.color = Color.red; 
-        else if (currentGlovePolarity == MagneticObject.Polarity.Negative)
-            dummyRenderer.material.color = Color.blue; 
-        else
-            dummyRenderer.material.color = Color.gray;
+        // SỬA CS0411: Phải có <MagneticAura> trong ngoặc nhọn
+        MagneticAura aura = GetComponent<MagneticAura>();
+        if (aura != null)
+        {
+            aura.UpdateAura(currentGlovePolarity);
+        }
     }
 }
