@@ -1,42 +1,55 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class RadialMenuController : MonoBehaviour
 {
+    [System.Serializable]
+    public class RadialSlotUI
+    {
+        public string itemName = "Item";
+        public RectTransform slotRect;     // RectTransform để xử lý Zoom phóng to
+        public CanvasGroup canvasGroup;   // CanvasGroup để xử lý làm mờ (Alpha)
+        public Image slotImage;           // <-- THÊM DÒNG NÀY: Để chỉnh màu nền ô UI
+        public Text countText;            // UI Text hiển thị số lượng
+        public int itemQuantity = 0;      // Số lượng vật phẩm
+    }
+
     [Header("UI Settings")]
     public GameObject radialMenuUI; 
-    
+    public List<RadialSlotUI> slots = new List<RadialSlotUI>();
+
+    [Header("Visual Feedback Settings")]
+    public float hoverScale = 1.25f;      
+    public float scaleSpeed = 15f;       
+    public float dimmedAlpha = 0.4f;      // Độ mờ Alpha khi hết đồ
+    public float normalAlpha = 0.85f;     
+
+    [Header("Color Tint Settings")] // <-- THÊM MỤC NÀY NỮA
+    public Color normalColor = Color.white;                     // Tông màu gốc khi có đồ
+    public Color dimmedColor = new Color(0.4f, 0.4f, 0.4f, 1f); // Tông màu xám tối khi hết đồ
+
     [Header("Keybind Settings")]
-    [Tooltip("Phím bấm để mở vòng tròn chọn nhanh (Mặc định là Tab)")]
     public KeyCode menuKey = KeyCode.Tab;
 
     private bool isMenuOpen = false;
-    private int selectedItemIndex = -1; // -1 nghĩa là chưa trỏ vào ô nào
+    private int selectedItemIndex = -1; 
 
     void Start()
     {
-        // Đảm bảo UI được ẩn đi khi bắt đầu game
         if (radialMenuUI != null) 
             radialMenuUI.SetActive(false);
     }
 
     void Update()
     {
-        // 1. Khi nhấn GIỮ phím Tab
-        if (Input.GetKeyDown(menuKey))
-        {
-            OpenMenu();
-        }
+        if (Input.GetKeyDown(menuKey)) OpenMenu();
+        if (Input.GetKeyUp(menuKey)) CloseMenuAndUseItem();
 
-        // 2. Khi THẢ phím Tab ra
-        if (Input.GetKeyUp(menuKey))
-        {
-            CloseMenuAndUseItem();
-        }
-
-        // 3. Tính toán vị trí chuột để chọn vật phẩm khi Menu đang mở
         if (isMenuOpen)
         {
             CalculateSelectedSector();
+            UpdateSlotsVisuals();
         }
     }
 
@@ -45,7 +58,6 @@ public class RadialMenuController : MonoBehaviour
         isMenuOpen = true;
         if (radialMenuUI != null) radialMenuUI.SetActive(true);
 
-        // Giải phóng con trỏ chuột để người chơi xoay chọn vật phẩm
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
@@ -55,46 +67,76 @@ public class RadialMenuController : MonoBehaviour
         isMenuOpen = false;
         if (radialMenuUI != null) radialMenuUI.SetActive(false);
 
-        // Khóa con trỏ chuột lại giữa màn hình cho chế độ góc nhìn thứ nhất (FPS)
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        // Nếu người chơi trỏ chuột vào một ô hợp lệ thì kích hoạt sử dụng vật phẩm đó
-        if (selectedItemIndex != -1)
+        if (selectedItemIndex != -1 && selectedItemIndex < slots.Count)
         {
-            UseItemFromRadialMenu(selectedItemIndex);
+            if (slots[selectedItemIndex].itemQuantity > 0)
+            {
+                UseItemFromRadialMenu(selectedItemIndex);
+            }
         }
     }
 
     void CalculateSelectedSector()
     {
-        // Lấy tọa độ chuột tương đối so với tâm màn hình
         Vector2 mousePos = new Vector2(Input.mousePosition.x - (Screen.width / 2f), Input.mousePosition.y - (Screen.height / 2f));
         
-        // Chuột phải di chuyển ra xa tâm một chút (khoảng cách > 40 pixel) thì mới tính là đang chọn ô
-        if (mousePos.magnitude > 40f) 
+        if (mousePos.magnitude > 40f && slots.Count > 0) 
         {
-            // Tính góc xoay từ 0 đến 360 độ dựa trên vị trí chuột
             float angle = Mathf.Atan2(mousePos.y, mousePos.x) * Mathf.Rad2Deg;
             if (angle < 0) angle += 360f;
 
-            // Giả định vòng tròn chia đều làm 4 Sector (ô vật phẩm), mỗi ô rộng 90 độ
-            // Ô 0: góc 0 -> 90 | Ô 1: góc 90 -> 180 | Ô 2: góc 180 -> 270 | Ô 3: góc 270 -> 360
-            selectedItemIndex = Mathf.FloorToInt(angle / 90f); 
+            float sectorAngle = 360f / slots.Count;
+            selectedItemIndex = Mathf.FloorToInt(angle / sectorAngle); 
         }
         else
         {
-            selectedItemIndex = -1; // Chuột quá sát tâm màn hình
+            selectedItemIndex = -1; 
+        }
+    }
+
+    // HÀM XỬ LÝ HIỆU ỨNG THỊ GIÁC (ZOOM, ALPHA & TÔNG MÀU TỐI)
+    void UpdateSlotsVisuals()
+    {
+        for (int i = 0; i < slots.Count; i++)
+        {
+            RadialSlotUI slot = slots[i];
+            if (slot.slotRect == null) continue;
+
+            bool isAvailable = slot.itemQuantity > 0;
+            bool isHovered = (i == selectedItemIndex) && isAvailable;
+
+            // Update UI Text hiển thị số lượng
+            if (slot.countText != null)
+            {
+                slot.countText.text = isAvailable ? slot.itemQuantity.ToString() : "0";
+            }
+
+            // 1. Xử lý Độ Mờ Trong Suốt (Alpha)
+            if (slot.canvasGroup != null)
+            {
+                float targetAlpha = isAvailable ? (isHovered ? 1f : normalAlpha) : dimmedAlpha;
+                slot.canvasGroup.alpha = Mathf.Lerp(slot.canvasGroup.alpha, targetAlpha, Time.deltaTime * scaleSpeed);
+            }
+
+            // 2. Xử lý Tông Màu Tối (Color Tint) <-- THÊM MỚI
+            if (slot.slotImage != null)
+            {
+                Color targetColor = isAvailable ? normalColor : dimmedColor;
+                slot.slotImage.color = Color.Lerp(slot.slotImage.color, targetColor, Time.deltaTime * scaleSpeed);
+            }
+
+            // 3. Xử lý Phóng To (Zoom)
+            Vector3 targetScale = isHovered ? Vector3.one * hoverScale : Vector3.one;
+            slot.slotRect.localScale = Vector3.Lerp(slot.slotRect.localScale, targetScale, Time.deltaTime * scaleSpeed);
         }
     }
 
     void UseItemFromRadialMenu(int index)
     {
-        // Xử lý logic dùng vật phẩm tương ứng tại đây
-        // Ví dụ: 
-        // index 0 -> Uống nước tăng lực (Tăng tốc độ di chuyển trong FPSMovement)
-        // index 1 -> Sử dụng bình hồi máu (Tăng máu trong PlayerHealth)
-        
-        Debug.Log($"<color=cyan>Đang kích hoạt sử dụng vật phẩm hỗ trợ tại Ô số: {index}</color>");
+        slots[index].itemQuantity--;
+        Debug.Log($"<color=cyan>Đã dùng: {slots[index].itemName}</color>");
     }
 }

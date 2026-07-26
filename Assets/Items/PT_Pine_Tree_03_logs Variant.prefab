@@ -101,7 +101,7 @@ Rigidbody:
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
   m_UseGravity: 1
-  m_IsKinematic: 0
+  m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
@@ -137,8 +137,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MagneticAura
   positiveColor: {r: 2, g: 0.2, b: 0.2, a: 1}
   negativeColor: {r: 0.2, g: 0.8, b: 2, a: 1}
+  outlineWidth: 10
   auraPointLight: {fileID: 0}
-  auraParticles: {fileID: 8115885322354316316}
 --- !u!4 &2988930653622997629 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2489856308131526256, guid: 244ce2af788c0c346b86cbc0473811b0, type: 3}
@@ -201,11 +201,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 58eccd869bb2fdc4a8c0adf34ba3b0d0, type: 3}
---- !u!198 &8115885322354316316 stripped
-ParticleSystem:
-  m_CorrespondingSourceObject: {fileID: 991718198751683022, guid: 58eccd869bb2fdc4a8c0adf34ba3b0d0, type: 3}
-  m_PrefabInstance: {fileID: 9034819819607569874}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &8991894799253957151 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 120331016977571789, guid: 58eccd869bb2fdc4a8c0adf34ba3b0d0, type: 3}

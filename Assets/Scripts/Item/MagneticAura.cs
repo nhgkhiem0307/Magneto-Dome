@@ -4,25 +4,35 @@ public class MagneticAura : MonoBehaviour
 {
     [Header("Aura HDR Colors")]
     [ColorUsage(showAlpha: false, hdr: true)]
-    public Color positiveColor = new Color(2f, 0.2f, 0.2f);
+    public Color positiveColor = new Color(3f, 0.3f, 0.3f); // Đỏ rực
     
     [ColorUsage(showAlpha: false, hdr: true)]
-    public Color negativeColor = new Color(0.2f, 0.8f, 2f);
+    public Color negativeColor = new Color(0.3f, 1f, 3f);   // Xanh rực
 
-    [Header("Aura FX (Tùy chọn)")]
+    [Header("Outline Settings")]
+    [Range(0f, 10f)]
+    public float outlineWidth = 8f; // Độ dày viền (Chỉnh từ 2 đến 5 là đẹp)
+
+    [Header("Optional Light")]
     public Light auraPointLight;
-    public ParticleSystem auraParticles; // <--- KHAI BÁO BỔ SUNG Ô KÉO THẢ Ở ĐÂY
 
-    private Renderer rend;
-    private Material mat;
+    private Outline outline;
 
     void Awake()
     {
-        rend = GetComponent<Renderer>();
-        if (rend != null)
+        // Tự động kiểm tra và thêm component Quick Outline nếu vật thể chưa có
+        outline = GetComponent<Outline>();
+        if (outline == null)
         {
-            mat = rend.material;
+            outline = gameObject.AddComponent<Outline>();
         }
+
+        // Cấu hình chế độ viền: OutlineAll (Viền bao bọc cả thân lẫn lá cây)
+        outline.OutlineMode = Outline.Mode.OutlineAll;
+        outline.OutlineWidth = outlineWidth;
+        
+        // Mặc định tắt viền khi chưa tích điện
+        outline.enabled = false;
     }
 
     public void UpdateAura(MagneticObject.Polarity polarity)
@@ -35,39 +45,34 @@ public class MagneticAura : MonoBehaviour
 
         Color targetColor = (polarity == MagneticObject.Polarity.Positive) ? positiveColor : negativeColor;
 
-        // 1. Đổi màu Material Emission (An toàn cho mọi Shader)
-        if (mat != null && mat.HasProperty("_EmissionColor"))
+        // 1. BẬT VIỀN TOON TỰ ĐỘNG (BAO GỒM CẢ CÂY CỐI/LÁ CÂY)
+        if (outline != null)
         {
-            mat.EnableKeyword("_EMISSION");
-            mat.SetColor("_EmissionColor", targetColor);
+            outline.OutlineColor = targetColor;
+            outline.OutlineWidth = outlineWidth;
+            outline.enabled = true; // Kích hoạt render viền
         }
 
-        // 2. Bật Light hắt sáng ra sàn/môi trường
+        // 2. BẬT POINT LIGHT HẮT SÁNG (NẾU CÓ)
         if (auraPointLight != null)
         {
             auraPointLight.color = targetColor;
             auraPointLight.enabled = true;
         }
-
-        // 3. Đổi màu và BẬT Particle System bao quanh
-        if (auraParticles != null)
-        {
-            var main = auraParticles.main;
-            main.startColor = targetColor;
-            if (!auraParticles.isPlaying) auraParticles.Play();
-        }
     }
 
     public void DisableAura()
     {
-        if (mat != null && mat.HasProperty("_EmissionColor"))
+        // Tắt viền -> Ngừng tính toán hoàn toàn (0% Lag)
+        if (outline != null)
         {
-            mat.SetColor("_EmissionColor", Color.black);
+            outline.enabled = false;
         }
 
-        if (auraPointLight != null) auraPointLight.enabled = false;
-        
-        // Tắt hạt khi không có điện tích
-        if (auraParticles != null) auraParticles.Stop();
+        // Tắt Point Light
+        if (auraPointLight != null)
+        {
+            auraPointLight.enabled = false;
+        }
     }
 }

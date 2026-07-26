@@ -2,24 +2,33 @@ using UnityEngine;
 
 public class FPSMovement : MonoBehaviour
 {
+    [Header("Keybinds")]
+    public KeyCode dashKey = KeyCode.Q; // Dễ dàng đổi phím Dash trên Inspector (Q, LeftShift, E, Mouse0, v.v.)
+
+    [Header("Movement Settings")]
     public float moveSpeed = 5f;
     public float mouseSensitivity = 2f;
     public Transform cameraTransform;
 
-    [Header("Gravity & Physics")]
-    public float gravity = -9.81f; // Trọng lực (Thường game FPS để gấp đôi thực tế rơi cho đầm người)
-    private Vector3 velocity;       // Vận tốc rơi (Cộng dồn theo thời gian)
+    [Header("Dash Settings")]
+    public float dashForce = 50f;      // Độ mạnh cú lướt
+    public float dashCooldown = 1f;    // Thời gian hồi chiêu Dash (giây)
+    private float dashTimer = 0f;
 
-    private Vector3 impact = Vector3.zero;
+    [Header("Gravity & Physics")]
+    public float gravity = -19.62f;    // Trọng lực
     public float mass = 3f;
+    public float drag = 5f;             // Ma sát giảm tốc khi Dash
+
     private CharacterController controller;
+    private Vector3 velocity;          
+    private Vector3 impact = Vector3.zero; 
     private float verticalRotation = 0f;
 
     void Start()
     {
         controller = GetComponent<CharacterController>();
         
-        // Ẩn con trỏ chuột và khóa nó ở giữa màn hình giống game FPS thực tế
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -27,51 +36,66 @@ public class FPSMovement : MonoBehaviour
     void Update()
     {
         // 1. XOAY CAMERA THEO CHUỘT
-        float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
-        float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
+        float mouseX = Input.GetAxisRaw("Mouse X") * mouseSensitivity;
+        float mouseY = Input.GetAxisRaw("Mouse Y") * mouseSensitivity;
 
-        // Xoay nhân vật theo trục ngang (Trái/Phải)
         transform.Rotate(Vector3.up * mouseX);
 
-        // Tính toán xoay camera theo trục dọc (Lên/Xuống) và giới hạn góc nhìn
         verticalRotation -= mouseY;
         verticalRotation = Mathf.Clamp(verticalRotation, -80f, 80f);
         cameraTransform.localRotation = Quaternion.Euler(verticalRotation, 0f, 0f);
 
-        // 2. DI CHUYỂN BẰNG PHÍM W, A, S, D
-        float moveX = Input.GetAxis("Horizontal"); 
-        float moveZ = Input.GetAxis("Vertical");   
+        // 2. DI CHUYỂN WASD
+        float moveX = Input.GetAxisRaw("Horizontal");
+        float moveZ = Input.GetAxisRaw("Vertical");
 
-        // Tính hướng di chuyển ngang
-        Vector3 move = transform.right * moveX + transform.forward * moveZ;
-        
-        // Thực hiện lệnh di chuyển NGANG riêng biệt
-        controller.Move(move * moveSpeed * Time.deltaTime);
+        Vector3 inputDir = new Vector3(moveX, 0f, moveZ);
+        inputDir = Vector3.ClampMagnitude(inputDir, 1f);
 
-        // 3. HỆ THỐNG TRỌNG LỰC (GRAVITY) CHUẨN
-        // Kiểm tra nếu nhân vật đang chạm đất và đang có xu hướng rơi
+        Vector3 moveDirection = transform.right * inputDir.x + transform.forward * inputDir.z;
+
+        // 3. COOLDOWN DASH & LỆNH DASH (DÙNG BIẾN dashKey)
+        if (dashTimer > 0) dashTimer -= Time.deltaTime;
+
+        if (Input.GetKeyDown(dashKey) && dashTimer <= 0) // <-- Đã dùng dashKey thay vì hardcode Q
+        {
+            Vector3 dashDirection = moveDirection.normalized;
+
+            if (dashDirection == Vector3.zero)
+            {
+                dashDirection = transform.forward;
+            }
+
+            AddImpact(dashDirection, dashForce);
+            dashTimer = dashCooldown;
+        }
+
+        // 4. TRỌNG LỰC
         if (controller.isGrounded && velocity.y < 0)
         {
-            // Ép nhẹ nhân vật xuống sàn để đi cầu thang/dốc không bị nảy tưng tưng
             velocity.y = -2f; 
         }
+        velocity.y += gravity * Time.deltaTime;
 
-        // Cộng dồn gia tốc rơi theo thời gian
-        velocity.y += gravity * Time.deltaTime; 
-        // Thực hiện lệnh rơi DỌC riêng biệt
-        controller.Move(velocity * Time.deltaTime);
-
-        if (impact.magnitude > 0.2f)
+        // 5. GIẢM TỐC QUÁN TÍNH (IMPACT)
+        if (impact.sqrMagnitude > 0.04f)
         {
-            controller.Move(impact * Time.deltaTime);
+            impact = Vector3.Lerp(impact, Vector3.zero, drag * Time.deltaTime);
         }
-        // Giảm tốc theo đường cong quán tính (5f là hệ số ma sát, số càng cao dừng càng nhanh)
-        impact = Vector3.Lerp(impact, Vector3.zero, 5f * Time.deltaTime);
+        else
+        {
+            impact = Vector3.zero;
+        }
+
+        // 6. GỘP LỰC VÀ DI CHUYỂN (1 LẦN MOVE/FRAME)
+        Vector3 finalMovement = (moveDirection * moveSpeed) + velocity + impact;
+        controller.Move(finalMovement * Time.deltaTime);
     }
+
     public void AddImpact(Vector3 dir, float force)
     {
         dir.Normalize();
-        if (dir.y < 0) dir.y = -dir.y; // Đảm bảo lực luôn hất nhẹ lên trên chứ không cắm xuống đất
+        if (dir.y < 0) dir.y = -dir.y; 
         impact += dir * (force / mass);
     }
 }
