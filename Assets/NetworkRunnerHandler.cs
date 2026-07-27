@@ -9,14 +9,21 @@ using UnityEngine.SceneManagement;
 
 public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 {
+    public static NetworkRunnerHandler Instance { get; private set; }
+    public static string LocalPlayerName = "Player";
+
+    [Header("Room Player Prefab")]
+    public RoomPlayer roomPlayerPrefab;
+
     [Header("UI Panels")]
     public GameObject namePanel;
     public GameObject mainButtonsPanel;
+    public GameObject roomLobbyPanel;
     public GameObject createRoomPanel;
     public GameObject roomListPanel;
-    public GameObject roomLobbyPanel;
+    private GameObject[] _allPanels;    
 
-    [Header("UI Inputs & Texts (TextMeshPro)")]
+    [Header("UI Inputs & Texts")]
     public TMP_InputField nameInput;
     public TMP_InputField joinCodeInput;
     public TMP_Text yourRoomIDText;
@@ -27,21 +34,28 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
     [Header("Lobby Buttons")]
     public Button startMatchButton;
-    public Button switchTeamButton;
-
-    [Header("Room List UI")]
-    public Transform roomListContent;
-    public GameObject roomItemPrefab;
 
     [Header("Settings")]
     public string gameSceneName = "GameScene";
 
-    private NetworkRunner _runner;
-    private string _playerNickname = "Player";
+    // Đã đổi tên biến từ _runner thành _networkRunner để tránh trùng lặp serialization
+    private NetworkRunner _networkRunner;
     private string _currentRoomCode = "";
 
-    // Lưu danh sách người chơi cục bộ để hiển thị UI
-    private Dictionary<PlayerRef, (string Name, int Team)> _lobbyPlayers = new Dictionary<PlayerRef, (string, int)>();
+    private void Awake()
+    {
+        Instance = this;
+
+        // Gom tất cả các Panel vào mảng ngay khi game khởi chạy
+        _allPanels = new GameObject[] 
+        { 
+            namePanel, 
+            mainButtonsPanel, 
+            createRoomPanel, 
+            roomListPanel, 
+            roomLobbyPanel 
+        };
+    }
 
     private void Start()
     {
@@ -51,31 +65,37 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
     public void ShowPanel(GameObject panelToShow)
     {
-        if (namePanel != null) namePanel.SetActive(false);
-        if (mainButtonsPanel != null) mainButtonsPanel.SetActive(false);
-        if (createRoomPanel != null) createRoomPanel.SetActive(false);
-        if (roomListPanel != null) roomListPanel.SetActive(false);
-        if (roomLobbyPanel != null) roomLobbyPanel.SetActive(false);
+        if (_allPanels == null) return;
 
-        if (panelToShow != null) panelToShow.SetActive(true);
+        // Duyệt qua từng panel: chỉ kích hoạt (true) panel trùng với panelToShow,
+        // tất cả các panel còn lại lập tức bị ẩn (false).
+        foreach (var panel in _allPanels)
+        {
+            if (panel != null)
+            {
+                panel.SetActive(panel == panelToShow);
+            }
+        }
     }
 
     public void OnConfirmName()
     {
         if (!string.IsNullOrEmpty(nameInput.text))
         {
-            _playerNickname = nameInput.text;
+            LocalPlayerName = nameInput.text;
         }
         ShowPanel(mainButtonsPanel);
     }
 
     private void EnsureRunnerExists()
     {
-        if (_runner == null)
+        if (_networkRunner == null)
         {
-            _runner = gameObject.AddComponent<NetworkRunner>();
-            _runner.ProvideInput = true;
-            _runner.AddCallbacks(this);
+            GameObject runnerObj = new GameObject("FusionNetworkRunner");
+            _networkRunner = runnerObj.AddComponent<NetworkRunner>();
+            _networkRunner.ProvideInput = true;
+            runnerObj.AddComponent<NetworkSceneManagerDefault>();
+            _networkRunner.AddCallbacks(this);
         }
     }
 
@@ -85,11 +105,11 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         if (statusErrorText != null) statusErrorText.text = "";
         EnsureRunnerExists();
 
-        await _runner.StartGame(new StartGameArgs()
+        await _networkRunner.StartGame(new StartGameArgs()
         {
             GameMode = GameMode.AutoHostOrClient,
             PlayerCount = 4,
-            SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
+            SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
         });
 
         ShowPanel(roomLobbyPanel);
@@ -104,12 +124,12 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         _currentRoomCode = UnityEngine.Random.Range(10000, 99999).ToString();
         if (yourRoomIDText != null) yourRoomIDText.text = "Mã Phòng: " + _currentRoomCode;
 
-        var result = await _runner.StartGame(new StartGameArgs()
+        var result = await _networkRunner.StartGame(new StartGameArgs()
         {
             GameMode = GameMode.Host,
             SessionName = _currentRoomCode,
             PlayerCount = 4,
-            SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
+            SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
         });
 
         if (result.Ok)
@@ -136,11 +156,11 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         EnsureRunnerExists();
         _currentRoomCode = joinCodeInput.text.Trim();
 
-        var result = await _runner.StartGame(new StartGameArgs()
+        var result = await _networkRunner.StartGame(new StartGameArgs()
         {
             GameMode = GameMode.Client,
             SessionName = _currentRoomCode,
-            SceneManager = gameObject.AddComponent<NetworkSceneManagerDefault>()
+            SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
         });
 
         if (result.Ok)
@@ -151,135 +171,82 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         {
             SetErrorMessage("Phòng không tồn tại hoặc đã đầy!");
             ShowPanel(mainButtonsPanel);
+            
+            if (_networkRunner != null)
+            {
+                Destroy(_networkRunner.gameObject);
+                _networkRunner = null;
+            }
         }
     }
 
     // --- 4. RỜI PHÒNG ---
     public async void OnClickLeaveRoom()
     {
-        if (_runner != null)
+        if (_networkRunner != null)
         {
-            await _runner.Shutdown();
+            await _networkRunner.Shutdown();
+            Destroy(_networkRunner.gameObject);
+            _networkRunner = null;
         }
-        _lobbyPlayers.Clear();
         ShowPanel(mainButtonsPanel);
     }
 
-    // --- 5. BẮT ĐẦU TRẬN ---
+    // --- 5. BẮT ĐẦU TRẬN (LOAD SCENE) ---
     public void OnClickStartMatch()
     {
-        if (_runner != null && _runner.IsServer)
+        if (_networkRunner != null && _networkRunner.IsServer)
         {
-            _runner.LoadScene(SceneRef.FromIndex(SceneUtility.GetBuildIndexByScenePath(gameSceneName)));
+            int sceneIndex = SceneUtility.GetBuildIndexByScenePath(gameSceneName);
+            if (sceneIndex != -1)
+            {
+                _networkRunner.LoadScene(SceneRef.FromIndex(sceneIndex));
+            }
+            else
+            {
+                SetErrorMessage($"Scene '{gameSceneName}' chưa được thêm vào Build Settings!");
+            }
         }
     }
 
-    // --- 6. ĐỔI TEAM (SWITCH TEAM) ---
+    // --- 6. ĐỔI TEAM ---
     public void OnClickSwitchTeam()
     {
-        if (_runner == null) return;
+        if (RoomPlayer.Local == null) return;
 
-        if (_lobbyPlayers.TryGetValue(_runner.LocalPlayer, out var myInfo))
+        int targetTeam = RoomPlayer.Local.Team == 0 ? 1 : 0;
+        int targetTeamCount = 0;
+
+        foreach (var p in RoomPlayer.AllPlayers)
         {
-            int targetTeam = myInfo.Team == 0 ? 1 : 0;
+            if (p.Team == targetTeam) targetTeamCount++;
+        }
 
-            int targetTeamCount = 0;
-            foreach (var p in _lobbyPlayers.Values)
-            {
-                if (p.Team == targetTeam) targetTeamCount++;
-            }
-
-            if (targetTeamCount < 2)
-            {
-                if (_runner.IsServer)
-                {
-                    _lobbyPlayers[_runner.LocalPlayer] = (myInfo.Name, targetTeam);
-                    BroadcastLobbyState();
-                }
-                else
-                {
-                    RPC_RequestChangeTeam(_runner.LocalPlayer, targetTeam);
-                }
-            }
+        if (targetTeamCount < 2)
+        {
+            RoomPlayer.Local.RPC_RequestTeamChange(targetTeam);
         }
     }
 
-    // --- HỆ THỐNG RPC ĐỒNG BỘ TÊN & TEAM ---
-
-    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-    private void RPC_SendPlayerInfo(PlayerRef player, string name)
-    {
-        if (!_lobbyPlayers.ContainsKey(player))
-        {
-            int redCount = 0, blueCount = 0;
-            foreach (var p in _lobbyPlayers.Values)
-            {
-                if (p.Team == 0) redCount++;
-                else blueCount++;
-            }
-            int assignedTeam = (redCount <= blueCount) ? 0 : 1;
-            _lobbyPlayers[player] = (name, assignedTeam);
-        }
-        BroadcastLobbyState();
-    }
-
-    [Rpc(RpcSources.All, RpcTargets.StateAuthority)]
-    private void RPC_RequestChangeTeam(PlayerRef player, int newTeam)
-    {
-        if (_lobbyPlayers.ContainsKey(player))
-        {
-            string pName = _lobbyPlayers[player].Name;
-            _lobbyPlayers[player] = (pName, newTeam);
-            BroadcastLobbyState();
-        }
-    }
-
-    private void BroadcastLobbyState()
-    {
-        if (!_runner.IsServer) return;
-
-        List<PlayerRef> players = new List<PlayerRef>();
-        List<string> names = new List<string>();
-        List<int> teams = new List<int>();
-
-        foreach (var kvp in _lobbyPlayers)
-        {
-            players.Add(kvp.Key);
-            names.Add(kvp.Value.Name);
-            teams.Add(kvp.Value.Team);
-        }
-
-        RPC_UpdateLobbyUI(players.ToArray(), names.ToArray(), teams.ToArray());
-    }
-
-    [Rpc(RpcSources.StateAuthority, RpcTargets.All)]
-    private void RPC_UpdateLobbyUI(PlayerRef[] players, string[] names, int[] teams)
-    {
-        _lobbyPlayers.Clear();
-        for (int i = 0; i < players.Length; i++)
-        {
-            _lobbyPlayers[players[i]] = (names[i], teams[i]);
-        }
-        UpdateLobbyUI();
-    }
-
-    private void UpdateLobbyUI()
+    // --- CẬP NHẬT GIAO DIỆN LOBBY ---
+    public void UpdateLobbyUI()
     {
         string redList = "";
         string blueList = "";
-        int redCount = 0;
-        int blueCount = 0;
+        int redCount = 0, blueCount = 0;
 
-        foreach (var p in _lobbyPlayers.Values)
+        foreach (var p in RoomPlayer.AllPlayers)
         {
+            string pName = string.IsNullOrEmpty(p.NickName.ToString()) ? "Đang tải..." : p.NickName.ToString();
+            
             if (p.Team == 0)
             {
-                redList += $"- {p.Name}\n";
+                redList += $"- {pName}\n";
                 redCount++;
             }
             else
             {
-                blueList += $"- {p.Name}\n";
+                blueList += $"- {pName}\n";
                 blueCount++;
             }
         }
@@ -289,39 +256,41 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
         if (roomTitleText != null)
         {
-            roomTitleText.text = $"PHÒNG: {_currentRoomCode} ({_lobbyPlayers.Count}/4)";
+            roomTitleText.text = $"PHÒNG: {_currentRoomCode} ({RoomPlayer.AllPlayers.Count}/4)";
         }
 
         if (startMatchButton != null)
         {
-            startMatchButton.gameObject.SetActive(_runner != null && _runner.IsServer);
+            startMatchButton.gameObject.SetActive(_networkRunner != null && _networkRunner.IsServer);
         }
     }
 
     private void SetErrorMessage(string message)
     {
-        if (statusErrorText != null)
-        {
-            statusErrorText.text = message;
-        }
+        if (statusErrorText != null) statusErrorText.text = message;
     }
 
     // --- FUSION CALLBACKS ---
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        if (player == runner.LocalPlayer)
+        if (runner.IsServer)
         {
-            RPC_SendPlayerInfo(player, _playerNickname);
+            var playerObj = runner.Spawn(roomPlayerPrefab, Vector3.zero, Quaternion.identity, player);
+            var roomPlayer = playerObj.GetComponent<RoomPlayer>();
+            roomPlayer.PlayerRef = player;
+
+            int redCount = 0, blueCount = 0;
+            foreach (var p in RoomPlayer.AllPlayers)
+            {
+                if (p.Team == 0) redCount++; else blueCount++;
+            }
+            roomPlayer.Team = (redCount <= blueCount) ? 0 : 1;
         }
     }
 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
-        if (runner.IsServer)
-        {
-            _lobbyPlayers.Remove(player);
-            BroadcastLobbyState();
-        }
+        UpdateLobbyUI();
     }
 
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
@@ -335,7 +304,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
     {
-        SetErrorMessage("Không thể kết nối tới phòng!");
+        SetErrorMessage("Không thể kết nối!");
         ShowPanel(mainButtonsPanel);
     }
 

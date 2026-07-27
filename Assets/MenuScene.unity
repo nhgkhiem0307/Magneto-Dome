@@ -6509,6 +6509,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2131822042}
   - component: {fileID: 2131822041}
+  - component: {fileID: 2131822043}
   m_Layer: 0
   m_Name: NetworkHandler
   m_TagString: Untagged
@@ -6528,11 +6529,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fbc0adc5defb79f46aff076a3ce8dd10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkRunnerHandler
+  roomPlayerPrefab: {fileID: 4671684068606769790, guid: 07951d0af8016ae45979c18392d52544, type: 3}
   namePanel: {fileID: 262778137}
   mainButtonsPanel: {fileID: 1968125296}
+  roomLobbyPanel: {fileID: 1993894012}
   createRoomPanel: {fileID: 1935694817}
   roomListPanel: {fileID: 417925654}
-  roomLobbyPanel: {fileID: 1993894012}
   nameInput: {fileID: 634635827}
   joinCodeInput: {fileID: 1926739020}
   yourRoomIDText: {fileID: 1820833071}
@@ -6541,9 +6543,6 @@ MonoBehaviour:
   teamBlueText: {fileID: 283467470}
   statusErrorText: {fileID: 987024270}
   startMatchButton: {fileID: 1339918193}
-  switchTeamButton: {fileID: 1058701961}
-  roomListContent: {fileID: 19834497}
-  roomItemPrefab: {fileID: 7065384863681568791, guid: 85785bf8a20845047b53c4abd2efe47d, type: 3}
   gameSceneName: TestScene
 --- !u!4 &2131822042
 Transform:
@@ -6560,6 +6559,24 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2131822043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2131822040}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkObject
+  SortKey: 593724574
+  ObjectInterest: 1
+  Flags: 262145
+  NestedObjects: []
+  NetworkedBehaviours: []
+  ForceRemoteRenderTimeframe: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
