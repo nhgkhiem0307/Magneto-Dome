@@ -1,265 +1,320 @@
+using Fusion;
 using UnityEngine;
-using System.Collections;
-using System.Collections.Generic;
 
-public class PlayerMagnetController : MonoBehaviour
+public class PlayerMagnetController : NetworkBehaviour
 {
     [Header("References")]
     public Camera cam;
-    public Transform holdPoint; 
+    public Transform holdPoint;
 
     [Header("Magnet Settings")]
     public float shootRange = 100f;
     public float pullForce = 40f;
     public float pushForce = 300f;
 
-    [Header("Juggling / Toss Settings (NEW)")]
+    [Header("Juggling / Toss Settings")]
     public KeyCode tossKey = KeyCode.V;
     public float tossUpForce = 0.5f;
     public float tossForwardForce = 0.2f;
 
     [Header("Melee & Ability Settings")]
-    public float meleeRange = 3f;
-    public float dashLockRange = 8f; 
-    public float meleePushForce = 40f;
+    public float meleeRange = 4f;
+    public float dashLockRange = 20f;
+    public float meleePushForce = 100f;
     public float meleeCooldown = 1f;
 
-    [Header("Current State")]
-    public MagneticObject.Polarity currentGlovePolarity = MagneticObject.Polarity.Positive; 
+    [Header("Grapple - Kéo áp sát")]
+    [Tooltip("Lực kéo bản thân bay về phía đối thủ khi cận chiến ở tầm 3-8m và trái dấu điện tích.")]
+    public float grapplePullForce = 100f;
 
-    private MagneticObject grabbedObject;
-    private Rigidbody grabbedRb;
-    private float originalBaseDamage;
-    private float nextMeleeTime = 0f;
-    private bool isDashingToEnemy = false;
+    // --- TRẠNG THÁI ĐỒNG BỘ QUA MẠNG ---
 
-    void Update()
+    // Cố ý giữ nguyên tên viết thường 'currentGlovePolarity' dù giờ nó là property,
+    // để mọi chỗ đang gọi tới nó (cận chiến, DummyMagnetTarget) không phải sửa gì.
+    //
+    // Bắt buộc [Networked] vì đối thủ PHẢI nhìn thấy màu găng của bạn thì luật
+    // khắc chế cùng dấu / trái dấu mới tính ra đúng kết quả trên mọi máy.
+    [Networked] public MagneticObject.Polarity currentGlovePolarity { get; set; }
+
+    // Đồng hồ hồi chiêu cận chiến. Dùng TickTimer thay cho Time.time vì Time.time
+    // chạy theo máy từng người, còn TickTimer chạy theo tick mạng nên mọi máy khớp nhau.
+    [Networked] private TickTimer MeleeCooldownTimer { get; set; }
+
+    // Trạng thái nút ở tick trước, để phát hiện khoảnh khắc "vừa bấm xuống".
+    [Networked] private NetworkButtons PreviousButtons { get; set; }
+
+    // ID của vật đang cầm trên tay.
+    //
+    // Vì sao lưu ID chứ không lưu thẳng tham chiếu? Vì Client cần tự đoán trước hành động
+    // cầm/ném để bớt độ trễ. Nếu để là biến thường, Fusion sẽ không tua lại được nó khi
+    // resimulation -> Client kẹt ở trạng thái "đang cầm" trong khi Host thì không.
+    // Đúng loại bệnh đã gặp với CharacterController.
+    // NetworkBehaviourId là con số định danh mà mọi máy đều hiểu giống nhau.
+    [Networked] private NetworkBehaviourId GrabbedObjectId { get; set; }
+
+    // Sát thương gốc của vật lúc vừa cầm lên, để trả lại khi bắn ra.
+    [Networked] private float originalBaseDamage { get; set; }
+
+    // Lớp bọc cho tiện dùng: đọc/ghi như một biến bình thường,
+    // bên dưới thực chất là tra ngược từ GrabbedObjectId ra vật thật.
+    private MagneticObject grabbedObject
     {
-        if (Input.GetKeyDown(KeyCode.Alpha1))
+        get
+        {
+            if (Runner == null) return null;
+            if (!Runner.TryFindBehaviour(GrabbedObjectId, out MagneticObject obj)) return null;
+            return obj;
+        }
+        set
+        {
+            GrabbedObjectId = value != null ? value.Id : default;
+        }
+    }
+
+    // Rigidbody của vật đang cầm. Lấy tươi mỗi lần dùng thay vì lưu sẵn,
+    // để không bị giữ lại tham chiếu cũ sau khi Fusion tua lại trạng thái.
+    private Rigidbody grabbedRb
+    {
+        get
+        {
+            MagneticObject obj = grabbedObject;
+            return obj != null ? obj.GetComponent<Rigidbody>() : null;
+        }
+    }
+
+    private FPSMovement movement;
+
+    public override void Spawned()
+    {
+        movement = GetComponent<FPSMovement>();
+
+        // Chỉ Host đặt giá trị khởi đầu, Client nhận về qua mạng
+        if (HasStateAuthority)
         {
             currentGlovePolarity = MagneticObject.Polarity.Positive;
-            Debug.Log("<color=red>Găng tay chuyển sang trạng thái DƯƠNG (+)</color>");
         }
-        if (Input.GetKeyDown(KeyCode.Alpha2))
+    }
+
+    public override void FixedUpdateNetwork()
+    {
+        if (!GetInput(out NetworkInputData input)) return;
+
+        // GetPressed lọc ra những nút VỪA được bấm xuống ở tick này,
+        // tương đương Input.GetKeyDown / GetMouseButtonDown của bản cũ.
+        NetworkButtons pressed = input.Buttons.GetPressed(PreviousButtons);
+        PreviousButtons = input.Buttons;
+
+        // --- 1. ĐỔI ĐIỆN TÍCH GĂNG TAY ---
+        // Không chặn theo Host: để Client tự đổi ngay tại máy mình cho phản hồi tức thì,
+        // Fusion sẽ tự đối chiếu lại với Host sau. Đây là trạng thái của chính mình
+        // nên đoán trước cũng không gây lệch.
+        if (pressed.IsSet((int)InputButton.PolarityPositive))
+        {
+            currentGlovePolarity = MagneticObject.Polarity.Positive;
+        }
+        if (pressed.IsSet((int)InputButton.PolarityNegative))
         {
             currentGlovePolarity = MagneticObject.Polarity.Negative;
-            Debug.Log("<color=blue>Găng tay chuyển sang trạng thái ÂM (-)</color>");
         }
 
-        if (isDashingToEnemy) return;
+        // --- 2. DỰNG LẠI HƯỚNG NGẮM ---
+        // KHÔNG dùng cam.transform.forward được. Lý do: trên máy Host, camera của những
+        // người chơi khác đã bị tắt và không xoay theo chuột của họ, nên sẽ ngắm sai hoàn toàn.
+        // Góc nhìn thật đã được gửi kèm trong input, nên dựng lại từ đó mới chính xác.
+        Quaternion aimRotation = Quaternion.Euler(input.Pitch, input.Yaw, 0f);
+        Vector3 aimDirection = aimRotation * Vector3.forward;
+        Vector3 aimOrigin = cam != null ? cam.transform.position : transform.position + Vector3.up * 1.6f;
 
-        // TRẠNG THÁI 1: NẾU ĐANG CÓ ĐỒ TRÊN TAY
+        // --- 3. THAO TÁC VỚI VẬT THỂ VÀ CẬN CHIẾN ---
+        //
+        // ĐÃ THỬ VÀ BỎ (30/07): từng gỡ dòng dưới đây để Client tự đoán trước cho bớt độ trễ.
+        // Kết quả TỆ HƠN HẲN - vật cầm trên tay bị giật và trễ nặng hơn, nhất là khi
+        // vừa cầm vừa di chuyển. Độ trễ đều đặn dễ quen tay hơn là giật ngẫu nhiên.
+        // Đừng thử lại nếu không có cách xử lý sai lệch dự đoán tử tế hơn.
+        if (!HasStateAuthority) return;
+
+        // TRẠNG THÁI 1: ĐANG CÓ ĐỒ TRÊN TAY
         if (grabbedObject != null)
         {
-            KeepObjectInHand();
+            KeepObjectInHand(aimRotation);
 
-            // Nhấn V -> Tung hứng
-            if (Input.GetKeyDown(tossKey))
+            if (pressed.IsSet((int)InputButton.Toss))
             {
-                TossObjectUp();
+                TossObjectUp(aimDirection);
                 return;
             }
 
-            // Click Chuột Phải -> Bắn
-            if (Input.GetMouseButtonDown(1))
+            if (pressed.IsSet((int)InputButton.Melee))
             {
-                FireGrabbedObject();
+                FireGrabbedObject(aimDirection);
                 return;
             }
 
             return;
         }
 
-        // TRẠNG THÁI 2: NẾU TAY ĐANG TRỐNG -> Cho phép Hút hoặc Cận chiến
-        if (Input.GetMouseButton(0))
+        // TRẠNG THÁI 2: TAY TRỐNG -> cho phép Hút/Đẩy hoặc Cận chiến
+        if (input.Buttons.IsSet((int)InputButton.Fire))
         {
-            HandleLeftClickMagnet();
+            HandleLeftClickMagnet(aimOrigin, aimDirection, pressed.IsSet((int)InputButton.Fire));
         }
 
-        if (Input.GetMouseButtonDown(1) && Time.time >= nextMeleeTime)
+        if (pressed.IsSet((int)InputButton.Melee) && MeleeCooldownTimer.ExpiredOrNotRunning(Runner))
         {
-            HandleRightClickMelee();
-        }
-    }
-
-    void HandleLeftClickMagnet()
-    {
-        Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
-        RaycastHit hit;
-
-        if (Physics.Raycast(ray, out hit, shootRange))
-        {
-            if (hit.collider.CompareTag("Magnetic"))
-            {
-                MagneticObject magObj = hit.collider.GetComponent<MagneticObject>();
-                if (magObj == null) return;
-
-                Rigidbody targetRb = hit.collider.GetComponent<Rigidbody>();
-
-                if (magObj.currentPolarity == MagneticObject.Polarity.None && Input.GetMouseButtonDown(0))
-                {
-                    magObj.SetPolarity(currentGlovePolarity);
-                }
-                else if (magObj.currentPolarity == currentGlovePolarity && Input.GetMouseButtonDown(0))
-                {
-                    targetRb.isKinematic = false; ////////////////////////////////////////////////////////////////////////
-                    magObj.isMovingAsBullet = true;
-                    magObj.shooterOwner = this; 
-
-                    Vector3 pushDirection = cam.transform.forward;
-                    pushDirection.y = 0f; 
-                    pushDirection.Normalize();
-
-                    targetRb.linearVelocity = Vector3.zero;
-                    targetRb.AddForce(pushDirection * pushForce, ForceMode.Impulse);
-
-                    if (magObj.objectType == MagneticObject.ObjectType.Heavy)
-                    {
-                        magObj.baseDamage *= 0.5f; 
-                    }
-                }
-                else if (magObj.currentPolarity != currentGlovePolarity)
-                {
-                    if (magObj.objectType == MagneticObject.ObjectType.Spike && magObj.isMovingAsBullet)
-                    {
-                        targetRb.AddForce(-cam.transform.forward * pullForce * 1.5f, ForceMode.Force);
-                        magObj.baseDamage *= 2f; 
-                        return;
-                    }
-
-                    if (magObj.objectType == MagneticObject.ObjectType.Heavy && magObj.isMovingAsBullet)
-                    {
-                        targetRb.AddForce(-cam.transform.forward * pullForce, ForceMode.Force);
-                        magObj.baseDamage *= 0.5f; 
-                        return;
-                    }
-
-                    // KÉO VẬT THỂ MƯỢT MÀ VỀ TAY (Không Teleport)
-                    targetRb.isKinematic = false;
-                    targetRb.useGravity = false;
-                    
-                    Vector3 pullDirection = (holdPoint.position - magObj.transform.position).normalized;
-                    targetRb.linearVelocity = pullDirection * pullForce;
-
-                    // Chỉ khi nào bay đến sát tay (< 0.5 mét) mới khóa cứng lại
-                    if (Vector3.Distance(magObj.transform.position, holdPoint.position) < 0.7f)
-                    {
-                        ForceGrabObject(magObj);
-                    }
-                }
-            }
+            HandleRightClickMelee(aimOrigin, aimDirection);
         }
     }
 
-    // Các hàm HandleRightClickMelee, DashToEnemyRoutine, ApplyKnockback giữ nguyên như cũ
-    void HandleRightClickMelee()
+    void HandleLeftClickMagnet(Vector3 aimOrigin, Vector3 aimDirection, bool justPressed)
     {
-        Ray ray = cam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
-        RaycastHit hit;
+        if (!Physics.Raycast(aimOrigin, aimDirection, out RaycastHit hit, shootRange)) return;
+        if (!hit.collider.CompareTag("Magnetic")) return;
 
-        if (Physics.Raycast(ray, out hit, dashLockRange))
+        MagneticObject magObj = hit.collider.GetComponent<MagneticObject>();
+        if (magObj == null) return;
+
+        Rigidbody targetRb = hit.collider.GetComponent<Rigidbody>();
+        if (targetRb == null) return;
+
+        // VẬT TRUNG TÍNH -> nạp điện cho nó
+        if (magObj.currentPolarity == MagneticObject.Polarity.None)
         {
-            if (hit.collider.CompareTag("Player"))
-            {
-                MagneticObject.Polarity targetPolarity = MagneticObject.Polarity.None;
-                
-                PlayerMagnetController enemyGlove = hit.collider.GetComponent<PlayerMagnetController>();
-                DummyMagnetTarget dummyTarget = hit.collider.GetComponent<DummyMagnetTarget>();
+            if (justPressed) magObj.SetPolarity(currentGlovePolarity);
+            return;
+        }
 
-                if (enemyGlove != null) targetPolarity = enemyGlove.currentGlovePolarity;
-                else if (dummyTarget != null) targetPolarity = dummyTarget.currentGlovePolarity;
-                else return;
+        // CÙNG DẤU -> ĐẨY vật ra xa
+        if (magObj.currentPolarity == currentGlovePolarity)
+        {
+            if (!justPressed) return;
 
-                float distance = Vector3.Distance(transform.position, hit.transform.position);
+            targetRb.isKinematic = false;
+            magObj.isMovingAsBullet = true;
+            magObj.shooterOwner = this;
 
-                if (distance > meleeRange && currentGlovePolarity != targetPolarity)
-                {
-                    StartCoroutine(DashToEnemyRoutine(hit.transform.position));
-                    nextMeleeTime = Time.time + meleeCooldown; 
-                }
-                else if (distance <= meleeRange)
-                {
-                    Vector3 pushDirection = (hit.transform.position - transform.position).normalized;
-                    pushDirection.y = 0.3f; // Hất tung nhẹ
+            Vector3 pushDirection = aimDirection;
+            pushDirection.y = 0f;
+            pushDirection.Normalize();
 
-                    if (currentGlovePolarity == targetPolarity)
-                    {
-                        Debug.Log("<color=red>CÙNG DẤU! Đấm văng đối thủ!</color>");
-                        
-                        // GỌI HÀM ADDIMPACT TRỰC TIẾP (KHÔNG DÙNG COROUTINE NỮA)
-                        FPSMovement enemyMove = hit.collider.GetComponent<FPSMovement>();
-                        DummyGravity dummyGrav = hit.collider.GetComponent<DummyGravity>();
+            targetRb.linearVelocity = Vector3.zero;
+            targetRb.AddForce(pushDirection * pushForce, ForceMode.Impulse);
+            return;
+        }
 
-                        if (enemyMove != null) enemyMove.AddImpact(pushDirection, meleePushForce);
-                        if (dummyGrav != null) dummyGrav.AddImpact(pushDirection, meleePushForce);
-                    }
-                    else
-                    {
-                        Debug.Log("<color=yellow>KHÁC DẤU! Nảy bật nhẹ!</color>");
-                        
-                        FPSMovement myMove = GetComponent<FPSMovement>();
-                        FPSMovement enemyMove = hit.collider.GetComponent<FPSMovement>();
-                        DummyGravity dummyGrav = hit.collider.GetComponent<DummyGravity>();
+        // TRÁI DẤU -> HÚT về phía mình
+        //
+        // Ghi chú thiết kế (30/07): tạm BỎ hết luật riêng của từng loại vật thể.
+        // Trước đây Spike bị hút nhầm lúc đang bay thì x2 sát thương, còn Heavy thì
+        // không hút được khi đang bay và bị giảm 50% lực. Giờ cả 3 loại
+        // Normal / Heavy / Spike hút đẩy y hệt nhau, chỉ khác con số sát thương.
+        // Sẽ thêm lại các luật này sau.
 
-                        if (enemyMove != null) enemyMove.AddImpact(pushDirection, 15f);
-                        if (dummyGrav != null) dummyGrav.AddImpact(pushDirection, 15f);
-                        if (myMove != null) myMove.AddImpact(-pushDirection, 15f);
-                    }
+        // KÉO VẬT THỂ MƯỢT MÀ VỀ TAY (Không Teleport)
+        targetRb.isKinematic = false;
+        targetRb.useGravity = false;
 
-                    nextMeleeTime = Time.time + meleeCooldown; 
-                }
-            }
+        Vector3 pullDirection = (holdPoint.position - magObj.transform.position).normalized;
+        targetRb.linearVelocity = pullDirection * pullForce;
+
+        // Chỉ khi bay đến sát tay (< 0.7 mét) mới khóa cứng lại
+        if (Vector3.Distance(magObj.transform.position, holdPoint.position) < 0.7f)
+        {
+            ForceGrabObject(magObj);
         }
     }
 
-    IEnumerator DashToEnemyRoutine(Vector3 targetPos)
+    void HandleRightClickMelee(Vector3 aimOrigin, Vector3 aimDirection)
     {
-        isDashingToEnemy = true;
-        CharacterController controller = GetComponent<CharacterController>();
-        float duration = 0.4f; 
-        float elapsed = 0f;
+        if (!Physics.Raycast(aimOrigin, aimDirection, out RaycastHit hit, dashLockRange)) return;
+        if (!hit.collider.CompareTag("Player")) return;
 
-        Vector3 startPos = transform.position;
-        Vector3 finalPos = targetPos - (targetPos - startPos).normalized * 2f; 
+        // Đọc điện tích găng tay của mục tiêu
+        MagneticObject.Polarity targetPolarity;
 
-        while (elapsed < duration)
+        PlayerMagnetController enemyGlove = hit.collider.GetComponent<PlayerMagnetController>();
+        DummyMagnetTarget dummyTarget = hit.collider.GetComponent<DummyMagnetTarget>();
+
+        if (enemyGlove != null) targetPolarity = enemyGlove.currentGlovePolarity;
+        else if (dummyTarget != null) targetPolarity = dummyTarget.currentGlovePolarity;
+        else return;
+
+        float distance = Vector3.Distance(transform.position, hit.transform.position);
+
+        // TẦM 3-8m + TRÁI DẤU -> KÉO ÁP SÁT (Grapple)
+        if (distance > meleeRange && currentGlovePolarity != targetPolarity)
         {
-            elapsed += Time.deltaTime;
-            Vector3 currentPos = Vector3.Lerp(startPos, finalPos, elapsed / duration);
-            
-            if (controller != null)
-            {
-                controller.Move(currentPos - transform.position);
-            }
-            yield return null;
+            Vector3 grappleDirection = (hit.transform.position - transform.position).normalized;
+            if (movement != null) movement.AddImpact(grappleDirection, grapplePullForce);
+
+            MeleeCooldownTimer = TickTimer.CreateFromSeconds(Runner, meleeCooldown);
+            return;
         }
 
-        isDashingToEnemy = false;
-    }
+        // Ngoài tầm đấm mà cùng dấu thì không làm gì cả
+        if (distance > meleeRange) return;
 
-    IEnumerator ApplyKnockback(CharacterController target, Vector3 force)
-    {
-        float duration = 0.3f;
-        float elapsed = 0f;
-        while (elapsed < duration)
+        // TẦM < 3m
+        Vector3 pushDirection = (hit.transform.position - transform.position).normalized;
+        pushDirection.y = 0.3f; // Hất tung nhẹ
+
+        FPSMovement enemyMove = hit.collider.GetComponent<FPSMovement>();
+        DummyGravity dummyGrav = hit.collider.GetComponent<DummyGravity>();
+
+        if (currentGlovePolarity == targetPolarity)
         {
-            elapsed += Time.deltaTime;
-            target.Move(force * (1f - (elapsed / duration)) * Time.deltaTime);
-            yield return null;
+            Debug.Log("<color=red>CÙNG DẤU! Đấm văng đối thủ!</color>");
+
+            if (enemyMove != null) enemyMove.AddImpact(pushDirection, meleePushForce);
+            if (dummyGrav != null) dummyGrav.AddImpact(pushDirection, meleePushForce);
         }
+        else
+        {
+            Debug.Log("<color=yellow>KHÁC DẤU! Nảy bật nhẹ!</color>");
+
+            if (enemyMove != null) enemyMove.AddImpact(pushDirection, 15f);
+            if (dummyGrav != null) dummyGrav.AddImpact(pushDirection, 15f);
+            if (movement != null) movement.AddImpact(-pushDirection, 15f);
+        }
+
+        MeleeCooldownTimer = TickTimer.CreateFromSeconds(Runner, meleeCooldown);
     }
 
-    void KeepObjectInHand()
+    // Đặt vật vào tay NGAY TẠI MÁY NÀY, mỗi khung hình, trên MỌI máy.
+    //
+    // Vì sao cần: khi đang cầm, vị trí của vật KHÔNG phải thứ cần truyền qua mạng.
+    // Thứ duy nhất cần truyền là "người này đang cầm vật nào" - đã có GrabbedObjectId lo.
+    // Trước đây chỉ Host đặt vị trí rồi truyền sang, nên ở máy Client bàn tay đi một đằng
+    // (dự đoán tại chỗ, tức thì) còn vật đi một nẻo (dữ liệu mạng, trễ một vòng) -> nhìn rất dị.
+    //
+    // Dùng LateUpdate vì nó chạy sau mọi Update, nên vị trí đặt ở đây là vị trí cuối cùng
+    // người chơi nhìn thấy trong khung hình đó.
+    private void LateUpdate()
     {
-        grabbedRb.isKinematic = true;
-        // grabbedRb.linearVelocity = Vector3.zero;
-        // grabbedRb.angularVelocity = Vector3.zero;
+        if (holdPoint == null) return;
+
+        MagneticObject held = grabbedObject;
+        if (held == null) return;
+
+        held.transform.position = holdPoint.position;
+        held.transform.rotation = holdPoint.rotation;
+    }
+
+    // Chỉ chạy trên Host, mỗi tick mạng. Nhiệm vụ giờ KHÁC với LateUpdate ở trên:
+    //   - LateUpdate lo phần HÌNH ẢNH: đặt vật vào tay mượt mà ở từng máy, mỗi khung hình.
+    //   - Hàm này lo phần TRẠNG THÁI MẠNG: giữ cho vị trí chính thức của vật bám theo tay,
+    //     để lúc buông ra vật không bị nhảy giật về một chỗ khác.
+    void KeepObjectInHand(Quaternion aimRotation)
+    {
+        Rigidbody rb = grabbedRb;
+        if (rb == null) return;
+
+        rb.isKinematic = true;
 
         grabbedObject.transform.position = holdPoint.position;
-        grabbedObject.transform.rotation = cam.transform.rotation;
+        grabbedObject.transform.rotation = aimRotation;
     }
 
-    void TossObjectUp()
+    void TossObjectUp(Vector3 aimDirection)
     {
         MagneticObject objToToss = grabbedObject;
         Rigidbody rbToToss = grabbedRb;
@@ -271,7 +326,6 @@ public class PlayerMagnetController : MonoBehaviour
 
         // Giải phóng găng tay
         grabbedObject = null;
-        grabbedRb = null;
 
         // Trả lại vật lý
         rbToToss.isKinematic = false;
@@ -279,34 +333,40 @@ public class PlayerMagnetController : MonoBehaviour
         rbToToss.linearDamping = 0.05f;
 
         // Hất lên và xoay nhẹ
-        Vector3 tossDirection = Vector3.up * tossUpForce + cam.transform.forward * tossForwardForce;
+        Vector3 tossDirection = Vector3.up * tossUpForce + aimDirection * tossForwardForce;
         rbToToss.AddForce(tossDirection, ForceMode.Impulse);
         rbToToss.AddTorque(Random.insideUnitSphere * 1f, ForceMode.Impulse);
     }
 
-    void FireGrabbedObject()
+    void FireGrabbedObject(Vector3 aimDirection)
     {
-        grabbedObject.isMovingAsBullet = true;
-        grabbedObject.shooterOwner = this; 
-        grabbedObject.baseDamage = originalBaseDamage;
-        
+        // Giữ tạm ra biến cục bộ trước khi buông tay, vì grabbedObject/grabbedRb
+        // sẽ trả về null ngay sau khi xoá ID đi.
+        MagneticObject objToFire = grabbedObject;
+        Rigidbody rbToFire = grabbedRb;
+        if (objToFire == null || rbToFire == null) return;
+
+        objToFire.isMovingAsBullet = true;
+        objToFire.shooterOwner = this;
+        objToFire.CurrentDamage = originalBaseDamage;
+
         // Bật lại va chạm trước khi bắn
         Collider playerCol = GetComponent<Collider>();
-        Collider objCol = grabbedObject.GetComponent<Collider>();
+        Collider objCol = objToFire.GetComponent<Collider>();
         if (playerCol != null && objCol != null) Physics.IgnoreCollision(playerCol, objCol, false);
 
-        grabbedRb.isKinematic = false;
-        grabbedRb.useGravity = true;
-        grabbedRb.linearDamping = 0f;
+        // Buông tay
+        grabbedObject = null;
 
-        Vector3 fireDirection = cam.transform.forward;
-        fireDirection.y = 0.05f; 
+        rbToFire.isKinematic = false;
+        rbToFire.useGravity = true;
+        rbToFire.linearDamping = 0f;
+
+        Vector3 fireDirection = aimDirection;
+        fireDirection.y = 0.05f;
         fireDirection.Normalize();
 
-        grabbedRb.AddForce(fireDirection * pushForce, ForceMode.Impulse);
-        
-        grabbedObject = null;
-        grabbedRb = null;
+        rbToFire.AddForce(fireDirection * pushForce, ForceMode.Impulse);
     }
 
     void ReleaseGrabbedObject()
@@ -319,7 +379,7 @@ public class PlayerMagnetController : MonoBehaviour
 
             grabbedObject.ResetBulletState();
         }
-        
+
         if (grabbedRb != null)
         {
             grabbedRb.isKinematic = false;
@@ -327,7 +387,6 @@ public class PlayerMagnetController : MonoBehaviour
             grabbedRb.linearDamping = 0f;
         }
         grabbedObject = null;
-        grabbedRb = null;
     }
 
     public void ForceGrabObject(MagneticObject targetObj)
@@ -341,15 +400,14 @@ public class PlayerMagnetController : MonoBehaviour
         if (targetRb == null) return;
 
         grabbedObject = targetObj;
-        grabbedRb = targetRb;
-        originalBaseDamage = targetObj.baseDamage;
+        originalBaseDamage = targetObj.CurrentDamage;
 
         grabbedObject.transform.position = holdPoint.position;
-        grabbedObject.transform.rotation = cam.transform.rotation;
+        grabbedObject.transform.rotation = holdPoint.rotation;
 
-        grabbedRb.isKinematic = true; 
+        grabbedRb.isKinematic = true;
         grabbedRb.useGravity = false;
-        grabbedRb.linearDamping = 10f; 
+        grabbedRb.linearDamping = 10f;
 
         // TẮT VA CHẠM: Để vật thể không đè lên người chơi
         Collider playerCol = GetComponent<Collider>();
@@ -366,6 +424,5 @@ public class PlayerMagnetController : MonoBehaviour
     public void ClearGrabbedObjectWithoutReset()
     {
         grabbedObject = null;
-        grabbedRb = null;
     }
 }

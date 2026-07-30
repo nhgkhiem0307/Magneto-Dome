@@ -6544,6 +6544,10 @@ MonoBehaviour:
   statusErrorText: {fileID: 987024270}
   startMatchButton: {fileID: 1339918193}
   gameSceneName: TestScene
+  gamePlayerPrefab: {fileID: 5824402803681313132, guid: 3d51e2202edaef74e879a47622f170fa, type: 3}
+  redTeamSpawnPoint: {x: 40, y: 6, z: 60}
+  blueTeamSpawnPoint: {x: 40, y: 6, z: 20}
+  spawnSpacing: 2
 --- !u!4 &2131822042
 Transform:
   m_ObjectHideFlags: 0

@@ -5,6 +5,7 @@ using UnityEngine.UI;
 using TMPro;
 using Fusion;
 using Fusion.Sockets;
+using Fusion.Addons.Physics;
 using UnityEngine.SceneManagement;
 
 public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
@@ -36,15 +37,64 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     public Button startMatchButton;
 
     [Header("Settings")]
-    public string gameSceneName = "GameScene";
+    [Tooltip("Tên scene gameplay. Scene bắt buộc phải có trong Build Settings.")]
+    public string gameSceneName = "TestScene";
+
+    [Header("Game Player Prefab")]
+    [Tooltip("Prefab nhân vật trong trận (Assets/Prefab/Player.prefab). Bắt buộc phải có component NetworkObject.")]
+    public NetworkObject gamePlayerPrefab;
+
+    [Header("Vị trí xuất hiện trong trận")]
+    public Vector3 redTeamSpawnPoint = new Vector3(40f, 6f, 60f);
+    public Vector3 blueTeamSpawnPoint = new Vector3(40f, 6f, 20f);
+    [Tooltip("Khoảng cách giữa 2 người cùng đội, để họ không xuất hiện chồng lên nhau.")]
+    public float spawnSpacing = 2f;
+
+    [Header("Hướng nhìn lúc xuất hiện")]
+    [Tooltip("Góc xoay quanh trục Y tính bằng độ, để nhân vật quay mặt vào giữa map. 0 = nhìn theo hướng +Z, 180 = nhìn theo hướng -Z.")]
+    public float redTeamSpawnYaw = 180f;
+    public float blueTeamSpawnYaw = 0f;
+
+    // Góc nhìn của người chơi cục bộ, tích luỹ từ chuột mỗi khung hình.
+    // Để static vì FPSMovement.Render() cần đọc lại để vẽ camera cho mượt.
+    public static float LookYaw { get; private set; }
+    public static float LookPitch { get; private set; }
+
+    // Đặt lại góc nhìn, dùng lúc nhân vật vừa xuất hiện để khớp với hướng Host đã xoay sẵn.
+    // Sau này khi làm hồi sinh đầu mỗi round cũng sẽ gọi lại hàm này.
+    public static void SetLookAngles(float yaw, float pitch)
+    {
+        LookYaw = yaw;
+        LookPitch = Mathf.Clamp(pitch, -80f, 80f);
+    }
 
     // Đã đổi tên biến từ _runner thành _networkRunner để tránh trùng lặp serialization
     private NetworkRunner _networkRunner;
     private string _currentRoomCode = "";
 
+    // Đánh dấu Host đã bấm "Bắt Đầu Trận", để phân biệt lần load scene nào mới là vào trận thật
+    private bool _matchStarted = false;
+
+    // Nhân vật trong trận của từng người chơi. Dùng để dọn dẹp khi họ thoát,
+    // và sau này để hồi sinh ở đầu mỗi round.
+    private readonly Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new Dictionary<PlayerRef, NetworkObject>();
+
     private void Awake()
     {
+        // Object này sống xuyên qua các scene, nên khi quay lại MenuScene sẽ có
+        // một bản thứ hai được tạo ra. Phải huỷ bản mới để tránh chạy trùng 2 lần.
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
+
+        // Giữ object này sống khi Fusion chuyển từ MenuScene sang scene trong trận.
+        // Nếu không, nó sẽ bị huỷ theo MenuScene, callback OnInput mất theo
+        // và nhân vật sẽ đứng im không điều khiển được.
+        DontDestroyOnLoad(gameObject);
 
         // Gom tất cả các Panel vào mảng ngay khi game khởi chạy
         _allPanels = new GameObject[] 
@@ -61,6 +111,22 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     {
         ShowPanel(namePanel);
         if (statusErrorText != null) statusErrorText.text = "";
+    }
+
+    private void Update()
+    {
+        // Tích luỹ chuyển động chuột MỖI KHUNG HÌNH.
+        //
+        // Vì sao không đọc chuột ở FixedUpdateNetwork? Vì tick mạng chạy chậm hơn
+        // tốc độ khung hình. Nếu chỉ đọc ở tick mạng thì phần chuột rê giữa 2 tick
+        // sẽ bị bỏ mất, khiến góc nhìn giật và cảm giác "hụt".
+        FPSMovement localPlayer = FPSMovement.Local;
+        if (localPlayer == null) return; // chưa vào trận thì chưa có gì để xoay
+
+        LookYaw += Input.GetAxisRaw("Mouse X") * localPlayer.mouseSensitivity;
+
+        LookPitch -= Input.GetAxisRaw("Mouse Y") * localPlayer.mouseSensitivity;
+        LookPitch = Mathf.Clamp(LookPitch, -80f, 80f);
     }
 
     public void ShowPanel(GameObject panelToShow)
@@ -95,6 +161,13 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             _networkRunner = runnerObj.AddComponent<NetworkRunner>();
             _networkRunner.ProvideInput = true;
             runnerObj.AddComponent<NetworkSceneManagerDefault>();
+
+            // Bắt buộc cho Fusion Physics Addon.
+            // Component này TẮT hệ thống vật lý tự động của Unity và bắt Fusion tự điều khiển
+            // nhịp chạy vật lý theo tick mạng. Nhờ vậy vật thể (đạn) mới đồng bộ và tua lại được.
+            // Lưu ý: nó ảnh hưởng tới MỌI Rigidbody trong scene, không riêng vật thể từ tính.
+            runnerObj.AddComponent<RunnerSimulatePhysics3D>();
+
             _networkRunner.AddCallbacks(this);
         }
     }
@@ -200,6 +273,9 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             int sceneIndex = SceneUtility.GetBuildIndexByScenePath(gameSceneName);
             if (sceneIndex != -1)
             {
+                // Bật cờ này TRƯỚC khi load, để khi scene load xong thì biết
+                // đây là lần vào trận thật và tiến hành spawn nhân vật.
+                _matchStarted = true;
                 _networkRunner.LoadScene(SceneRef.FromIndex(sceneIndex));
             }
             else
@@ -308,7 +384,111 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         ShowPanel(mainButtonsPanel);
     }
 
-    public void OnInput(NetworkRunner runner, NetworkInput input) { }
+    // --- SPAWN NHÂN VẬT KHI VÀO TRẬN ---
+    // Fusion gọi hàm này trên MỌI máy sau khi scene đã load xong.
+    public void OnSceneLoadDone(NetworkRunner runner)
+    {
+        // Chỉ Host mới được quyền spawn (Host Mode - server giữ toàn quyền quyết định).
+        // Client chỉ ngồi chờ nhận kết quả từ Host gửi về.
+        if (!runner.IsServer) return;
+
+        // Bỏ qua những lần load scene không phải vào trận (ví dụ lúc mới tạo phòng).
+        if (!_matchStarted) return;
+
+        SpawnAllGamePlayers(runner);
+    }
+
+    private void SpawnAllGamePlayers(NetworkRunner runner)
+    {
+        if (gamePlayerPrefab == null)
+        {
+            Debug.LogError("Chưa gán 'Game Player Prefab' trong Inspector của NetworkRunnerHandler!");
+            return;
+        }
+
+        // Đếm riêng từng đội để giãn vị trí ra, tránh 2 người cùng đội xuất hiện chồng lên nhau
+        int redIndex = 0;
+        int blueIndex = 0;
+
+        // RoomPlayer là object của phòng chờ, đã được DontDestroyOnLoad nên vẫn sống
+        // sau khi chuyển scene. Nhờ vậy ở đây vẫn đọc được ai thuộc đội nào.
+        foreach (RoomPlayer roomPlayer in RoomPlayer.AllPlayers)
+        {
+            PlayerRef playerRef = roomPlayer.PlayerRef;
+
+            // Người này đã có nhân vật rồi thì bỏ qua, không spawn trùng
+            if (_spawnedPlayers.ContainsKey(playerRef)) continue;
+
+            bool isRedTeam = roomPlayer.Team == 0;
+            Vector3 basePoint = isRedTeam ? redTeamSpawnPoint : blueTeamSpawnPoint;
+            int indexInTeam = isRedTeam ? redIndex++ : blueIndex++;
+
+            Vector3 spawnPosition = basePoint + Vector3.right * (indexInTeam * spawnSpacing);
+
+            // Xoay nhân vật quay mặt vào giữa map, tránh trường hợp vừa vào trận đã nhìn ra ngoài rìa
+            float spawnYaw = isRedTeam ? redTeamSpawnYaw : blueTeamSpawnYaw;
+            Quaternion spawnRotation = Quaternion.Euler(0f, spawnYaw, 0f);
+
+            // Tham số playerRef là mấu chốt: nó trao Input Authority cho đúng người chơi đó,
+            // để chỉ mình họ điều khiển được nhân vật này, không ai điều khiển hộ được.
+            //
+            // Tham số cuối là callback chạy ngay sau khi nhân vật được tạo ra nhưng TRƯỚC khi
+            // Spawned() được gọi. Cần nó vì CharacterController giữ một bản toạ độ riêng bên trong,
+            // và sẽ kéo nhân vật ngược về vị trí gốc của prefab (0,0,0) dù ta đã truyền vị trí cho Spawn.
+            // Cách chữa: tắt CharacterController -> đặt vị trí -> bật lại.
+            NetworkObject playerObject = runner.Spawn(
+                gamePlayerPrefab,
+                spawnPosition,
+                spawnRotation,
+                playerRef,
+                (spawnRunner, spawnedObject) =>
+                {
+                    CharacterController cc = spawnedObject.GetComponent<CharacterController>();
+
+                    if (cc != null) cc.enabled = false;
+                    spawnedObject.transform.SetPositionAndRotation(spawnPosition, spawnRotation);
+                    if (cc != null) cc.enabled = true;
+
+                    // Báo cho nhân vật biết nó thuộc đội nào, để lúc Spawned() nó tự đặt
+                    // góc nhìn ban đầu cho khớp. Nếu không làm bước này, ngay tick đầu tiên
+                    // FixedUpdateNetwork sẽ bẻ nhân vật về góc 0 độ và mất hết hướng vừa đặt.
+                    FPSMovement movement = spawnedObject.GetComponent<FPSMovement>();
+                    if (movement != null) movement.SpawnYaw = spawnYaw;
+                }
+            );
+
+            _spawnedPlayers[playerRef] = playerObject;
+        }
+    }
+
+    // --- GỬI INPUT LÊN HOST MỖI TICK MẠNG ---
+    // Fusion tự gọi hàm này trên máy của từng người chơi.
+    public void OnInput(NetworkRunner runner, NetworkInput input)
+    {
+        FPSMovement localPlayer = FPSMovement.Local;
+        if (localPlayer == null) return; // đang ở phòng chờ, chưa có nhân vật để điều khiển
+
+        NetworkInputData data = new NetworkInputData();
+
+        data.MoveDirection = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        data.Yaw = LookYaw;
+        data.Pitch = LookPitch;
+
+        // Gửi trạng thái ĐANG GIỮ của phím (GetKey chứ không phải GetKeyDown).
+        // Việc phát hiện "vừa bấm xuống" do bên nhận lo, bằng cách so với tick trước.
+        data.Buttons.Set((int)InputButton.Dash, Input.GetKey(localPlayer.dashKey));
+        data.Buttons.Set((int)InputButton.PolarityPositive, Input.GetKey(KeyCode.Alpha1));
+        data.Buttons.Set((int)InputButton.PolarityNegative, Input.GetKey(KeyCode.Alpha2));
+        data.Buttons.Set((int)InputButton.Fire, Input.GetMouseButton(0));
+        data.Buttons.Set((int)InputButton.Melee, Input.GetMouseButton(1));
+        // Phím tung hứng lấy từ Inspector của PlayerMagnetController, không hardcode
+        PlayerMagnetController magnet = localPlayer.GetComponent<PlayerMagnetController>();
+        KeyCode tossKey = magnet != null ? magnet.tossKey : KeyCode.V;
+        data.Buttons.Set((int)InputButton.Toss, Input.GetKey(tossKey));
+
+        input.Set(data);
+    }
+
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
     public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
@@ -319,7 +499,6 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
-    public void OnSceneLoadDone(NetworkRunner runner) { }
     public void OnSceneLoadStart(NetworkRunner runner) { }
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }

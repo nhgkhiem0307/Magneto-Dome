@@ -181,6 +181,8 @@ GameObject:
   - component: {fileID: 2834305197447213790}
   - component: {fileID: 1700483730741398027}
   - component: {fileID: 124274642431010123}
+  - component: {fileID: 5824402803681313132}
+  - component: {fileID: 5267248803544839969}
   - component: {fileID: 2437459981176578707}
   - component: {fileID: 121466040936443899}
   - component: {fileID: 4855774138493323295}
@@ -293,6 +295,45 @@ CharacterController:
   m_SkinWidth: 0.08
   m_MinMoveDistance: 0.001
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &5824402803681313132
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6178301003363824090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkObject
+  SortKey: 1892528270
+  ObjectInterest: 1
+  Flags: 262145
+  NestedObjects: []
+  NetworkedBehaviours:
+  - {fileID: 5267248803544839969}
+  - {fileID: 2437459981176578707}
+  - {fileID: 121466040936443899}
+  - {fileID: 4855774138493323295}
+  ForceRemoteRenderTimeframe: 0
+--- !u!114 &5267248803544839969
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6178301003363824090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 158639473, guid: e725a070cec140c4caffb81624c8c787, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkTransform
+  _stateAuthorityChangeErrorCorrectionDelta: 0
+  SyncScale: 0
+  SyncParent: 0
+  _autoAOIOverride: 1
+  DisableSharedModeInterpolation: 0
 --- !u!114 &2437459981176578707
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -313,11 +354,12 @@ MonoBehaviour:
   tossKey: 118
   tossUpForce: 2
   tossForwardForce: 0.5
-  meleeRange: 3
-  dashLockRange: 8
-  meleePushForce: 100
+  meleeRange: 4
+  dashLockRange: 20
+  meleePushForce: 200
   meleeCooldown: 1
-  currentGlovePolarity: 1
+  grapplePullForce: 100
+  _currentGlovePolarity: 0
 --- !u!114 &121466040936443899
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -330,11 +372,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 879db693b292ea44f8cbc280e300e289, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FPSMovement
-  moveSpeed: 10
-  mouseSensitivity: 2
+  dashKey: 113
+  moveSpeed: 13
+  mouseSensitivity: 1
   cameraTransform: {fileID: 6162753422709012679}
+  dashForce: 100
+  dashCooldown: 1
   gravity: -9.81
   mass: 3
+  drag: 5
+  _SpawnYaw: 0
 --- !u!114 &4855774138493323295
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -348,6 +395,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   maxHealth: 100
+  _CurrentHealth: 0
 --- !u!114 &7492839288277641041
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -404,4 +452,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RadialMenuController
   radialMenuUI: {fileID: 0}
+  slots: []
+  hoverScale: 1.25
+  scaleSpeed: 15
+  dimmedAlpha: 0.4
+  normalAlpha: 0.85
+  normalColor: {r: 1, g: 1, b: 1, a: 1}
+  dimmedColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
   menuKey: 9

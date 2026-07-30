@@ -134,6 +134,12 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 4928616408704863665, guid: 1caa73a6296593c46bb83d678ff6609b, type: 3}
       insertIndex: -1
       addedObject: {fileID: 1110769359620970637}
+    - targetCorrespondingSourceObject: {fileID: 4928616408704863665, guid: 1caa73a6296593c46bb83d678ff6609b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1037027175979586607}
+    - targetCorrespondingSourceObject: {fileID: 4928616408704863665, guid: 1caa73a6296593c46bb83d678ff6609b, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 3301446532758539282}
   m_SourcePrefab: {fileID: 100100000, guid: 1caa73a6296593c46bb83d678ff6609b, type: 3}
 --- !u!1 &3887920028082657104 stripped
 GameObject:
@@ -179,12 +185,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05715667c48e445478f2f1827f3479d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MagneticObject
-  currentPolarity: 0
   objectType: 0
   baseDamage: 10
-  isMovingAsBullet: 0
-  shooterOwner: {fileID: 0}
+  explosionRadius: 6
+  explosionForce: 15
+  tntDamage: 35
   itemData: {fileID: 11400000, guid: d7cc9121bac2a654d8e9b17cc4e74439, type: 2}
+  _currentPolarity: 0
+  _isMovingAsBullet:
+    _value: 0
+  _CurrentDamage: 0
+  shooterOwner: {fileID: 0}
 --- !u!114 &1110769359620970637
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -201,6 +212,49 @@ MonoBehaviour:
   negativeColor: {r: 0.2, g: 0.8, b: 2, a: 1}
   outlineWidth: 10
   auraPointLight: {fileID: 0}
+--- !u!114 &1037027175979586607
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3887920028082657104}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -1552182283, guid: e725a070cec140c4caffb81624c8c787, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Fusion.Runtime.dll::Fusion.NetworkObject
+  SortKey: 158049979
+  ObjectInterest: 1
+  Flags: 262145
+  NestedObjects: []
+  NetworkedBehaviours:
+  - {fileID: 4163412411859141233}
+  - {fileID: 3301446532758539282}
+  ForceRemoteRenderTimeframe: 0
+--- !u!114 &3301446532758539282
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3887920028082657104}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a591d221a634417e9827eb58e17de84, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Fusion.Addons.Physics::Fusion.Addons.Physics.NetworkRigidbody3D
+  _stateAuthorityChangeErrorCorrectionDelta: 0
+  SyncScale: 0
+  SyncParent: 1
+  _interpolationTarget: {fileID: 0}
+  UsePreciseRotation: 0
+  UseRenderSleepThresholds: 1
+  RenderThresholds:
+    UseEnergy: 1
+    Position: 0.01
+    Rotation: 0.01
+    Scale: 0.01
 --- !u!4 &4521466717197438442 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5705539758440290059, guid: 1caa73a6296593c46bb83d678ff6609b, type: 3}
