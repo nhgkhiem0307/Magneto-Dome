@@ -189,7 +189,8 @@ GameObject:
   - component: {fileID: 7492839288277641041}
   - component: {fileID: 1350753794612939155}
   - component: {fileID: 5972911742852687159}
-  - component: {fileID: 8619887197031597069}
+  - component: {fileID: -8292395816124045099}
+  - component: {fileID: 7594881270707301603}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -316,6 +317,11 @@ MonoBehaviour:
   - {fileID: 2437459981176578707}
   - {fileID: 121466040936443899}
   - {fileID: 4855774138493323295}
+  - {fileID: 7492839288277641041}
+  - {fileID: 1350753794612939155}
+  - {fileID: 5972911742852687159}
+  - {fileID: -8292395816124045099}
+  - {fileID: 7594881270707301603}
   ForceRemoteRenderTimeframe: 0
 --- !u!114 &5267248803544839969
 MonoBehaviour:
@@ -360,6 +366,8 @@ MonoBehaviour:
   meleeCooldown: 1
   grapplePullForce: 100
   _currentGlovePolarity: 0
+  _HasGasolineEquipped:
+    _value: 0
 --- !u!114 &121466040936443899
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -378,6 +386,8 @@ MonoBehaviour:
   cameraTransform: {fileID: 6162753422709012679}
   dashForce: 100
   dashCooldown: 1
+  energyDrinkDuration: 15
+  energyDrinkCooldownReduction: 0.15
   gravity: -9.81
   mass: 3
   drag: 5
@@ -395,7 +405,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: '::'
   maxHealth: 100
+  armorPerPurchase: 10
+  maxArmor: 30
+  bandageMaxHeal: 20
+  bandageLostRatio: 0.5
+  _CurrentArmor: 0
   _CurrentHealth: 0
+  _Team: 0
+  _IsAlive:
+    _value: 0
+  _RespawnCount: 0
 --- !u!114 &7492839288277641041
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -423,7 +442,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 34907c36423a9df45b75e1b2767e3224, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::InventorySystem
-  slots: []
+  maxConsumableStack: 3
+  emBarrierPrefab: {fileID: 111464603974389178, guid: b89ef365d3c2cf8448767d0dac5b0324, type: 3}
+  emBarrierDistance: 3
+  _StoredItems: []
+  _ConsumableCounts: 
 --- !u!114 &5972911742852687159
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -439,7 +462,7 @@ MonoBehaviour:
   normalKey: 122
   heavyKey: 120
   spikeKey: 99
---- !u!114 &8619887197031597069
+--- !u!114 &-8292395816124045099
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -448,15 +471,29 @@ MonoBehaviour:
   m_GameObject: {fileID: 6178301003363824090}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ffdcfc9817304504798d7b28e9e92001, type: 3}
+  m_Script: {fileID: 11500000, guid: b785ae5b4ce97324b91ec907b9a7755b, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RadialMenuController
-  radialMenuUI: {fileID: 0}
-  slots: []
-  hoverScale: 1.25
-  scaleSpeed: 15
-  dimmedAlpha: 0.4
-  normalAlpha: 0.85
-  normalColor: {r: 1, g: 1, b: 1, a: 1}
-  dimmedColor: {r: 0.4, g: 0.4, b: 0.4, a: 1}
-  menuKey: 9
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerEconomy
+  startingMoney: 500
+  moneyCap: 750
+  winReward: 150
+  loseReward: 100
+  _Money: 0
+--- !u!114 &7594881270707301603
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6178301003363824090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d634b6196b928ee448716343749fd9ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShopManager
+  catalogue:
+  - {fileID: 11400000, guid: 8cf8279bf48c4294593150ebc68c1dbd, type: 2}
+  - {fileID: 11400000, guid: 232bf952a6b8e654487566decc6f3c42, type: 2}
+  - {fileID: 11400000, guid: 79e7e1eaaecd791488f1e3920756a746, type: 2}
+  - {fileID: 11400000, guid: 4dcb5ca03fa1a43478f392dad5fe7e35, type: 2}
+  - {fileID: 11400000, guid: b5326ba532e3b1243b893e5b82ecf464, type: 2}

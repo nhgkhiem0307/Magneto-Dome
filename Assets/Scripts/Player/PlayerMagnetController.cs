@@ -23,6 +23,26 @@ public class PlayerMagnetController : NetworkBehaviour
     public float meleePushForce = 100f;
     public float meleeCooldown = 1f;
 
+    [Header("Kích thước vật cầm trên tay")]
+    [Tooltip("Cạnh dài nhất của vật sau khi thu nhỏ, tính bằng mét. Mọi vật cầm lên đều về cỡ này.")]
+    public float heldObjectSize = 0.6f;
+
+    [Tooltip("Bật: vật vốn đã nhỏ hơn cỡ trên thì giữ nguyên. Tắt: mọi vật đều về đúng một cỡ.")]
+    public bool onlyShrinkLargeObjects = true;
+
+    [Header("Luật riêng từng loại đạn")]
+    [Tooltip("Cản bóng nặng đang bay: tốc độ còn lại bao nhiêu phần. 0.5 = mất nửa tốc.")]
+    public float heavyBlockSlowFactor = 0.5f;
+
+    [Tooltip("Cản bóng nặng đang bay: sát thương còn lại bao nhiêu phần.")]
+    public float heavyBlockDamageFactor = 0.5f;
+
+    [Tooltip("Hút nhầm bóng gai: nhân sát thương lên bấy nhiêu lần. Theo GDD là 25 -> 50 HP.")]
+    public float spikeDamageMultiplier = 2f;
+
+    [Tooltip("Hút nhầm bóng gai: lực kéo nó lao về phía mình, nhân với pullForce.")]
+    public float spikePullBoost = 1.5f;
+
     [Header("Grapple - Kéo áp sát")]
     [Tooltip("Lực kéo bản thân bay về phía đối thủ khi cận chiến ở tầm 3-8m và trái dấu điện tích.")]
     public float grapplePullForce = 100f;
@@ -42,6 +62,16 @@ public class PlayerMagnetController : NetworkBehaviour
 
     // Trạng thái nút ở tick trước, để phát hiện khoảnh khắc "vừa bấm xuống".
     [Networked] private NetworkButtons PreviousButtons { get; set; }
+
+    // Đếm số cú cận chiến, để mọi máy phát tiếng.
+    // Không phát thẳng trong FixedUpdateNetwork được vì Fusion tua lại nhiều tick,
+    // một cú đấm sẽ kêu chồng lên nhau nhiều lần.
+    [Networked, OnChangedRender(nameof(OnMeleePerformed))]
+    private int MeleeCount { get; set; }
+
+    // Đang cầm sẵn Chai Xăng Tẩy Chế trên tay hay không.
+    // Dùng xong một lần là hết, phải rút chai khác từ túi.
+    [Networked] public NetworkBool HasGasolineEquipped { get; set; }
 
     // ID của vật đang cầm trên tay.
     //
@@ -83,10 +113,16 @@ public class PlayerMagnetController : NetworkBehaviour
     }
 
     private FPSMovement movement;
+    private PlayerHealth health;
+
+    // Vật đang bị THU NHỎ ở máy này. Khác với grabbedObject ở chỗ nó là trạng thái
+    // hình ảnh cục bộ, dùng để biết lúc nào cần trả lại kích thước gốc.
+    private MagneticObject _visuallyHeld;
 
     public override void Spawned()
     {
         movement = GetComponent<FPSMovement>();
+        health = GetComponent<PlayerHealth>();
 
         // Chỉ Host đặt giá trị khởi đầu, Client nhận về qua mạng
         if (HasStateAuthority)
@@ -103,6 +139,21 @@ public class PlayerMagnetController : NetworkBehaviour
         // tương đương Input.GetKeyDown / GetMouseButtonDown của bản cũ.
         NetworkButtons pressed = input.Buttons.GetPressed(PreviousButtons);
         PreviousButtons = input.Buttons;
+
+        // --- 0. CÁC TRƯỜNG HỢP BỊ KHOÁ THAO TÁC ---
+
+        // CHỈ ĐỂ TEST - XOÁ TRƯỚC KHI NỘP BÀI. Phím K tự sát để thử vòng lặp round một mình.
+        if (HasStateAuthority && pressed.IsSet((int)InputButton.DebugSuicide) && health != null)
+        {
+            health.Die();
+        }
+
+        // Đã bị loại khỏi round thì không đánh đấm gì được nữa
+        if (health != null && !health.IsAlive) return;
+
+        // Ngoài pha Combat (đang chuẩn bị, hoặc round vừa kết thúc) thì cấm chiến đấu.
+        // Nếu chưa có GameManager thì cứ cho đánh, để còn test được khi chạy thẳng TestScene.
+        if (GameManager.Instance != null && !GameManager.Instance.IsCombatAllowed()) return;
 
         // --- 1. ĐỔI ĐIỆN TÍCH GĂNG TAY ---
         // Không chặn theo Host: để Client tự đổi ngay tại máy mình cho phản hồi tức thì,
@@ -176,6 +227,17 @@ public class PlayerMagnetController : NetworkBehaviour
         Rigidbody targetRb = hit.collider.GetComponent<Rigidbody>();
         if (targetRb == null) return;
 
+        // ĐANG CẦM CHAI XĂNG -> chế vật thường thành thùng TNT.
+        // Xét TRƯỚC mọi thứ khác, vì lúc này chuột trái mang ý nghĩa khác hẳn.
+        if (HasGasolineEquipped && justPressed)
+        {
+            if (magObj.ConvertToTNT())
+            {
+                HasGasolineEquipped = false; // dùng xong là hết chai
+            }
+            return;
+        }
+
         // VẬT TRUNG TÍNH -> nạp điện cho nó
         if (magObj.currentPolarity == MagneticObject.Polarity.None)
         {
@@ -189,8 +251,8 @@ public class PlayerMagnetController : NetworkBehaviour
             if (!justPressed) return;
 
             targetRb.isKinematic = false;
-            magObj.isMovingAsBullet = true;
-            magObj.shooterOwner = this;
+            targetRb.useGravity = true;
+            magObj.LaunchAsBullet(this);
 
             Vector3 pushDirection = aimDirection;
             pushDirection.y = 0f;
@@ -202,12 +264,35 @@ public class PlayerMagnetController : NetworkBehaviour
         }
 
         // TRÁI DẤU -> HÚT về phía mình
-        //
-        // Ghi chú thiết kế (30/07): tạm BỎ hết luật riêng của từng loại vật thể.
-        // Trước đây Spike bị hút nhầm lúc đang bay thì x2 sát thương, còn Heavy thì
-        // không hút được khi đang bay và bị giảm 50% lực. Giờ cả 3 loại
-        // Normal / Heavy / Spike hút đẩy y hệt nhau, chỉ khác con số sát thương.
-        // Sẽ thêm lại các luật này sau.
+
+        // BÓNG NẶNG ĐANG BAY: không hút về tay được, nhưng CẢN lại được.
+        // Đây là nước phòng thủ: bạn không cướp được vật, nhưng làm nó chậm và yếu đi.
+        if (magObj.CurrentType == MagneticObject.ObjectType.Heavy && magObj.isMovingAsBullet)
+        {
+            if (justPressed && magObj.TryCounterInFlight())
+            {
+                targetRb.linearVelocity *= heavyBlockSlowFactor;
+                magObj.CurrentDamage *= heavyBlockDamageFactor;
+
+                Debug.Log($"<color=#88CCFF>[CẢN] Đã cản bóng nặng, sát thương còn {magObj.CurrentDamage}</color>");
+            }
+            return; // dù cản được hay không thì cũng không hút về tay được
+        }
+
+        // BÓNG GAI ĐANG BAY: hút nhầm là tự rước hoạ.
+        // Vật lao nhanh hơn về phía bạn VÀ gây gấp đôi sát thương.
+        // Đây là cái bẫy phản xạ - thấy vật bay tới mà theo bản năng hút lại thì thiệt nặng.
+        if (magObj.CurrentType == MagneticObject.ObjectType.Spike && magObj.isMovingAsBullet)
+        {
+            if (justPressed && magObj.TryCounterInFlight())
+            {
+                targetRb.AddForce(-aimDirection * pullForce * spikePullBoost, ForceMode.Impulse);
+                magObj.CurrentDamage *= spikeDamageMultiplier;
+
+                Debug.Log($"<color=red><b>[HÚT NHẦM] Bóng gai lao tới! Sát thương {magObj.CurrentDamage}</b></color>");
+            }
+            return;
+        }
 
         // KÉO VẬT THỂ MƯỢT MÀ VỀ TAY (Không Teleport)
         targetRb.isKinematic = false;
@@ -247,6 +332,7 @@ public class PlayerMagnetController : NetworkBehaviour
             if (movement != null) movement.AddImpact(grappleDirection, grapplePullForce);
 
             MeleeCooldownTimer = TickTimer.CreateFromSeconds(Runner, meleeCooldown);
+            MeleeCount++;
             return;
         }
 
@@ -277,6 +363,7 @@ public class PlayerMagnetController : NetworkBehaviour
         }
 
         MeleeCooldownTimer = TickTimer.CreateFromSeconds(Runner, meleeCooldown);
+        MeleeCount++;
     }
 
     // Đặt vật vào tay NGAY TẠI MÁY NÀY, mỗi khung hình, trên MỌI máy.
@@ -290,10 +377,25 @@ public class PlayerMagnetController : NetworkBehaviour
     // người chơi nhìn thấy trong khung hình đó.
     private void LateUpdate()
     {
-        if (holdPoint == null) return;
-
         MagneticObject held = grabbedObject;
-        if (held == null) return;
+
+        // Vật vừa rời tay (bắn đi, tung lên, cất túi) -> trả lại kích thước gốc.
+        // Phải làm ở đây thay vì trong các hàm bắn/tung, vì những hàm đó chỉ chạy trên Host
+        // còn việc thu nhỏ thì máy nào cũng tự làm.
+        if (_visuallyHeld != null && _visuallyHeld != held)
+        {
+            _visuallyHeld.RestoreScale();
+            _visuallyHeld = null;
+        }
+
+        if (held == null || holdPoint == null) return;
+
+        // Vừa cầm lên -> thu về cỡ chuẩn, làm đúng một lần
+        if (_visuallyHeld != held)
+        {
+            _visuallyHeld = held;
+            held.ApplyHeldScale(heldObjectSize, onlyShrinkLargeObjects);
+        }
 
         held.transform.position = holdPoint.position;
         held.transform.rotation = holdPoint.rotation;
@@ -318,6 +420,10 @@ public class PlayerMagnetController : NetworkBehaviour
     {
         MagneticObject objToToss = grabbedObject;
         Rigidbody rbToToss = grabbedRb;
+        if (objToToss == null || rbToToss == null) return;
+
+        // Trả cỡ gốc ngay, cùng lý do như FireGrabbedObject
+        objToToss.RestoreScale();
 
         // Bật lại va chạm trước khi rời tay
         Collider playerCol = GetComponent<Collider>();
@@ -346,9 +452,12 @@ public class PlayerMagnetController : NetworkBehaviour
         Rigidbody rbToFire = grabbedRb;
         if (objToFire == null || rbToFire == null) return;
 
-        objToFire.isMovingAsBullet = true;
-        objToFire.shooterOwner = this;
+        // Trả cỡ gốc NGAY, không đợi LateUpdate. Vật lý chạy trong tick mạng vốn xảy ra
+        // trước LateUpdate, nên chậm một nhịp là vật bay với collider bé tí một khoảnh khắc.
+        objToFire.RestoreScale();
+
         objToFire.CurrentDamage = originalBaseDamage;
+        objToFire.LaunchAsBullet(this);
 
         // Bật lại va chạm trước khi bắn
         Collider playerCol = GetComponent<Collider>();
@@ -413,6 +522,29 @@ public class PlayerMagnetController : NetworkBehaviour
         Collider playerCol = GetComponent<Collider>();
         Collider objCol = targetObj.GetComponent<Collider>();
         if (playerCol != null && objCol != null) Physics.IgnoreCollision(playerCol, objCol, true);
+    }
+
+    // Chạy trên MỌI máy, đúng một lần cho mỗi cú cận chiến
+    private void OnMeleePerformed()
+    {
+        AudioManager.MeleePunch(transform.position);
+    }
+
+    /// <summary>
+    /// Rút Chai Xăng Tẩy Chế ra tay. Lần bấm chuột trái kế tiếp vào một vật thường
+    /// sẽ biến nó thành thùng TNT.
+    ///
+    /// Trả về false nếu đang cầm sẵn một chai rồi, để không phí chai thứ hai.
+    /// </summary>
+    public bool EquipGasoline()
+    {
+        if (!HasStateAuthority) return false;
+        if (HasGasolineEquipped) return false;
+
+        HasGasolineEquipped = true;
+
+        Debug.Log("<color=#FF6600>[CHAI XĂNG] Đã cầm chai xăng. Bấm chuột trái vào một vật thường để chế thành TNT.</color>");
+        return true;
     }
 
     // --- CÁC HÀM GETTER ĐỂ INVENTORY GỌI ---

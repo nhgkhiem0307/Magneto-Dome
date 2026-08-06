@@ -35,6 +35,11 @@ public class RoomPlayer : NetworkBehaviour
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
         AllPlayers.Remove(this);
+
+        // Dọn luôn tham chiếu tĩnh, nếu không thì sau khi về menu nó vẫn trỏ vào
+        // một object đã bị huỷ của trận cũ.
+        if (Local == this) Local = null;
+
         NetworkRunnerHandler.Instance?.UpdateLobbyUI();
     }
 

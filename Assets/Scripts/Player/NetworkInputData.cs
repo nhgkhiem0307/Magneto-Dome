@@ -40,4 +40,13 @@ public enum InputButton
     Fire = 3,               // chuột trái - nạp điện / hút / đẩy
     Melee = 4,              // chuột phải - cận chiến, hoặc bắn vật đang cầm
     Toss = 5,               // phím V - tung hứng vật đang cầm
+
+    Interact = 6,           // phím F - nhặt đồ dưới sàn / cất vật trên tay vào túi
+    HotbarNormal = 7,       // phím Z - rút đạn Normal từ túi
+    HotbarHeavy = 8,        // phím X - rút đạn Heavy từ túi
+    HotbarSpike = 9,        // phím C - rút đạn Spike từ túi
+
+    // CHỈ ĐỂ TEST - XOÁ TRƯỚC KHI NỘP BÀI.
+    // Phím K tự sát, để thử vòng lặp round một mình mà không cần rủ người thứ hai.
+    DebugSuicide = 10,
 }

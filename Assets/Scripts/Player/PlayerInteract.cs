@@ -1,78 +1,90 @@
+using Fusion;
 using UnityEngine;
 
-public class PlayerInteract : MonoBehaviour
+/// <summary>
+/// Phím nhặt đồ. Có hai trường hợp:
+///   - Đang cầm vật trên tay  -> cất luôn vào túi
+///   - Tay trống              -> quét phía trước, nhặt vật thể từ tính vào túi
+/// </summary>
+public class PlayerInteract : NetworkBehaviour
 {
     public Camera fpsCam;
-    public float interactRange = 4f; 
-    public KeyCode interactKey = KeyCode.F; 
+    public float interactRange = 4f;
+
+    // Phím này được NetworkRunnerHandler đọc để đóng gói vào input gửi qua mạng,
+    // nên vẫn chỉnh được ở Inspector như trước.
+    public KeyCode interactKey = KeyCode.F;
+
+    [Networked] private NetworkButtons PreviousButtons { get; set; }
 
     private InventorySystem inventory;
-    private PlayerMagnetController magnetController; // Thêm tham chiếu đến găng tay
+    private PlayerMagnetController magnetController;
+    private PlayerHealth health;
 
-    void Start()
+    public override void Spawned()
     {
         inventory = GetComponent<InventorySystem>();
-        magnetController = GetComponent<PlayerMagnetController>(); // Lấy component găng tay
-        
-        if (fpsCam == null) fpsCam = Camera.main;
+        magnetController = GetComponent<PlayerMagnetController>();
+        health = GetComponent<PlayerHealth>();
+
+        if (fpsCam == null) fpsCam = GetComponentInChildren<Camera>();
     }
 
-    void Update()
+    public override void FixedUpdateNetwork()
     {
-        if (Input.GetKeyDown(interactKey))
-        {
-            TryInteract();
-        }
+        if (!GetInput(out NetworkInputData input)) return;
+
+        NetworkButtons pressed = input.Buttons.GetPressed(PreviousButtons);
+        PreviousButtons = input.Buttons;
+
+        // Chỉ Host xử lý: nhặt đồ làm thay đổi trạng thái vật thể trong thế giới
+        if (!HasStateAuthority) return;
+
+        if (health != null && !health.IsAlive) return;
+        if (GameManager.Instance != null && !GameManager.Instance.IsCombatAllowed()) return;
+
+        if (!pressed.IsSet((int)InputButton.Interact)) return;
+
+        // Dựng lại hướng ngắm từ góc nhìn gửi kèm input.
+        // Không dùng fpsCam.transform.forward được, vì trên Host camera của người chơi khác
+        // đã bị tắt và không xoay theo chuột của họ.
+        Quaternion aimRotation = Quaternion.Euler(input.Pitch, input.Yaw, 0f);
+        Vector3 aimDirection = aimRotation * Vector3.forward;
+        Vector3 aimOrigin = fpsCam != null ? fpsCam.transform.position : transform.position + Vector3.up * 1.6f;
+
+        TryInteract(aimOrigin, aimDirection);
     }
 
-    void TryInteract()
+    private void TryInteract(Vector3 aimOrigin, Vector3 aimDirection)
     {
-        // TRƯỜNG HỢP 1: NẾU ĐANG CÓ ĐỒ TRÊN TAY -> Cất luôn vào túi
-        if (magnetController != null && magnetController.GetGrabbedObject() != null)
+        if (inventory == null || magnetController == null) return;
+
+        // TRƯỜNG HỢP 1: ĐANG CÓ ĐỒ TRÊN TAY -> Cất luôn vào túi
+        MagneticObject heldObj = magnetController.GetGrabbedObject();
+        if (heldObj != null)
         {
-            MagneticObject heldObj = magnetController.GetGrabbedObject();
-            if (heldObj.itemData != null)
+            if (inventory.AddItem(heldObj))
             {
-                if (inventory.AddItem(heldObj.itemData, heldObj.gameObject))
-                {
-                    Debug.Log($"<color=green>Đã cất {heldObj.name} từ găng tay vào túi đồ!</color>");
-                    magnetController.ClearGrabbedObjectWithoutReset(); // Xóa khỏi tay một cách âm thầm
-                }
+                // Xoá khỏi tay một cách âm thầm - AddItem đã lo phần tắt vật đi rồi
+                magnetController.ClearGrabbedObjectWithoutReset();
+                Debug.Log($"<color=green>[NHẶT] Đã cất {heldObj.name} từ tay vào túi</color>");
             }
-            else
-            {
-                Debug.LogWarning($"Vật thể trên tay chưa có ItemData!");
-            }
-            return; // Dừng hàm tại đây, không quét Raycast nữa
+            return;
         }
 
-        // TRƯỜNG HỢP 2: NẾU TAY TRỐNG -> Quét Raycast dưới sàn
-        Ray ray = fpsCam.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
-        RaycastHit hit;
+        // TRƯỜNG HỢP 2: TAY TRỐNG -> Quét phía trước tìm vật thể
+        if (!Physics.Raycast(aimOrigin, aimDirection, out RaycastHit hit, interactRange)) return;
+        if (!hit.collider.CompareTag("Magnetic")) return;
 
-        if (Physics.Raycast(ray, out hit, interactRange))
+        MagneticObject magObj = hit.collider.GetComponent<MagneticObject>();
+        if (magObj == null) return;
+
+        // Đang bay với tư cách đạn thì không nhặt được
+        if (magObj.isMovingAsBullet) return;
+
+        if (inventory.AddItem(magObj))
         {
-            if (hit.collider.CompareTag("Magnetic"))
-            {
-                MagneticObject magObj = hit.collider.GetComponent<MagneticObject>();
-                if (magObj == null || magObj.isMovingAsBullet) return;
-
-                // Lấy ItemData cấu hình loại đạn gán trên vật thể
-                ItemData itemData = magObj.itemData;
-
-                if (itemData != null)
-                {
-                    // Đẩy nguyên khối GameObject này vào Inventory
-                    if (inventory.AddItem(itemData, hit.collider.gameObject))
-                    {
-                        Debug.Log($"<color=green>Đã hút {hit.collider.name} dưới sàn vào túi đồ!</color>");
-                    }
-                }
-                else
-                {
-                    Debug.LogWarning($"Vật thể {hit.collider.name} chưa được gán ItemData để phân loại đạn!");
-                }
-            }
+            Debug.Log($"<color=green>[NHẶT] Đã nhặt {magObj.name} dưới sàn vào túi</color>");
         }
     }
 }

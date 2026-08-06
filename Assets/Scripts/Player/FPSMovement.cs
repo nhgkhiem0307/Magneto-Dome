@@ -12,12 +12,22 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
 
     [Header("Movement Settings")]
     public float moveSpeed = 13f;
+
+    [Tooltip("Chỉ là giá trị MẶC ĐỊNH cho lần chơi đầu. Sau đó người chơi tự chỉnh trong Settings, " +
+             "và giá trị thật được đọc từ GameSettings.MouseSensitivity.")]
     public float mouseSensitivity = 1f;
     public Transform cameraTransform;
 
     [Header("Dash Settings")]
     public float dashForce = 100f;      // Độ mạnh cú lướt
     public float dashCooldown = 1f;    // Thời gian hồi chiêu Dash (giây)
+
+    [Header("Nước Tăng Lực")]
+    [Tooltip("Hiệu lực kéo dài bao nhiêu giây sau khi uống.")]
+    public float energyDrinkDuration = 15f;
+
+    [Tooltip("Giảm bao nhiêu phần thời gian hồi chiêu Dash. 0.15 = giảm 15%.")]
+    public float energyDrinkCooldownReduction = 0.15f;
 
     [Header("Gravity & Physics")]
     public float gravity = -19.62f;    // Trọng lực
@@ -39,16 +49,47 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     // Bắt buộc phải [Networked], nếu để biến thường thì khi Fusion tua lại sẽ tính sai.
     [Networked] private NetworkButtons PreviousButtons { get; set; }
 
+    // Đếm số lần đã dash. Bản thân con số vô nghĩa - nó chỉ tồn tại để mỗi cú dash
+    // là giá trị đổi một lần, kích hoạt OnChangedRender trên mọi máy.
+    //
+    // Vì sao phải vòng vo vậy: không được phát tiếng thẳng trong FixedUpdateNetwork,
+    // vì Fusion tua lại nhiều tick mỗi khung hình -> một cú dash sẽ kêu 5-6 lần.
+    // OnChangedRender thì chỉ chạy đúng một lần cho mỗi lần giá trị thật sự đổi.
+    [Networked, OnChangedRender(nameof(OnDashPerformed))]
+    private int DashCount { get; set; }
+
+    // Đồng hồ đếm ngược hiệu lực Nước Tăng Lực.
+    //
+    // Không cần lưu riêng "hệ số hồi chiêu" làm gì: còn hạn thì giảm, hết hạn thì thôi,
+    // suy ra từ chính cái đồng hồ này là đủ. Ít trạng thái đồng bộ hơn, cũng ít chỗ sai hơn.
+    [Networked] private TickTimer EnergyDrinkTimer { get; set; }
+
+    /// <summary>Nước Tăng Lực có đang còn hiệu lực không. HUD dùng để hiện biểu tượng buff.</summary>
+    public bool IsEnergyDrinkActive => Runner != null && !EnergyDrinkTimer.ExpiredOrNotRunning(Runner);
+
+    /// <summary>Số giây hiệu lực Nước Tăng Lực còn lại, bằng 0 nếu đã hết.</summary>
+    public float EnergyDrinkRemaining
+    {
+        get
+        {
+            if (Runner == null) return 0f;
+            float? remaining = EnergyDrinkTimer.RemainingTime(Runner);
+            return remaining ?? 0f;
+        }
+    }
+
     // Hướng nhìn ban đầu (độ), do Host quyết định theo đội lúc spawn.
     // Phải [Networked] vì Host gán giá trị này, còn máy Client mới là nơi cần đọc nó
     // để đặt góc nhìn cho đúng.
     [Networked] public float SpawnYaw { get; set; }
 
     private CharacterController controller;
+    private PlayerHealth health;
 
     public override void Spawned()
     {
         controller = GetComponent<CharacterController>();
+        health = GetComponent<PlayerHealth>();
 
         // Tắt rồi bật lại CharacterController ngay khi vừa sinh ra.
         //
@@ -69,6 +110,10 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         if (isMine)
         {
             Local = this;
+
+            // Đưa con số đã cân bằng tay ở Inspector vào làm mặc định cho Settings,
+            // nhưng CHỈ khi người chơi chưa từng tự chỉnh. Đã chỉnh rồi thì giữ ý họ.
+            GameSettings.SeedDefaultSensitivity(mouseSensitivity);
 
             // Đặt góc nhìn khớp với hướng Host đã xoay lúc spawn.
             // Bỏ bước này thì ngay tick đầu tiên FixedUpdateNetwork sẽ bẻ nhân vật
@@ -139,6 +184,10 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         transform.rotation = Quaternion.Euler(0f, input.Yaw, 0f);
         NetPitch = input.Pitch;
 
+        // ĐÃ BỊ LOẠI KHỎI ROUND -> đứng yên tại chỗ, không đi lại được nữa.
+        // Cố ý đặt SAU phần xoay ở trên, để người chết vẫn ngó nghiêng xem trận đấu tiếp diễn.
+        if (health != null && !health.IsAlive) return;
+
         // 2. DI CHUYỂN WASD
         Vector3 inputDir = new Vector3(input.MoveDirection.x, 0f, input.MoveDirection.y);
         inputDir = Vector3.ClampMagnitude(inputDir, 1f);
@@ -163,7 +212,11 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
             }
 
             AddImpact(dashDirection, dashForce);
-            dashTimer = dashCooldown;
+            DashCount++; // để mọi máy phát tiếng dash, xem OnDashPerformed
+
+            // Còn Nước Tăng Lực trong người thì chờ ít hơn
+            float multiplier = IsEnergyDrinkActive ? (1f - energyDrinkCooldownReduction) : 1f;
+            dashTimer = dashCooldown * multiplier;
         }
 
         NetDashTimer = dashTimer;
@@ -214,6 +267,43 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     // LƯU Ý: hiện tại các script gọi vào đây vẫn là MonoBehaviour thuần (chưa lên mạng),
     // nên lực hất văng mới chỉ đúng khi chạy trên máy Host. Sẽ xử lý triệt để
     // khi chuyển PlayerMagnetController sang NetworkBehaviour ở bước sau.
+    /// <summary>
+    /// Uống Nước Tăng Lực: giảm cooldown Dash trong một khoảng thời gian.
+    ///
+    /// KHÔNG cộng dồn. Đang còn hiệu lực mà uống tiếp thì trả về false,
+    /// món đồ không bị tiêu tốn. Hết hiệu lực rồi mới uống bình mới được.
+    /// </summary>
+    public bool ApplyEnergyDrink()
+    {
+        if (!HasStateAuthority) return false;
+
+        // Đang còn hiệu lực -> không cho uống chồng
+        if (IsEnergyDrinkActive)
+        {
+            Debug.Log("<color=orange>[NƯỚC TĂNG LỰC] Đang còn hiệu lực, chưa uống bình mới được</color>");
+            return false;
+        }
+
+        EnergyDrinkTimer = TickTimer.CreateFromSeconds(Runner, energyDrinkDuration);
+
+        Debug.Log($"<color=cyan>[NƯỚC TĂNG LỰC] Hồi chiêu Dash giảm {energyDrinkCooldownReduction:P0} trong {energyDrinkDuration} giây</color>");
+        return true;
+    }
+
+    // Chạy trên MỌI máy, đúng một lần cho mỗi cú dash
+    private void OnDashPerformed()
+    {
+        AudioManager.Dash(transform.position);
+    }
+
+    /// <summary>Xoá hiệu lực Nước Tăng Lực. GameManager gọi khi hồi sinh đầu round.</summary>
+    public void ClearEnergyDrink()
+    {
+        if (!HasStateAuthority) return;
+
+        EnergyDrinkTimer = TickTimer.None;
+    }
+
     public void AddImpact(Vector3 dir, float force)
     {
         dir.Normalize();

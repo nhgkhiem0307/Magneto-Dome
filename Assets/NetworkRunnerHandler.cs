@@ -40,6 +40,9 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     [Tooltip("Tên scene gameplay. Scene bắt buộc phải có trong Build Settings.")]
     public string gameSceneName = "TestScene";
 
+    [Tooltip("Tên scene menu, dùng để quay về sau khi kết thúc trận.")]
+    public string menuSceneName = "MenuScene";
+
     [Header("Game Player Prefab")]
     [Tooltip("Prefab nhân vật trong trận (Assets/Prefab/Player.prefab). Bắt buộc phải có component NetworkObject.")]
     public NetworkObject gamePlayerPrefab;
@@ -55,10 +58,38 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     public float redTeamSpawnYaw = 180f;
     public float blueTeamSpawnYaw = 0f;
 
+    [Header("Game Manager Prefab")]
+    [Tooltip("Prefab chứa script GameManager. Bắt buộc phải có component NetworkObject.")]
+    public NetworkObject gameManagerPrefab;
+
+    // Điểm xuất hiện của một người chơi. GameManager cũng gọi hàm này khi hồi sinh
+    // đầu mỗi round, để chỉ có DUY NHẤT một nơi định nghĩa vị trí spawn.
+    public Vector3 GetSpawnPosition(int team, int indexInTeam)
+    {
+        Vector3 basePoint = team == 0 ? redTeamSpawnPoint : blueTeamSpawnPoint;
+        return basePoint + Vector3.right * (indexInTeam * spawnSpacing);
+    }
+
+    public float GetSpawnYaw(int team)
+    {
+        return team == 0 ? redTeamSpawnYaw : blueTeamSpawnYaw;
+    }
+
     // Góc nhìn của người chơi cục bộ, tích luỹ từ chuột mỗi khung hình.
     // Để static vì FPSMovement.Render() cần đọc lại để vẽ camera cho mượt.
     public static float LookYaw { get; private set; }
     public static float LookPitch { get; private set; }
+
+    /// <summary>
+    /// Con trỏ chuột có đang được thả ra để bấm giao diện hay không.
+    ///
+    /// Dùng một điều kiện chung thay vì đi hỏi riêng từng UI (Shop, Radial Menu, Settings...).
+    /// UI nào mở khoá chuột là tự động được tính vào đây, không phải sửa lại chỗ này.
+    /// </summary>
+    public static bool IsCursorFree()
+    {
+        return Cursor.lockState != CursorLockMode.Locked;
+    }
 
     // Đặt lại góc nhìn, dùng lúc nhân vật vừa xuất hiện để khớp với hướng Host đã xoay sẵn.
     // Sau này khi làm hồi sinh đầu mỗi round cũng sẽ gọi lại hàm này.
@@ -74,6 +105,10 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
     // Đánh dấu Host đã bấm "Bắt Đầu Trận", để phân biệt lần load scene nào mới là vào trận thật
     private bool _matchStarted = false;
+
+    // Đang trong quá trình đóng trận và quay về menu.
+    // Tắt Runner mất vài khung hình, cờ này chặn việc gọi chồng lên nhau.
+    private bool _isReturningToMenu = false;
 
     // Nhân vật trong trận của từng người chơi. Dùng để dọn dẹp khi họ thoát,
     // và sau này để hồi sinh ở đầu mỗi round.
@@ -123,9 +158,17 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         FPSMovement localPlayer = FPSMovement.Local;
         if (localPlayer == null) return; // chưa vào trận thì chưa có gì để xoay
 
-        LookYaw += Input.GetAxisRaw("Mouse X") * localPlayer.mouseSensitivity;
+        // Đang mở giao diện nào đó (Shop, Radial Menu...) thì KHÔNG xoay camera nữa.
+        // Lúc đó con trỏ chuột đang được dùng để bấm nút, không phải để ngắm.
+        if (IsCursorFree()) return;
 
-        LookPitch -= Input.GetAxisRaw("Mouse Y") * localPlayer.mouseSensitivity;
+        // Lấy độ nhạy từ GameSettings chứ không từ prefab, để người chơi chỉnh được
+        // trong Settings và giá trị đó được nhớ giữa các lần chơi.
+        float sensitivity = GameSettings.MouseSensitivity;
+
+        LookYaw += Input.GetAxisRaw("Mouse X") * sensitivity;
+
+        LookPitch -= Input.GetAxisRaw("Mouse Y") * sensitivity;
         LookPitch = Mathf.Clamp(LookPitch, -80f, 80f);
     }
 
@@ -253,6 +296,51 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
+    // --- KẾT THÚC TRẬN, QUAY VỀ MENU ---
+
+    /// <summary>
+    /// Đóng trận đấu và đưa mọi người về MenuScene.
+    ///
+    /// Host gọi hàm này khi hết trận. Việc tắt Runner sẽ khiến các máy Client
+    /// nhận callback OnShutdown, và ở đó chúng cũng tự gọi lại hàm này.
+    /// </summary>
+    public async void ReturnToMenu()
+    {
+        // Chặn gọi chồng: tắt Runner mất vài khung hình, trong lúc đó
+        // GameManager có thể gọi thêm lần nữa.
+        if (_isReturningToMenu) return;
+        _isReturningToMenu = true;
+
+        if (_networkRunner != null)
+        {
+            await _networkRunner.Shutdown();
+
+            // Object chứa Runner cũng là DontDestroyOnLoad, không tự mất theo scene
+            if (_networkRunner != null) Destroy(_networkRunner.gameObject);
+            _networkRunner = null;
+        }
+
+        // Dọn sạch các danh sách tĩnh. Chúng sống xuyên scene nên không tự xoá,
+        // để sót lại thì trận sau sẽ đếm nhầm số người chơi.
+        RoomPlayer.AllPlayers.Clear();
+        PlayerHealth.AllPlayers.Clear();
+
+        // Trả chuột lại cho menu
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        // QUAN TRỌNG: phải bỏ Instance TRƯỚC khi load scene.
+        //
+        // Object này là DontDestroyOnLoad nên nó sống sót qua scene mới. Nhưng mọi
+        // tham chiếu UI của nó đã chết theo MenuScene cũ -> menu sẽ hiện ra một đống
+        // nút bấm không được. Bỏ Instance ra để bản NetworkRunnerHandler nằm sẵn trong
+        // MenuScene mới được nhận vai, rồi huỷ bản cũ này đi.
+        Instance = null;
+        Destroy(gameObject);
+
+        SceneManager.LoadScene(menuSceneName);
+    }
+
     // --- 4. RỜI PHÒNG ---
     public async void OnClickLeaveRoom()
     {
@@ -371,6 +459,21 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
     {
+        // Đang ở trong trận mà Runner tắt -> Host đã kết thúc trận, hoặc mất kết nối.
+        // Dù lý do nào thì cũng phải đưa người chơi về menu, không để họ kẹt lại
+        // trong một scene không còn mạng.
+        if (_matchStarted)
+        {
+            if (shutdownReason != ShutdownReason.Ok)
+            {
+                Debug.LogWarning($"[MẠNG] Trận kết thúc bất thường: {shutdownReason}");
+            }
+
+            ReturnToMenu();
+            return;
+        }
+
+        // Còn đang ở phòng chờ thì chỉ cần quay lại màn hình chính
         if (shutdownReason != ShutdownReason.Ok)
         {
             SetErrorMessage("Kết nối bị ngắt!");
@@ -395,7 +498,25 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         // Bỏ qua những lần load scene không phải vào trận (ví dụ lúc mới tạo phòng).
         if (!_matchStarted) return;
 
+        // Spawn nhân vật TRƯỚC, GameManager SAU.
+        // GameManager có một khoảng chờ khởi động rồi mới bắt đầu round đầu tiên,
+        // nên tới lúc nó đếm quân số thì mọi nhân vật đã có mặt đầy đủ.
         SpawnAllGamePlayers(runner);
+        SpawnGameManager(runner);
+    }
+
+    private void SpawnGameManager(NetworkRunner runner)
+    {
+        if (gameManagerPrefab == null)
+        {
+            Debug.LogError("Chưa gán 'Game Manager Prefab' trong Inspector của NetworkRunnerHandler!");
+            return;
+        }
+
+        // Đã có rồi thì thôi, tránh spawn hai bản cùng điều khiển vòng đấu
+        if (GameManager.Instance != null) return;
+
+        runner.Spawn(gameManagerPrefab, Vector3.zero, Quaternion.identity);
     }
 
     private void SpawnAllGamePlayers(NetworkRunner runner)
@@ -419,14 +540,13 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             // Người này đã có nhân vật rồi thì bỏ qua, không spawn trùng
             if (_spawnedPlayers.ContainsKey(playerRef)) continue;
 
-            bool isRedTeam = roomPlayer.Team == 0;
-            Vector3 basePoint = isRedTeam ? redTeamSpawnPoint : blueTeamSpawnPoint;
-            int indexInTeam = isRedTeam ? redIndex++ : blueIndex++;
+            int team = roomPlayer.Team;
+            int indexInTeam = team == 0 ? redIndex++ : blueIndex++;
 
-            Vector3 spawnPosition = basePoint + Vector3.right * (indexInTeam * spawnSpacing);
+            Vector3 spawnPosition = GetSpawnPosition(team, indexInTeam);
 
             // Xoay nhân vật quay mặt vào giữa map, tránh trường hợp vừa vào trận đã nhìn ra ngoài rìa
-            float spawnYaw = isRedTeam ? redTeamSpawnYaw : blueTeamSpawnYaw;
+            float spawnYaw = GetSpawnYaw(team);
             Quaternion spawnRotation = Quaternion.Euler(0f, spawnYaw, 0f);
 
             // Tham số playerRef là mấu chốt: nó trao Input Authority cho đúng người chơi đó,
@@ -449,11 +569,16 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
                     spawnedObject.transform.SetPositionAndRotation(spawnPosition, spawnRotation);
                     if (cc != null) cc.enabled = true;
 
-                    // Báo cho nhân vật biết nó thuộc đội nào, để lúc Spawned() nó tự đặt
-                    // góc nhìn ban đầu cho khớp. Nếu không làm bước này, ngay tick đầu tiên
+                    // Báo cho nhân vật biết hướng nhìn ban đầu, để lúc Spawned() nó tự đặt
+                    // góc camera cho khớp. Nếu không làm bước này, ngay tick đầu tiên
                     // FixedUpdateNetwork sẽ bẻ nhân vật về góc 0 độ và mất hết hướng vừa đặt.
                     FPSMovement movement = spawnedObject.GetComponent<FPSMovement>();
                     if (movement != null) movement.SpawnYaw = spawnYaw;
+
+                    // Ghi đội vào chính nhân vật. GameManager cần biết ai thuộc đội nào
+                    // để đếm quân số còn sống, và tra ngược qua RoomPlayer mỗi tick thì phí.
+                    PlayerHealth health = spawnedObject.GetComponent<PlayerHealth>();
+                    if (health != null) health.Team = team;
                 }
             );
 
@@ -479,12 +604,34 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         data.Buttons.Set((int)InputButton.Dash, Input.GetKey(localPlayer.dashKey));
         data.Buttons.Set((int)InputButton.PolarityPositive, Input.GetKey(KeyCode.Alpha1));
         data.Buttons.Set((int)InputButton.PolarityNegative, Input.GetKey(KeyCode.Alpha2));
-        data.Buttons.Set((int)InputButton.Fire, Input.GetMouseButton(0));
-        data.Buttons.Set((int)InputButton.Melee, Input.GetMouseButton(1));
+
+        // Đang mở giao diện thì nuốt luôn hai nút chuột, không cho chúng thành lệnh bắn.
+        // Nếu không, bấm nút "Mua" trong Shop cũng đồng thời là một cú hút/đẩy vào thứ
+        // đang nằm sau tấm panel.
+        bool uiOpen = IsCursorFree();
+        data.Buttons.Set((int)InputButton.Fire, !uiOpen && Input.GetMouseButton(0));
+        data.Buttons.Set((int)InputButton.Melee, !uiOpen && Input.GetMouseButton(1));
         // Phím tung hứng lấy từ Inspector của PlayerMagnetController, không hardcode
         PlayerMagnetController magnet = localPlayer.GetComponent<PlayerMagnetController>();
         KeyCode tossKey = magnet != null ? magnet.tossKey : KeyCode.V;
         data.Buttons.Set((int)InputButton.Toss, Input.GetKey(tossKey));
+
+        // Phím nhặt đồ, cũng lấy từ Inspector
+        PlayerInteract interact = localPlayer.GetComponent<PlayerInteract>();
+        KeyCode interactKey = interact != null ? interact.interactKey : KeyCode.F;
+        data.Buttons.Set((int)InputButton.Interact, Input.GetKey(interactKey));
+
+        // Ba phím rút đạn từ túi
+        PlayerHotbarController hotbar = localPlayer.GetComponent<PlayerHotbarController>();
+        if (hotbar != null)
+        {
+            data.Buttons.Set((int)InputButton.HotbarNormal, Input.GetKey(hotbar.normalKey));
+            data.Buttons.Set((int)InputButton.HotbarHeavy, Input.GetKey(hotbar.heavyKey));
+            data.Buttons.Set((int)InputButton.HotbarSpike, Input.GetKey(hotbar.spikeKey));
+        }
+
+        // CHỈ ĐỂ TEST - XOÁ TRƯỚC KHI NỘP BÀI
+        data.Buttons.Set((int)InputButton.DebugSuicide, Input.GetKey(KeyCode.K));
 
         input.Set(data);
     }

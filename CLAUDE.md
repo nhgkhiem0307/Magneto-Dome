@@ -57,20 +57,26 @@ GDD là bản nháp **hơi sơ sài và không bắt buộc phải bám sát**. 
 
 Đây là điều **quan trọng nhất** cần nhớ về trạng thái project:
 
-| Đã networked (Fusion) | Vẫn là singleplayer (MonoBehaviour thuần) |
+| Đã networked (Fusion) | Vẫn là MonoBehaviour thuần |
 |---|---|
-| `Assets/NetworkRunnerHandler.cs` | `Assets/Scripts/Player/PlayerMagnetController.cs` |
-| `Assets/RoomPlayer.cs` | `Assets/Scripts/Player/PlayerHealth.cs` |
-| `Assets/Scripts/Player/FPSMovement.cs` | `Assets/Scripts/Player/InventorySystem.cs` |
-| `Assets/Scripts/Player/NetworkInputData.cs` | `Assets/Scripts/Player/PlayerHotbarController.cs` |
-| | `Assets/Scripts/Player/RadialMenuController.cs` |
-| | `Assets/Scripts/Player/PlayerInteract.cs` |
-| | `Assets/Scripts/Item/MagneticObject.cs` |
-| | `Assets/Scripts/Item/MagneticAura.cs` |
-| | `Assets/Scripts/Dummy/*.cs` |
+| `Assets/NetworkRunnerHandler.cs` | `Assets/Scripts/Player/RadialMenuController.cs` ⚠️ |
+| `Assets/RoomPlayer.cs` | `Assets/Scripts/Item/MagneticAura.cs` *(chỉ hiệu ứng, không cần)* |
+| `Assets/Scripts/GameManager.cs` | `Assets/Scripts/RoundBarrier.cs` *(cố ý — xem ghi chú)* |
+| `Assets/Scripts/Player/FPSMovement.cs` | `Assets/Scripts/Dummy/*.cs` *(bù nhìn tập bắn)* |
+| `Assets/Scripts/Player/NetworkInputData.cs` | |
+| `Assets/Scripts/Player/PlayerHealth.cs` | |
+| `Assets/Scripts/Player/PlayerMagnetController.cs` | |
+| `Assets/Scripts/Player/InventorySystem.cs` | |
+| `Assets/Scripts/Player/PlayerHotbarController.cs` | |
+| `Assets/Scripts/Player/PlayerInteract.cs` | |
+| `Assets/Scripts/Item/MagneticObject.cs` | |
 
-**Đã chạy được multiplayer:** Lobby, di chuyển/xoay/dash của nhân vật, spawn theo đội.
-**Chưa:** toàn bộ phần chiến đấu (hút/đẩy/bắn/cận chiến), máu, túi đồ, vật thể từ tính.
+⚠️ `RadialMenuController` **vẫn đọc `Input.` trực tiếp** nên chạy trên cả nhân vật người khác.
+Đã vá tạm bằng cách tắt component đó trong `FPSMovement.Spawned()` khi không phải nhân vật mình.
+Sẽ chuyển sang `NetworkBehaviour` cùng lúc làm Shop.
+
+`RoundBarrier` **cố ý KHÔNG networked**: trạng thái đóng/mở suy ra được từ `GameManager.Phase`
+(vốn đã `[Networked]`), nên mỗi máy tự tính là khớp nhau. Xem nguyên tắc ở PROGRESS.md.
 
 ### Cây thư mục script (code do chủ project viết)
 
@@ -186,7 +192,17 @@ Radial Menu **không làm chậm thời gian** (no slow-motion) ở cả offline
 
 Cả hai đều có thể lấy ra từ **Hotbar (`Z`/`X`/`C`)** lẫn **Radial Menu (`Tab`)**.
 
-Cơ chế hiện tại: khi nhặt, vật thể thật được `SetParent` vào Player, tắt vật lý và `SetActive(false)` để ẩn đi. Khi rút ra thì đảo ngược lại. Lấy theo thứ tự LIFO.
+**Cơ chế (viết lại 30/07 để chạy được với Fusion):** túi chỉ lưu **ID** của vật thể trong một
+`NetworkArray<NetworkBehaviourId>` sức chứa 16. Bản thân vật thể **vẫn tồn tại trong thế giới**,
+chỉ bị tắt renderer và collider đi (`MagneticObject.IsStored`). Rút ra thì bật lại và dịch chuyển
+tới tay. Lấy theo thứ tự LIFO.
+
+> ⚠️ Bản cũ dùng `SetParent()` + `SetActive(false)` — **cả hai đều không dùng được với
+> `NetworkObject`**. Fusion không hỗ trợ đổi cha giữa trận, và tắt hẳn một `NetworkObject`
+> làm hỏng vòng đời mô phỏng của nó. Đừng quay lại cách cũ.
+>
+> Cũng **đừng dùng Despawn/Spawn lại**: có 5 prefab khác nhau cùng thuộc loại `Normal`,
+> spawn lại sẽ ra nhầm prefab. Cách "tắt đi" giữ nguyên đúng vật, đúng điện tích, đúng sát thương.
 
 ### Đã hoãn — chưa cần nghĩ tới
 - Kỹ năng **`E` — Blink** (dịch chuyển tức thời 10m)
@@ -235,7 +251,19 @@ là vô nghĩa nếu không đặt luôn `NetworkRunnerHandler.SetLookAngles()` 
 Tick mạng chạy chậm hơn tốc độ khung hình. Đọc chuột ở tick mạng sẽ mất bớt chuyển động,
 gây giật. Chuột được tích luỹ ở `NetworkRunnerHandler.Update()` rồi gửi kèm input.
 
-**6. Giá trị Inspector luôn đè lên giá trị mặc định trong code**
+**6. Quên `NetworkTransform` → máy khác thấy object nằm ở (0,0,0)**
+Dấu hiệu: máy **gọi lệnh spawn** thì thấy object đúng chỗ, máy kia không thấy đâu cả
+(thực ra nó nằm ở gốc toạ độ). Đã gặp 2 lần: nhân vật, và tường EM Barrier.
+`NetworkObject` chỉ nói "object này tồn tại trên mạng", **không** đồng bộ vị trí.
+
+| Loại prefab | Component cần có |
+|---|---|
+| Đứng yên nhưng cần đúng vị trí *(tường EM Barrier)* | `NetworkObject` + `NetworkTransform` |
+| Có Rigidbody *(vật thể từ tính)* | `NetworkObject` + `NetworkRigidbody3D` |
+| Nhân vật dùng CharacterController | `NetworkObject` + `NetworkTransform` |
+| Vô hình, chỉ chứa dữ liệu *(GameManager)* | Chỉ `NetworkObject` |
+
+**7. Giá trị Inspector luôn đè lên giá trị mặc định trong code**
 Sửa `public float x = 5f;` trong code KHÔNG làm thay đổi component đã tồn tại trong scene/prefab.
 Phải sửa trực tiếp ở Inspector. Chỉ field **mới hoàn toàn** mới lấy giá trị mặc định từ code.
 
@@ -295,15 +323,6 @@ Chủ project dùng linh hoạt cả hai cách:
 
 ## 7. Vấn đề đã biết (chưa sửa)
 
-### 🔴 Ưu tiên cao — sẽ gây lỗi ngay khi test 2 người
-
-- **Các script điều khiển chạy trên CẢ nhân vật của người khác.**
-  `PlayerMagnetController`, `RadialMenuController`, `PlayerHotbarController`, `PlayerInteract`
-  vẫn là `MonoBehaviour` và đọc `Input.` trong `Update()`. Khi có 4 người chơi, trên máy bạn sẽ
-  có 4 bản cùng đọc chuột của bạn — bấm chuột trái là cả 4 nhân vật cùng hút đồ.
-  → Vá tạm: tắt các component đó trong `FPSMovement.Spawned()` khi `HasInputAuthority == false`.
-  Chưa làm, đang chờ chốt.
-
 ### 🟡 Đang treo chờ quyết định thiết kế
 
 - **`OnPlayerLeft` chưa despawn nhân vật.** Người thoát giữa trận để lại "xác" đứng im trên map.
@@ -313,9 +332,10 @@ Chủ project dùng linh hoạt cả hai cách:
 
 ### 🟢 Thiếu tính năng (theo lộ trình, chưa phải lỗi)
 
-- `PlayerHealth.cs` — chết chỉ `Debug.Log` rồi hồi đầy máu. Chưa có loại khỏi round, chưa respawn, chưa có thanh giáp.
+- `PlayerHealth.cs` — chưa có **thanh giáp** (Shield Armor mua từ Shop).
 - `RadialMenuController.cs` — `itemQuantity` là số nhập tay ở Inspector, **chưa nối với `InventorySystem`**. `UseItemFromRadialMenu()` mới chỉ `Debug.Log`.
-- Chưa có: `GameManager`, hệ thống round, kinh tế, Shop, HUD, âm thanh, Settings UI, KillZone.
+- Chưa có: kinh tế, Shop, HUD, âm thanh, Settings UI.
+- `GameManager.MatchEnd` chưa quay về MenuScene, mới chỉ dừng lại và in log đội thắng.
 
 ### ⚪ Cảnh báo vô hại
 
