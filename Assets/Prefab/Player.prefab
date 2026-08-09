@@ -358,12 +358,18 @@ MonoBehaviour:
   pullForce: 13
   pushForce: 50
   tossKey: 118
-  tossUpForce: 2
-  tossForwardForce: 0.5
+  tossUpForce: 0.8
+  tossForwardForce: 0.2
   meleeRange: 4
   dashLockRange: 20
   meleePushForce: 200
   meleeCooldown: 1
+  heldObjectSize: 1
+  onlyShrinkLargeObjects: 1
+  heavyBlockSlowFactor: 0.5
+  heavyBlockDamageFactor: 0.5
+  spikeDamageMultiplier: 2
+  spikePullBoost: 1.5
   grapplePullForce: 100
   _currentGlovePolarity: 0
   _HasGasolineEquipped:
@@ -404,13 +410,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dd8bd56a67387f54aa50fd37393e2377, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  maxHealth: 100
+  maxCharge: 100
+  knockbackAtMaxCharge: 5
   armorPerPurchase: 10
   maxArmor: 30
-  bandageMaxHeal: 20
-  bandageLostRatio: 0.5
+  bandageMaxDischarge: 20
+  bandageChargeRatio: 0.5
   _CurrentArmor: 0
-  _CurrentHealth: 0
+  _CurrentCharge: 0
   _Team: 0
   _IsAlive:
     _value: 0
