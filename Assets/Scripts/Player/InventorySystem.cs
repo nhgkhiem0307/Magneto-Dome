@@ -57,6 +57,26 @@ public class InventorySystem : NetworkBehaviour
         }
     }
 
+    /// <summary>
+    /// Xoá sạch phần VẬT THỂ MAP trong túi (bàn, ghế, khúc gỗ đã nhặt).
+    /// GameManager gọi khi sang round mới, ngay trước khi trả mọi vật thể về chỗ cũ.
+    ///
+    /// CỐ Ý KHÔNG đụng tới ConsumableCounts - đó là đồ MUA TỪ SHOP bằng tiền của người chơi,
+    /// mất theo round thì hỏng cả nền kinh tế. Chỉ đồ nhặt ngoài map mới bị trả lại.
+    ///
+    /// Hàm này chỉ xoá con trỏ trong túi. Bản thân vật thể do MagneticObject.ResetForNewRound()
+    /// lo hiện lại và đưa về chỗ cũ.
+    /// </summary>
+    public void ClearStoredObjects()
+    {
+        if (!HasStateAuthority) return;
+
+        for (int i = 0; i < Capacity; i++)
+        {
+            StoredItems.Set(i, default);
+        }
+    }
+
     /// <summary>Lấy vật ở ô thứ i, trả về null nếu ô trống hoặc vật đã biến mất.</summary>
     public MagneticObject GetItemAt(int index)
     {

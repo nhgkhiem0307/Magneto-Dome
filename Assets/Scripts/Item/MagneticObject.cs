@@ -1,9 +1,14 @@
 using Fusion;
+using Fusion.Addons.Physics; // NetworkRigidbody3D.Teleport() khi reset map mỗi round
 using UnityEngine;
 using System.Collections.Generic; // Cần thiết để lọc trùng danh sách khi nổ TNT
 
 public class MagneticObject : NetworkBehaviour
 {
+    // Danh sách mọi vật thể từ tính đang có trong trận, để GameManager trả chúng về
+    // chỗ cũ mỗi khi sang round mới. Làm giống PlayerHealth.AllPlayers cho nhất quán.
+    public static readonly List<MagneticObject> AllObjects = new List<MagneticObject>();
+
     public enum Polarity { None, Positive, Negative }
     public enum ObjectType { Normal, Heavy, Spike, TNT }
 
@@ -58,6 +63,21 @@ public class MagneticObject : NetworkBehaviour
     [Networked, OnChangedRender(nameof(OnStoredChanged))]
     public NetworkBool IsStored { get; set; }
 
+    // Đã nổ tan trong round này hay chưa (chỉ TNT).
+    //
+    // CỐ Ý KHÔNG dùng Runner.Despawn khi nổ nữa. Despawn xoá hẳn vật khỏi mạng, nên
+    // sang round mới không có cách nào dựng lại đúng vật đó - mà spawn lại từ prefab thì
+    // sai, vì có 5 prefab khác nhau cùng loại Normal (xem ghi chú ở CLAUDE.md).
+    // Thay vào đó chỉ ẩn đi, y hệt cách IsStored làm, rồi ResetForNewRound() bật lại.
+    [Networked, OnChangedRender(nameof(OnStoredChanged))]
+    public NetworkBool IsDestroyed { get; set; }
+
+    // Đếm số lần nổ, để mọi máy phát tiếng.
+    // Trước đây tiếng nổ đặt trong Despawned() - giờ không despawn nữa nên phải
+    // chuyển sang bộ đếm, đúng khuôn với LaunchCount / DashCount.
+    [Networked, OnChangedRender(nameof(OnExploded))]
+    private int ExplodeCount { get; set; }
+
     // Khoảng khoá ngay sau khi phóng, chưa xét tốc độ để tắt tư cách đạn.
     [Networked] private TickTimer BulletArmTimer { get; set; }
 
@@ -97,8 +117,14 @@ public class MagneticObject : NetworkBehaviour
     // Cầm lên tay thì vật bị thu nhỏ cho vừa màn hình, buông ra phải trả lại đúng cỡ này.
     private Vector3 _originalScale = Vector3.one;
 
+    // Chỗ đứng ban đầu trên map, ghi lại lúc vừa sinh ra để sang round mới trả về đúng đây.
+    private Vector3 _originalPosition;
+    private Quaternion _originalRotation;
+
     public override void Spawned()
     {
+        AllObjects.Add(this);
+
         rb = GetComponent<Rigidbody>();
 
         Renderer rend = GetComponent<Renderer>();
@@ -112,6 +138,10 @@ public class MagneticObject : NetworkBehaviour
 
         // Ghi lại cỡ gốc TRƯỚC khi có ai kịp thu nhỏ nó
         _originalScale = transform.localScale;
+
+        // Ghi lại chỗ đứng ban đầu, để reset map mỗi round trả vật về đúng đây
+        _originalPosition = transform.position;
+        _originalRotation = transform.rotation;
 
         // Chỉ Host đặt giá trị khởi đầu, Client nhận về qua mạng
         if (HasStateAuthority)
@@ -147,9 +177,17 @@ public class MagneticObject : NetworkBehaviour
         Renderer rend = GetComponentInChildren<Renderer>();
         if (rend == null) return;
 
-        // bounds là kích thước trong THẾ GIỚI, đã tính cả scale hiện tại.
-        // Nên hệ số cần dùng chính là: cỡ mong muốn / cỡ đang có.
-        Vector3 worldSize = rend.bounds.size;
+        // DÙNG localBounds, KHÔNG DÙNG bounds.
+        //
+        // rend.bounds là hộp bao theo TRỤC THẾ GIỚI, nên nó phình to ra khi vật xoay
+        // nghiêng: một tấm ván dài xoay 45 độ đo ra to hơn hẳn lúc nằm thẳng.
+        // Mà KeepObjectInHand() xoay vật theo hướng nhìn mỗi khung hình, nên đo bằng
+        // rend.bounds sẽ ra cỡ khác nhau tuỳ lúc nhặt bạn đang nhìn về đâu - cùng một
+        // cái bàn mà lần thì thu còn 0.6m, lần thì còn 0.45m.
+        //
+        // localBounds là hộp bao theo trục của CHÍNH VẬT, không đổi khi xoay.
+        // Nhân với lossyScale để quy về kích thước thật trong thế giới.
+        Vector3 worldSize = Vector3.Scale(rend.localBounds.size, rend.transform.lossyScale);
         float largestSide = Mathf.Max(worldSize.x, Mathf.Max(worldSize.y, worldSize.z));
 
         if (largestSide <= 0.0001f) return; // vật không có hình, bỏ qua
@@ -166,6 +204,24 @@ public class MagneticObject : NetworkBehaviour
     public void RestoreScale()
     {
         transform.localScale = _originalScale;
+    }
+
+    /// <summary>
+    /// Bán kính hình cầu bao quanh vật, tính theo kích thước THẬT hiện tại.
+    ///
+    /// Dùng localBounds nên KHÔNG đổi khi vật xoay - cùng lý do đã giải thích ở
+    /// ApplyHeldScale(). Đo bằng rend.bounds sẽ cho ra số nhảy loạn khi vật lăn.
+    ///
+    /// Hai chỗ cần tới: ngưỡng bắt vật vào tay (vật to phải bắt từ xa hơn),
+    /// và tính chỗ đặt vật khi buông tay sao cho không lồng vào người.
+    /// </summary>
+    public float GetBoundingRadius()
+    {
+        Renderer rend = GetComponentInChildren<Renderer>();
+        if (rend == null) return 0.5f;
+
+        Vector3 worldSize = Vector3.Scale(rend.localBounds.size, rend.transform.lossyScale);
+        return worldSize.magnitude * 0.5f;
     }
 
     // --- CẤT VÀO TÚI / RÚT RA ---
@@ -216,10 +272,20 @@ public class MagneticObject : NetworkBehaviour
         AudioManager.Launch(transform.position);
     }
 
+    // Chạy trên MỌI máy, đúng một lần cho mỗi lần nổ.
+    // Trước đây tiếng nổ nằm trong Despawned(); giờ vật không bị xoá nữa nên chuyển vào đây.
+    private void OnExploded()
+    {
+        AudioManager.Explosion(transform.position);
+    }
+
     // Bật/tắt phần nhìn thấy được và phần va chạm. Chạy trên mọi máy.
+    //
+    // Hai lý do khiến vật bị ẩn: đang nằm trong túi ai đó, hoặc đã nổ tan trong round này.
+    // Cả hai đều dẫn tới cùng một kết quả nên gộp chung một chỗ.
     private void ApplyStoredState()
     {
-        bool visible = !IsStored;
+        bool visible = !IsStored && !IsDestroyed;
 
         if (cachedRenderers != null)
         {
@@ -293,15 +359,11 @@ public class MagneticObject : NetworkBehaviour
 
     // Fusion gọi trên MỌI máy khi vật bị xoá khỏi mạng.
     //
-    // Đây là chỗ duy nhất phát được tiếng nổ cho tất cả mọi người: hàm Explode()
-    // chỉ chạy trên Host, nên nếu đặt tiếng nổ trong đó thì Client sẽ thấy thùng TNT
-    // biến mất trong im lặng.
+    // Tiếng nổ ĐÃ CHUYỂN sang OnExploded(), vì TNT nổ giờ chỉ bị ẩn đi chứ không
+    // despawn nữa (để round sau còn dựng lại được). Hàm này giờ chỉ lo dọn danh sách.
     public override void Despawned(NetworkRunner runner, bool hasState)
     {
-        if (CurrentType == ObjectType.TNT)
-        {
-            AudioManager.Explosion(transform.position);
-        }
+        AllObjects.Remove(this);
     }
 
     void SetColorBasedOnPolarity()
@@ -489,8 +551,73 @@ public class MagneticObject : NetworkBehaviour
             }
         }
 
-        // Dùng Runner.Despawn thay cho Destroy. Destroy chỉ xoá ở máy này,
-        // còn Despawn báo cho mọi máy cùng xoá nên không ai bị sót lại thùng TNT ma.
-        Runner.Despawn(Object);
+        // ẨN ĐI, KHÔNG XOÁ.
+        //
+        // Trước đây dùng Runner.Despawn(Object). Nhưng despawn là xoá vĩnh viễn khỏi mạng,
+        // nên sang round mới không dựng lại được đúng vật đó nữa - mà spawn lại từ prefab
+        // thì sai, vì nhiều prefab khác nhau cùng thuộc một loại.
+        //
+        // Ẩn đi thì giữ nguyên đúng vật, đúng chỗ đứng gốc, đúng mọi thông số;
+        // ResetForNewRound() chỉ việc bật lại.
+        IsDestroyed = true;
+        ExplodeCount++; // để mọi máy phát tiếng nổ, xem OnExploded
+
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+            rb.useGravity = false;
+        }
+    }
+
+    /// <summary>
+    /// Trả vật về nguyên trạng đầu trận: đúng chỗ, đúng hướng, đúng cỡ, sạch điện,
+    /// hết là đạn, hết bị chế thành TNT, và sống lại nếu đã nổ.
+    ///
+    /// GameManager gọi cho TOÀN BỘ vật thể mỗi khi bắt đầu round mới.
+    /// Bắt buộc gọi từ FixedUpdateNetwork vì Teleport() của Fusion yêu cầu vậy.
+    /// </summary>
+    public void ResetForNewRound()
+    {
+        if (!HasStateAuthority) return;
+
+        // Xoá mọi trạng thái tạm của round cũ
+        IsDestroyed = false;
+        IsStored = false;
+        isMovingAsBullet = false;
+        shooterOwner = null;
+        WasCounteredInFlight = false;
+        BulletArmTimer = TickTimer.None;
+
+        // Về đúng loại và sát thương gốc của prefab (huỷ tác dụng Chai Xăng)
+        CurrentType = objectType;
+        CurrentDamage = baseDamage;
+
+        // Về trung tính, ai muốn dùng thì phải nạp điện lại từ đầu
+        currentPolarity = Polarity.None;
+
+        transform.localScale = _originalScale;
+
+        // Dừng hẳn rồi mới dịch chuyển, nếu không vật về tới chỗ cũ vẫn còn đà bay tiếp
+        if (rb != null)
+        {
+            rb.isKinematic = false;
+            rb.useGravity = true;
+            rb.linearDamping = 0.05f;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+
+        // Dùng Teleport() của NetworkRigidbody3D chứ KHÔNG gán thẳng transform.position.
+        // Gán thẳng thì máy khác vẫn nội suy mượt từ chỗ cũ sang chỗ mới, nhìn như vật
+        // tự bay ngang qua map. Teleport báo cho Fusion "đây là nhảy cóc, đừng nội suy".
+        NetworkRigidbody3D netRb = GetComponent<NetworkRigidbody3D>();
+        if (netRb != null)
+        {
+            netRb.Teleport(_originalPosition, _originalRotation);
+        }
+        else
+        {
+            transform.SetPositionAndRotation(_originalPosition, _originalRotation);
+        }
     }
 }

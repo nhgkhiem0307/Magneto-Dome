@@ -12,10 +12,39 @@ public class PlayerMagnetController : NetworkBehaviour
     public float pullForce = 40f;
     public float pushForce = 300f;
 
+    [Tooltip("Khoảng cách cơ bản để vật lọt vào tay. BÁN KÍNH CỦA VẬT sẽ được cộng thêm " +
+             "vào con số này, nên vật càng to càng được bắt từ xa - nếu không thì vật to " +
+             "chỉ nghiến vào người mà không bao giờ nắm được.")]
+    public float grabDistance = 0.7f;
+
     [Header("Juggling / Toss Settings")]
     public KeyCode tossKey = KeyCode.V;
-    public float tossUpForce = 0.5f;
-    public float tossForwardForce = 0.2f;
+
+    // ĐỔI TỪ "LỰC" SANG "VẬN TỐC" (09/08).
+    // AddForce(..., Impulse) cho ra thay đổi vận tốc = lực / khối lượng, nên cùng một
+    // con số sẽ tung mỗi prefab một kiểu tuỳ khối lượng của nó. Đặt thẳng vận tốc thì
+    // vật nặng vật nhẹ đều tung lên cao như nhau, dễ căn tay hơn nhiều.
+    // Số mặc định tính theo trọng lực THẬT của project: Project Settings -> Physics
+    // -> Gravity = (0, -3, 0), tức chỉ bằng ~1/3 mặc định Unity. Vật thể bay lơ lửng.
+    //
+    // Độ cao đạt được h = v^2 / (2g). Với g = 3 thì v = 3 cho ra apex 1.5m,
+    // lơ lửng trên không khoảng 2 giây - vừa đủ để tung hứng.
+    // CẨN THẬN: tính nhầm bằng g = 9.81 sẽ ra số cao gấp hơn 3 lần thực tế.
+    [Tooltip("Tốc độ hất LÊN khi tung, mét/giây. Đây là VẬN TỐC chứ không phải lực. " +
+             "Với gravity -3 của project: 3 m/s = cao 1.5m, 4.5 m/s = cao 3.4m.")]
+    public float tossUpSpeed = 3f;
+
+    [Tooltip("Tốc độ đẩy RA TRƯỚC khi tung, mét/giây. Giữ tỉ lệ 4:1 so với lực hất lên " +
+             "như bản cũ, để vật rơi lại gần tầm tay chứ không trôi ra xa.")]
+    public float tossForwardSpeed = 0.75f;
+
+    [Tooltip("Độ xoáy khi tung. Để nhỏ thôi - xoáy mạnh cộng ma sát lúc chạm vật khác " +
+             "sẽ đẩy vật chệch hướng.")]
+    public float tossSpinStrength = 0.3f;
+
+    [Tooltip("Khoảng hở thêm khi đẩy vật ra khỏi người lúc buông tay, tính bằng mét. " +
+             "Tăng lên nếu vật vẫn còn dính vào người khi tung.")]
+    public float releaseClearance = 0.15f;
 
     [Header("Melee & Ability Settings")]
     public float meleeRange = 4f;
@@ -301,8 +330,17 @@ public class PlayerMagnetController : NetworkBehaviour
         Vector3 pullDirection = (holdPoint.position - magObj.transform.position).normalized;
         targetRb.linearVelocity = pullDirection * pullForce;
 
-        // Chỉ khi bay đến sát tay (< 0.7 mét) mới khóa cứng lại
-        if (Vector3.Distance(magObj.transform.position, holdPoint.position) < 0.7f)
+        // NGƯỠNG BẮT VÀO TAY PHẢI CỘNG THÊM BÁN KÍNH VẬT.
+        //
+        // Trước đây là con số cứng 0.7m đo từ TÂM vật tới holdPoint - và đó là lỗi khiến
+        // vật to không bao giờ nắm được. Cái bàn rộng 3m thì collider của nó đụng người
+        // chơi khi tâm còn cách hơn 2m, không tài nào xuống dưới 0.7m được. Nó cứ nghiến
+        // vào người mãi mà không lọt vào tay.
+        //
+        // Cộng bán kính vào thì vật to được bắt từ xa hơn, đúng bằng phần nó "to ra".
+        float grabThreshold = grabDistance + magObj.GetBoundingRadius();
+
+        if (Vector3.Distance(magObj.transform.position, holdPoint.position) < grabThreshold)
         {
             ForceGrabObject(magObj);
         }
@@ -329,7 +367,10 @@ public class PlayerMagnetController : NetworkBehaviour
         if (distance > meleeRange && currentGlovePolarity != targetPolarity)
         {
             Vector3 grappleDirection = (hit.transform.position - transform.position).normalized;
-            if (movement != null) movement.AddImpact(grappleDirection, grapplePullForce);
+
+            // scaleByCharge = false: mình tự kéo mình về phía địch, không phải bị đẩy.
+            // Nếu nhân theo điện tích thì người sắp thua sẽ lao vọt qua đầu đối thủ.
+            if (movement != null) movement.AddImpact(grappleDirection, grapplePullForce, false);
 
             MeleeCooldownTimer = TickTimer.CreateFromSeconds(Runner, meleeCooldown);
             MeleeCount++;
@@ -416,19 +457,64 @@ public class PlayerMagnetController : NetworkBehaviour
         grabbedObject.transform.rotation = aimRotation;
     }
 
+    /// <summary>
+    /// Chuẩn bị cho một vật rời tay: trả cỡ gốc, DỜI RA KHỎI NGƯỜI, rồi mới bật lại va chạm.
+    ///
+    /// VÌ SAO PHẢI DỜI RA - đây là nguyên nhân lỗi "tung V bị lệch ngẫu nhiên":
+    ///
+    /// Lúc cầm, vật bị thu nhỏ còn heldObjectSize (0.6m) nên nằm gọn ở holdPoint trước mặt.
+    /// RestoreScale() làm nó phình lại cỡ thật NGAY TẠI CHỖ ĐÓ - một cái bàn 3m sẽ lồng
+    /// xuyên qua người chơi. Ngay sau đó va chạm được bật lại và vật giao cho PhysX;
+    /// PhysX thấy hai collider chồng nhau rất sâu nên bắn ra một LỰC GỠ KẸT (depenetration)
+    /// để tách chúng ra.
+    ///
+    /// Lực gỡ kẹt đó lớn hơn lực tung nhiều lần, và hướng của nó phụ thuộc vào hình dạng
+    /// chỗ chồng lấn - nên vật bay đi mỗi lần một kiểu.
+    ///
+    /// Bắn bằng chuột phải không lộ lỗi này vì pushForce (300) quá lớn, lực gỡ kẹt bị lấn át.
+    /// Tung lên thì lực bé nên lỗi hiện ra rõ mồn một.
+    /// </summary>
+    private void PrepareForRelease(MagneticObject obj, Vector3 aimDirection)
+    {
+        // Trả cỡ gốc TRƯỚC, để đo được bán kính thật ở bước sau
+        obj.RestoreScale();
+
+        Collider objCol = obj.GetComponent<Collider>();
+        Collider playerCol = GetComponent<Collider>();
+
+        // Bán kính vật SAU khi đã phình lại cỡ thật.
+        // Dùng GetBoundingRadius() thay cho objCol.bounds vì bounds đổi theo góc xoay.
+        float objRadius = obj.GetBoundingRadius();
+
+        float playerRadius = 0.5f;
+        CharacterController cc = GetComponent<CharacterController>();
+        if (cc != null) playerRadius = cc.radius;
+
+        // Đẩy vật ra trước mặt đủ xa để hai collider không còn chạm nhau.
+        // Chỉ đẩy theo phương NGANG và giữ nguyên độ cao điểm cầm, nếu không thì
+        // ngước lên trời tung vật sẽ làm nó xuất hiện ngay trên đầu.
+        Vector3 flatAim = new Vector3(aimDirection.x, 0f, aimDirection.z);
+        if (flatAim.sqrMagnitude < 0.0001f) flatAim = transform.forward;
+        flatAim.Normalize();
+
+        float safeDistance = playerRadius + objRadius + releaseClearance;
+        float holdHeight = holdPoint != null ? holdPoint.position.y : transform.position.y + 1f;
+
+        obj.transform.position =
+            new Vector3(transform.position.x, holdHeight, transform.position.z) + flatAim * safeDistance;
+
+        // GIỜ mới bật lại va chạm, khi vật đã đứng ở chỗ không chồng lấn với ai
+        if (playerCol != null && objCol != null) Physics.IgnoreCollision(playerCol, objCol, false);
+    }
+
     void TossObjectUp(Vector3 aimDirection)
     {
         MagneticObject objToToss = grabbedObject;
         Rigidbody rbToToss = grabbedRb;
         if (objToToss == null || rbToToss == null) return;
 
-        // Trả cỡ gốc ngay, cùng lý do như FireGrabbedObject
-        objToToss.RestoreScale();
-
-        // Bật lại va chạm trước khi rời tay
-        Collider playerCol = GetComponent<Collider>();
-        Collider objCol = objToToss.GetComponent<Collider>();
-        if (playerCol != null && objCol != null) Physics.IgnoreCollision(playerCol, objCol, false);
+        // Trả cỡ gốc + dời ra khỏi người + bật va chạm. Xem PrepareForRelease().
+        PrepareForRelease(objToToss, aimDirection);
 
         // Giải phóng găng tay
         grabbedObject = null;
@@ -438,10 +524,16 @@ public class PlayerMagnetController : NetworkBehaviour
         rbToToss.useGravity = true;
         rbToToss.linearDamping = 0.05f;
 
-        // Hất lên và xoay nhẹ
-        Vector3 tossDirection = Vector3.up * tossUpForce + aimDirection * tossForwardForce;
-        rbToToss.AddForce(tossDirection, ForceMode.Impulse);
-        rbToToss.AddTorque(Random.insideUnitSphere * 1f, ForceMode.Impulse);
+        // ĐẶT THẲNG VẬN TỐC, không dùng AddForce.
+        //
+        // Hai cái lợi: (1) vật nặng vật nhẹ tung lên cao như nhau, (2) phép gán này
+        // GHI ĐÈ mọi vận tốc rác còn sót lại, nên dù có lực gỡ kẹt nào lọt qua thì
+        // cũng bị xoá sạch ngay tại đây.
+        rbToToss.linearVelocity = Vector3.up * tossUpSpeed + aimDirection.normalized * tossForwardSpeed;
+        rbToToss.angularVelocity = Vector3.zero;
+
+        // Xoáy nhẹ cho đẹp mắt
+        rbToToss.AddTorque(Random.insideUnitSphere * tossSpinStrength, ForceMode.Impulse);
     }
 
     void FireGrabbedObject(Vector3 aimDirection)
@@ -452,17 +544,14 @@ public class PlayerMagnetController : NetworkBehaviour
         Rigidbody rbToFire = grabbedRb;
         if (objToFire == null || rbToFire == null) return;
 
-        // Trả cỡ gốc NGAY, không đợi LateUpdate. Vật lý chạy trong tick mạng vốn xảy ra
-        // trước LateUpdate, nên chậm một nhịp là vật bay với collider bé tí một khoảnh khắc.
-        objToFire.RestoreScale();
+        // Trả cỡ gốc + dời ra khỏi người + bật va chạm, dùng chung hàm với tung V.
+        //
+        // Bắn thẳng vốn không lộ lỗi lệch hướng vì pushForce quá lớn, nhưng dùng chung
+        // vẫn có lợi: hết cảnh vật to bị kẹt trong người rồi vọt ra sai đường.
+        PrepareForRelease(objToFire, aimDirection);
 
         objToFire.CurrentDamage = originalBaseDamage;
         objToFire.LaunchAsBullet(this);
-
-        // Bật lại va chạm trước khi bắn
-        Collider playerCol = GetComponent<Collider>();
-        Collider objCol = objToFire.GetComponent<Collider>();
-        if (playerCol != null && objCol != null) Physics.IgnoreCollision(playerCol, objCol, false);
 
         // Buông tay
         grabbedObject = null;
@@ -478,7 +567,11 @@ public class PlayerMagnetController : NetworkBehaviour
         rbToFire.AddForce(fireDirection * pushForce, ForceMode.Impulse);
     }
 
-    void ReleaseGrabbedObject()
+    /// <summary>
+    /// Buông vật đang cầm mà không bắn cũng không tung. GameManager gọi khi reset map
+    /// đầu round mới, để vật không bị bàn tay giữ lại rồi kéo giật về.
+    /// </summary>
+    public void ReleaseGrabbedObject()
     {
         if (grabbedObject != null)
         {

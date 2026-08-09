@@ -211,7 +211,9 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
                 dashDirection = transform.forward;
             }
 
-            AddImpact(dashDirection, dashForce);
+            // scaleByCharge = false: Dash là sức của chính mình, không phải bị đẩy.
+            // Nhiễm điện nặng cũng chỉ lướt được đúng bấy nhiêu mét.
+            AddImpact(dashDirection, dashForce, false);
             DashCount++; // để mọi máy phát tiếng dash, xem OnDashPerformed
 
             // Còn Nước Tăng Lực trong người thì chờ ít hơn
@@ -304,10 +306,28 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         EnergyDrinkTimer = TickTimer.None;
     }
 
-    public void AddImpact(Vector3 dir, float force)
+    /// <summary>
+    /// Đẩy nhân vật này đi theo một hướng.
+    /// </summary>
+    /// <param name="scaleByCharge">
+    /// Bật (mặc định) = đây là cú đẩy TỪ BÊN NGOÀI (bị đấm, dính nổ, trúng vật thể),
+    /// nên phải nhân theo mức nhiễm điện - càng nhiễm nhiều càng bay xa. Đây chính là
+    /// cơ chế cốt lõi của chế độ Quá Tải.
+    ///
+    /// Tắt = đây là chuyển động DO CHÍNH MÌNH tạo ra (Dash, Grapple kéo áp sát).
+    /// Những cái đó phải giữ nguyên cự ly bất kể nhiễm điện bao nhiêu, nếu không thì
+    /// người sắp thua lại dash xa gấp 5 lần - vừa vô lý vừa vỡ cân bằng.
+    /// </param>
+    public void AddImpact(Vector3 dir, float force, bool scaleByCharge = true)
     {
         dir.Normalize();
         if (dir.y < 0f) dir.y = -dir.y;
+
+        if (scaleByCharge && health != null)
+        {
+            force *= health.KnockbackMultiplier;
+        }
+
         NetImpact += dir * (force / mass);
     }
 }

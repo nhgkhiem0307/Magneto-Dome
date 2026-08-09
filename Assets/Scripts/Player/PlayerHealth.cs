@@ -8,33 +8,63 @@ public class PlayerHealth : NetworkBehaviour
     // Làm giống kiểu RoomPlayer.AllPlayers cho nhất quán với codebase.
     public static readonly List<PlayerHealth> AllPlayers = new List<PlayerHealth>();
 
-    public float maxHealth = 100f;
+    // ==================== CHẾ ĐỘ QUÁ TẢI ====================
+    //
+    // Game này KHÔNG CÓ THANH MÁU. Trúng đòn không làm bạn mất máu - nó làm bạn
+    // NHIỄM ĐIỆN. Càng nhiễm nhiều, từ trường tác động lên bạn càng mạnh, nên cùng
+    // một cú đấm sẽ hất bạn đi càng xa.
+    //
+    // Cái chết DUY NHẤT trong game là rơi khỏi đảo (GameManager.CheckKillZone).
+    // Điện tích đầy 100% KHÔNG giết bạn - nó chỉ khiến bạn nhẹ như tờ giấy.
+    //
+    // Vì sao thiết kế vậy: nếu đầy điện là chết thì đây chỉ là thanh máu chạy ngược,
+    // không có gì mới. Để cái chết đến từ VỊ TRÍ mới tạo ra được sự căng thẳng thật:
+    // đứng giữa sân với 90% điện vẫn an toàn, đứng sát rìa với 30% đã là mạo hiểm.
 
+    [Header("Quá Tải - thay cho thanh máu")]
+    [Tooltip("Trần điện tích. Chạm trần KHÔNG chết, đây chỉ là mức bị văng xa nhất.")]
+    public float maxCharge = 100f;
+
+    [Tooltip("Hệ số lực văng khi điện tích ĐẦY. 5 = bị hất xa gấp 5 lần lúc sạch điện.")]
+    public float knockbackAtMaxCharge = 5f;
+
+    [Header("Giáp Cách Điện")]
     [Tooltip("Lượng giáp cộng thêm mỗi lần mua Shield Armor.")]
     public float armorPerPurchase = 10f;
 
     [Tooltip("Trần giáp. Mua thêm khi đã đầy thì không có tác dụng gì.")]
     public float maxArmor = 30f;
 
-    [Header("Băng gạc Nano")]
-    [Tooltip("Lượng máu tối đa hồi được trong một lần dùng.")]
-    public float bandageMaxHeal = 20f;
+    [Header("Băng gạc Nano - nay là Bộ Xả Điện")]
+    [Tooltip("Lượng điện tích tối đa xả được trong một lần dùng.")]
+    public float bandageMaxDischarge = 20f;
 
-    [Tooltip("Chỉ hồi được tối đa bấy nhiêu phần lượng máu ĐÃ MẤT. 0.5 = 50%.")]
-    public float bandageLostRatio = 0.5f;
+    [Tooltip("Chỉ xả được tối đa bấy nhiêu phần điện tích ĐANG CÓ. 0.5 = 50%.")]
+    public float bandageChargeRatio = 0.5f;
 
     // Giáp chịu sát thương THAY cho máu, và bị xoá sạch mỗi khi sang round mới
     // (theo GDD: reset bất kể còn nguyên hay đã vỡ).
     [Networked, OnChangedRender(nameof(OnArmorChanged))]
     public float CurrentArmor { get; set; }
 
-    // Máu phải là [Networked] để mọi máy cùng thấy một con số.
+    // Điện tích tích luỹ. Phải là [Networked] để mọi máy cùng thấy một con số -
+    // nếu không thì Host tính lực văng một kiểu, Client thấy một kiểu.
     //
-    // OnChangedRender: Fusion tự gọi hàm OnHealthChanged mỗi khi con số này thay đổi,
-    // và gọi trên MỌI máy - cả người bắn lẫn người trúng. Sau này thanh máu trên HUD
-    // cũng sẽ móc vào đây thay vì phải kiểm tra mỗi khung hình.
-    [Networked, OnChangedRender(nameof(OnHealthChanged))]
-    public float CurrentHealth { get; set; }
+    // OnChangedRender: Fusion tự gọi OnChargeChanged mỗi khi con số này đổi,
+    // và gọi trên MỌI máy - cả người bắn lẫn người trúng.
+    [Networked, OnChangedRender(nameof(OnChargeChanged))]
+    public float CurrentCharge { get; set; }
+
+    /// <summary>Mức nhiễm điện quy về 0..1. HUD dùng cái này cho thanh đo.</summary>
+    public float ChargeRatio => maxCharge > 0f ? Mathf.Clamp01(CurrentCharge / maxCharge) : 0f;
+
+    /// <summary>
+    /// Hệ số nhân lực văng theo mức nhiễm điện: sạch điện = 1.0, đầy điện = knockbackAtMaxCharge.
+    ///
+    /// Đây là TOÀN BỘ cơ chế của chế độ Quá Tải, gói trong một dòng.
+    /// FPSMovement.AddImpact() đọc giá trị này mỗi lần bạn hứng một cú đẩy.
+    /// </summary>
+    public float KnockbackMultiplier => Mathf.Lerp(1f, knockbackAtMaxCharge, ChargeRatio);
 
     // 0 = Đỏ, 1 = Xanh. Host gán lúc spawn, dựa theo đội đã chọn trong phòng chờ.
     [Networked] public int Team { get; set; }
@@ -54,10 +84,10 @@ public class PlayerHealth : NetworkBehaviour
     private CharacterController controller;
     private Renderer[] cachedRenderers;
 
-    // Giá trị ở lần đổi trước, để biết máu/giáp vừa TĂNG hay GIẢM.
+    // Giá trị ở lần đổi trước, để biết điện tích/giáp vừa TĂNG hay GIẢM.
     // OnChangedRender chỉ báo "có thay đổi", không cho biết đổi theo chiều nào,
-    // mà tiếng trúng đòn thì chỉ được kêu khi mất máu chứ không phải lúc hồi máu.
-    private float _lastKnownHealth;
+    // mà tiếng trúng đòn thì chỉ được kêu khi NHIỄM THÊM điện, không phải lúc xả điện.
+    private float _lastKnownCharge;
     private float _lastKnownArmor;
 
     public override void Spawned()
@@ -71,13 +101,13 @@ public class PlayerHealth : NetworkBehaviour
 
         if (HasStateAuthority)
         {
-            CurrentHealth = maxHealth;
+            CurrentCharge = 0f; // vào trận là sạch điện, nặng và khó bị đẩy nhất
             IsAlive = true;
         }
 
         // Ghi nhận giá trị khởi đầu, nếu không lần đổi đầu tiên sẽ bị hiểu nhầm
-        // là "vừa mất máu" và kêu tiếng trúng đòn oan.
-        _lastKnownHealth = CurrentHealth;
+        // là "vừa nhiễm điện" và kêu tiếng trúng đòn oan.
+        _lastKnownCharge = CurrentCharge;
         _lastKnownArmor = CurrentArmor;
 
         ApplyAliveState();
@@ -90,50 +120,58 @@ public class PlayerHealth : NetworkBehaviour
 
     // --- SÁT THƯƠNG & CHẾT ---
 
+    /// <summary>
+    /// Hứng một đòn. Trong chế độ Quá Tải, đòn đánh KHÔNG trừ máu mà CỘNG ĐIỆN TÍCH.
+    ///
+    /// Tên hàm giữ nguyên là TakeDamage để MagneticObject, vụ nổ TNT và mọi chỗ khác
+    /// không phải sửa gì cả - chúng vẫn nói "gây 20 sát thương", chỉ có ý nghĩa của
+    /// con số 20 là đổi: giờ nó là "nạp thêm 20 điểm điện".
+    /// </summary>
     public void TakeDamage(float amount)
     {
-        // Chỉ Host mới được trừ máu (Host Mode - server authoritative).
+        // Chỉ Host mới được đổi điện tích (Host Mode - server authoritative).
         //
         // Hàm này được MagneticObject gọi vào, mà MagneticObject chạy trên MỌI máy.
-        // Nếu không chặn ở đây thì mỗi máy sẽ trừ máu một lần, mất máu gấp nhiều lần thực tế.
+        // Nếu không chặn ở đây thì mỗi máy nạp một lần, điện tăng gấp nhiều lần thực tế.
         if (!HasStateAuthority) return;
 
-        // Đã bị loại rồi thì không ăn thêm sát thương nữa
+        // Đã bị loại rồi thì không nhiễm thêm nữa
         if (!IsAlive) return;
 
-        // GIÁP CHỊU ĐÒN TRƯỚC. Vỡ hết giáp thì phần thừa mới ăn vào máu.
+        // GIÁP CÁCH ĐIỆN CHỊU TRƯỚC. Nó hấp thụ điện thay cho cơ thể,
+        // hỏng dần cho tới khi hết. Phần thừa mới ngấm vào người.
         if (CurrentArmor > 0f)
         {
             float absorbed = Mathf.Min(CurrentArmor, amount);
             CurrentArmor -= absorbed;
             amount -= absorbed;
 
-            Debug.Log($"<color=#88CCFF>[GIÁP] Chặn được {absorbed}, giáp còn {CurrentArmor}</color>");
+            Debug.Log($"<color=#88CCFF>[GIÁP] Cách điện được {absorbed}, giáp còn {CurrentArmor}</color>");
 
-            // Giáp đỡ trọn cú này, máu không suy suyển
+            // Giáp nuốt trọn cú này, người không nhiễm thêm tí nào
             if (amount <= 0f) return;
         }
 
-        CurrentHealth -= amount;
+        // Chạm trần thì DỪNG LẠI, không chết.
+        //
+        // Đây là điểm khác biệt cốt lõi so với thanh máu: đầy điện không phải là
+        // thua cuộc, nó chỉ có nghĩa "một cú chạm nữa là bạn bay khỏi bản đồ".
+        CurrentCharge = Mathf.Min(CurrentCharge + amount, maxCharge);
 
-        // Chỉ in lượng sát thương ở đây. Con số máu còn lại do OnHealthChanged in ra,
-        // vì hàm đó chạy trên mọi máy còn hàm này chỉ chạy trên Host.
-        Debug.Log($"<color=yellow>[SÁT THƯƠNG] Player {Object.InputAuthority} trúng đòn -{amount}</color>");
-
-        if (CurrentHealth <= 0f)
-        {
-            Die();
-        }
+        Debug.Log($"<color=yellow>[NHIỄM ĐIỆN] Player {Object.InputAuthority} +{amount} " +
+                  $"-> lực văng hiện tại x{KnockbackMultiplier:F1}</color>");
     }
 
     // Bị loại khỏi round hiện tại. GameManager sẽ tự phát hiện và kết thúc round
     // khi một đội không còn ai sống.
+    //
+    // Trong chế độ Quá Tải, hàm này gần như CHỈ được gọi từ GameManager.CheckKillZone()
+    // - tức là khi rơi khỏi đảo. Không còn đường chết nào khác.
     public void Die()
     {
         if (!HasStateAuthority) return;
         if (!IsAlive) return;
 
-        CurrentHealth = 0f;
         IsAlive = false;
 
         string teamName = Team == 0 ? "Đỏ" : "Xanh";
@@ -141,24 +179,26 @@ public class PlayerHealth : NetworkBehaviour
     }
 
     /// <summary>
-    /// Băng gạc Nano: hồi tối đa 20 HP, nhưng KHÔNG quá 50% lượng máu đã mất.
-    /// Ví dụ mất 20 HP (còn 80) thì chỉ hồi 50% của 20 = 10 HP, thành 90 HP.
+    /// Bộ Xả Điện (trước là Băng gạc Nano): xả tối đa 20 điểm điện, nhưng KHÔNG quá
+    /// 50% lượng điện đang mang. Ví dụ đang nhiễm 20 thì chỉ xả được 50% của 20 = 10.
     ///
-    /// Trả về false khi máu đang đầy, để không nuốt mất món đồ của người chơi.
+    /// Giữ nguyên công thức "giảm dần hiệu quả" của băng gạc cũ: càng nguy kịch thì
+    /// một món đồ càng cứu được ít, nên không thể dựa vào nó để lì đòn vô hạn.
+    ///
+    /// Trả về false khi đang sạch điện, để không nuốt mất món đồ của người chơi.
     /// </summary>
     public bool ApplyBandage()
     {
         if (!HasStateAuthority) return false;
         if (!IsAlive) return false;
 
-        float lostHealth = maxHealth - CurrentHealth;
-        if (lostHealth <= 0f) return false; // máu đầy rồi, dùng vô nghĩa
+        if (CurrentCharge <= 0f) return false; // sạch điện rồi, dùng vô nghĩa
 
-        float healAmount = Mathf.Min(bandageMaxHeal, lostHealth * bandageLostRatio);
-        if (healAmount <= 0f) return false;
+        float dischargeAmount = Mathf.Min(bandageMaxDischarge, CurrentCharge * bandageChargeRatio);
+        if (dischargeAmount <= 0f) return false;
 
-        CurrentHealth = Mathf.Min(CurrentHealth + healAmount, maxHealth);
-        Debug.Log($"<color=lime>[BĂNG GẠC] Hồi {healAmount} HP, máu còn {CurrentHealth}</color>");
+        CurrentCharge = Mathf.Max(CurrentCharge - dischargeAmount, 0f);
+        Debug.Log($"<color=lime>[XẢ ĐIỆN] Xả {dischargeAmount}, điện tích còn {CurrentCharge}</color>");
         return true;
     }
 
@@ -180,7 +220,8 @@ public class PlayerHealth : NetworkBehaviour
     {
         if (!HasStateAuthority) return;
 
-        CurrentHealth = maxHealth;
+        // Sang round mới là xả sạch điện, ai cũng về mức nặng nhất, khó đẩy nhất
+        CurrentCharge = 0f;
         IsAlive = true;
 
         // Theo GDD: hết round là giáp bị xoá sạch, bất kể còn nguyên hay đã vỡ.
@@ -214,23 +255,23 @@ public class PlayerHealth : NetworkBehaviour
 
     // --- CÁC HÀM PHẢN ỨNG, CHẠY TRÊN MỌI MÁY ---
 
-    // Chạy mỗi khi CurrentHealth đổi giá trị.
+    // Chạy mỗi khi CurrentCharge đổi giá trị.
     // Mở Console ở cả 2 cửa sổ ParrelSync là đối chiếu được ngay: hai bên cùng một
-    // con số thì máu đã đồng bộ đúng.
-    private void OnHealthChanged()
+    // con số thì điện tích đã đồng bộ đúng.
+    private void OnChargeChanged()
     {
         string who = HasInputAuthority
-            ? "<color=lime>MÁU CỦA BẠN</color>"
-            : $"<color=orange>MÁU ĐỐI PHƯƠNG (Player {Object.InputAuthority})</color>";
+            ? "<color=lime>ĐIỆN TÍCH CỦA BẠN</color>"
+            : $"<color=orange>ĐIỆN TÍCH ĐỐI PHƯƠNG (Player {Object.InputAuthority})</color>";
 
-        Debug.Log($"[MÁU] {who}: {CurrentHealth} / {maxHealth}");
+        Debug.Log($"[QUÁ TẢI] {who}: {CurrentCharge:F0} / {maxCharge} (x{KnockbackMultiplier:F1})");
 
-        // Chỉ kêu khi MẤT máu. Hồi máu bằng băng gạc thì không dùng tiếng này.
-        if (CurrentHealth < _lastKnownHealth)
+        // Chỉ kêu khi NHIỄM THÊM điện. Xả điện bằng vật phẩm thì không dùng tiếng này.
+        if (CurrentCharge > _lastKnownCharge)
         {
             AudioManager.Hit(transform.position);
         }
-        _lastKnownHealth = CurrentHealth;
+        _lastKnownCharge = CurrentCharge;
     }
 
     private void OnArmorChanged()

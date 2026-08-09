@@ -20,10 +20,24 @@ public class HUDController : MonoBehaviour
     [Tooltip("Object chứa toàn bộ HUD. Tự ẩn khi chưa vào trận.")]
     public GameObject hudRoot;
 
-    [Header("Máu & Giáp")]
-    [Tooltip("Image có Image Type = Filled. Script điều khiển Fill Amount.")]
+    // Tên biến vẫn là "health..." dù giờ nó hiển thị ĐIỆN TÍCH, không phải máu.
+    // CỐ Ý không đổi tên: đổi tên biến public sẽ xoá sạch mọi thứ đã kéo thả vào
+    // Inspector, phải gán lại từ đầu. Không đáng để đánh đổi.
+    [Header("Điện tích (Quá Tải) & Giáp")]
+    [Tooltip("Image có Image Type = Filled. Giờ là THANH ĐIỆN TÍCH: đầy = sắp bay khỏi map.")]
     public Image healthFill;
+    [Tooltip("Hiện mức nhiễm điện dạng phần trăm.")]
     public TMP_Text healthText;
+
+    [Tooltip("Màu thanh điện lúc sạch điện (an toàn).")]
+    public Color chargeSafeColor = new Color(0.3f, 0.9f, 1f);
+    [Tooltip("Màu thanh điện lúc đầy (một cú chạm là bay khỏi đảo).")]
+    public Color chargeDangerColor = new Color(1f, 0.3f, 0.1f);
+
+    [Tooltip("(Tuỳ chọn) Hiện hệ số lực văng hiện tại, ví dụ \"x2.4\". " +
+             "Đây là con số cho người chơi biết mình đang nguy hiểm cỡ nào.")]
+    public TMP_Text knockbackText;
+
     public Image armorFill;
     public TMP_Text armorText;
     [Tooltip("Object chứa thanh giáp. Tự ẩn khi không có giáp.")]
@@ -63,9 +77,38 @@ public class HUDController : MonoBehaviour
     [Tooltip("Dòng chữ lớn báo kết quả round / trận đấu.")]
     public TMP_Text announcementText;
 
+    [Tooltip("Khung nền chứa dòng thông báo. Ẩn/hiện cùng lúc với dòng chữ, " +
+             "để lúc không có thông báo thì không còn hộp trống nằm lại trên màn hình.\n" +
+             "Bỏ trống ô này thì script tự hiểu khung nền chính là object CHA của announcementText.")]
+    public GameObject announcementGroup;
+
     // Nhớ pha ở khung hình trước, để biết lúc nào vừa chuyển pha mà hiện thông báo
     private GameManager.GamePhase _lastPhase = GameManager.GamePhase.WaitingToStart;
     private bool _hasSeenPhase;
+
+    void Awake()
+    {
+        // Không gán tay thì mặc định khung nền là object cha của dòng chữ.
+        // Lấy ở Awake (chạy 1 lần lúc khởi tạo) chứ không lấy trong Update, vì khi
+        // khung nền bị tắt đi rồi thì transform.parent vẫn đọc được, nhưng lấy 1 lần
+        // vẫn rẻ hơn và tránh phụ thuộc thứ tự bật/tắt.
+        if (announcementGroup == null && announcementText != null && announcementText.transform.parent != null)
+        {
+            announcementGroup = announcementText.transform.parent.gameObject;
+        }
+
+        // Chốt an toàn: nếu khung nền lại đúng là gốc HUD thì tắt nó sẽ tắt luôn TOÀN BỘ HUD,
+        // mà Update() bật lại ngay khung hình sau → màn hình nhấp nháy. Thà bỏ qua còn hơn.
+        if (announcementGroup != null && announcementGroup == hudRoot)
+        {
+            Debug.LogWarning("[HUDController] announcementGroup đang trỏ vào hudRoot. " +
+                             "Hãy bọc dòng thông báo trong một object riêng, nếu không khung nền sẽ không tự ẩn.", this);
+            announcementGroup = null;
+        }
+
+        // Bắt đầu trận thì chưa có gì để báo — giấu sẵn đi cho sạch màn hình
+        SetAnnouncement("");
+    }
 
     void Update()
     {
@@ -109,10 +152,22 @@ public class HUDController : MonoBehaviour
         PlayerHealth health = displayed.GetComponent<PlayerHealth>();
         if (health == null) return;
 
-        float healthRatio = health.maxHealth > 0f ? health.CurrentHealth / health.maxHealth : 0f;
+        // THANH ĐIỆN TÍCH. Khác thanh máu ở chỗ nó chạy NGƯỢC: đầy dần lên là xấu đi.
+        float chargeRatio = health.ChargeRatio;
 
-        if (healthFill != null) healthFill.fillAmount = Mathf.Clamp01(healthRatio);
-        if (healthText != null) healthText.text = Mathf.CeilToInt(Mathf.Max(0f, health.CurrentHealth)).ToString();
+        if (healthFill != null)
+        {
+            healthFill.fillAmount = chargeRatio;
+
+            // Đổi màu dần từ xanh sang đỏ để liếc một cái là biết mình đang ở đâu,
+            // không phải đọc số. Nhiễm càng nặng màu càng gắt.
+            healthFill.color = Color.Lerp(chargeSafeColor, chargeDangerColor, chargeRatio);
+        }
+
+        if (healthText != null) healthText.text = $"{Mathf.RoundToInt(chargeRatio * 100f)}%";
+
+        // Hệ số lực văng: con số nói thẳng "một cú chạm bây giờ đẩy bạn xa gấp mấy lần"
+        if (knockbackText != null) knockbackText.text = $"x{health.KnockbackMultiplier:F1}";
 
         // Thanh giáp chỉ hiện khi thật sự có giáp, đỡ chiếm chỗ vô ích
         bool hasArmor = health.CurrentArmor > 0f;
@@ -236,7 +291,11 @@ public class HUDController : MonoBehaviour
 
         if (gm == null)
         {
-            announcementText.text = "";
+            SetAnnouncement("");
+
+            // Quên pha đã thấy đi. Nếu không, khi GameManager xuất hiện trở lại mà vẫn
+            // đang ở đúng pha cũ thì lệnh return bên dưới sẽ chặn, thông báo không hiện lại.
+            _hasSeenPhase = false;
             return;
         }
 
@@ -249,19 +308,34 @@ public class HUDController : MonoBehaviour
         switch (gm.Phase)
         {
             case GameManager.GamePhase.RoundEnd:
-                announcementText.text = GetRoundResultText(gm);
+                SetAnnouncement(GetRoundResultText(gm));
                 break;
 
             case GameManager.GamePhase.MatchEnd:
-                announcementText.text = gm.MatchWinner == 0
+                SetAnnouncement(gm.MatchWinner == 0
                     ? "ĐỘI ĐỎ VÔ ĐỊCH!"
-                    : "ĐỘI XANH VÔ ĐỊCH!";
+                    : "ĐỘI XANH VÔ ĐỊCH!");
                 break;
 
             default:
-                announcementText.text = "";
+                SetAnnouncement("");
                 break;
         }
+    }
+
+    /// <summary>
+    /// Đặt nội dung thông báo VÀ bật/tắt khung nền theo nó.
+    /// Truyền chuỗi rỗng nghĩa là "không có gì để báo" → giấu luôn cả khung.
+    ///
+    /// Lưu ý: gán .text cho một TMP_Text đang nằm trong object bị tắt vẫn chạy bình thường,
+    /// nên thứ tự gán chữ trước, tắt khung sau là an toàn.
+    /// </summary>
+    private void SetAnnouncement(string message)
+    {
+        bool hasMessage = !string.IsNullOrEmpty(message);
+
+        if (announcementText != null) announcementText.text = message;
+        if (announcementGroup != null) announcementGroup.SetActive(hasMessage);
     }
 
     private string GetRoundResultText(GameManager gm)

@@ -29,6 +29,11 @@ public class GameManager : NetworkBehaviour
     [Tooltip("Chờ một nhịp sau khi vào scene để mọi nhân vật kịp spawn xong.")]
     public float warmupDuration = 2f;
 
+    [Tooltip("Giới hạn giờ pha chiến đấu. BẮT BUỘC phải có trong chế độ Quá Tải: " +
+             "vì không ai chết vì hết máu, hai bên cùng né rìa vực thì round kéo dài vô tận. " +
+             "Hết giờ thì đội có TỔNG ĐIỆN TÍCH thấp hơn được xử thắng.")]
+    public float combatDuration = 90f;
+
     [Header("Điều kiện thắng")]
     [Tooltip("Số round cần thắng để vô địch.")]
     public int pointsToWin = 5;
@@ -102,6 +107,14 @@ public class GameManager : NetworkBehaviour
                 break;
 
             case GamePhase.Combat:
+                // Hết giờ trước khi có ai rơi -> phân thắng bại bằng tổng điện tích.
+                // Xét TRƯỚC CheckRoundOver để hết giờ là chốt ngay, không chờ thêm tick nào.
+                if (PhaseTimer.Expired(Runner))
+                {
+                    EndRoundByCharge();
+                    break;
+                }
+
                 CheckRoundOver();
                 break;
 
@@ -136,6 +149,10 @@ public class GameManager : NetworkBehaviour
         // Hồi sinh toàn bộ, kể cả người đang sống, để ai cũng về đúng điểm xuất phát
         RespawnAllPlayers();
 
+        // Trả cả bản đồ về nguyên trạng: mọi vật thể về đúng chỗ cũ, sạch điện,
+        // thùng TNT đã nổ thì sống lại. Round mới bắt đầu từ một sân chơi y hệt round trước.
+        ResetWorldObjects();
+
         Phase = GamePhase.BuyPhase;
         PhaseTimer = TickTimer.CreateFromSeconds(Runner, buyPhaseDuration);
 
@@ -145,9 +162,13 @@ public class GameManager : NetworkBehaviour
     private void StartCombat()
     {
         Phase = GamePhase.Combat;
-        PhaseTimer = TickTimer.None; // pha chiến đấu không giới hạn thời gian
 
-        Debug.Log("<color=lime><b>=== BẮT ĐẦU CHIẾN ĐẤU ===</b></color>");
+        // Chế độ Quá Tải: pha chiến đấu CÓ giới hạn giờ.
+        // Trước đây để TickTimer.None (vô hạn) là được, vì đằng nào cũng có người
+        // hết máu. Giờ không còn cái chết vì hết máu nữa nên phải có đồng hồ.
+        PhaseTimer = TickTimer.CreateFromSeconds(Runner, combatDuration);
+
+        Debug.Log($"<color=lime><b>=== BẮT ĐẦU CHIẾN ĐẤU ({combatDuration}s) ===</b></color>");
     }
 
     private void EndRound(int winnerTeam)
@@ -244,6 +265,55 @@ public class GameManager : NetworkBehaviour
         else if (blueAlive == 0) EndRound(0); // Xanh hết người -> Đỏ thắng
     }
 
+    /// <summary>
+    /// Hết giờ pha chiến đấu mà chưa đội nào bị xoá sổ: đội nào TỔNG ĐIỆN TÍCH THẤP HƠN
+    /// thì thắng round.
+    ///
+    /// Vì sao chọn cách này chứ không phải hoà: nó thưởng cho đội chơi hay hơn.
+    /// Nhiễm ít điện nghĩa là né giỏi và đánh trúng nhiều - xứng đáng thắng.
+    /// Nếu để hoà thì đội đang bị dồn ép sẽ có động cơ chạy vòng quanh câu giờ,
+    /// đúng thứ làm hỏng trải nghiệm.
+    ///
+    /// Người đã bị loại (rơi khỏi đảo) tính là đã nạp ĐẦY điện, nên đội mất người
+    /// gần như chắc chắn thua nếu để hết giờ.
+    /// </summary>
+    private void EndRoundByCharge()
+    {
+        float redCharge = 0f;
+        float blueCharge = 0f;
+        int totalPlayers = 0;
+
+        foreach (PlayerHealth p in PlayerHealth.AllPlayers)
+        {
+            if (p == null) continue;
+            totalPlayers++;
+
+            // Đã rơi khỏi đảo thì coi như quá tải hoàn toàn
+            float charge = p.IsAlive ? p.CurrentCharge : p.maxCharge;
+
+            if (p.Team == 0) redCharge += charge;
+            else blueCharge += charge;
+        }
+
+        if (totalPlayers == 0) return;
+
+        Debug.Log($"<color=orange><b>=== HẾT GIỜ! Tổng điện tích - Đỏ: {redCharge:F0} | Xanh: {blueCharge:F0} ===</b></color>");
+
+        // Bằng nhau tuyệt đối thì mới xử hoà. Hiếm, nhưng phải có nhánh này.
+        if (Mathf.Approximately(redCharge, blueCharge))
+        {
+            Debug.Log("<color=grey><b>=== HOÀ! Hai đội cùng mức nhiễm điện ===</b></color>");
+            LastRoundWinner = -1;
+            GiveRoundRewards(-1);
+
+            Phase = GamePhase.RoundEnd;
+            PhaseTimer = TickTimer.CreateFromSeconds(Runner, roundEndDuration);
+            return;
+        }
+
+        EndRound(redCharge < blueCharge ? 0 : 1);
+    }
+
     // Trả về đội vô địch, hoặc -1 nếu chưa ai đủ điều kiện.
     //
     // Luật: phải đạt đủ số điểm quy định VÀ hơn đối thủ ít nhất 2 round.
@@ -300,6 +370,40 @@ public class GameManager : NetworkBehaviour
 
             p.Respawn(position, yaw);
         }
+    }
+
+    /// <summary>
+    /// Trả toàn bộ bản đồ về nguyên trạng đầu trận.
+    ///
+    /// THỨ TỰ QUAN TRỌNG: phải gỡ vật khỏi tay và khỏi túi TRƯỚC, rồi mới trả vật về chỗ cũ.
+    /// Làm ngược lại thì vật vừa về chỗ cũ đã bị bàn tay kéo giật lại ngay khung hình sau,
+    /// vì LateUpdate() vẫn thấy GrabbedObjectId còn trỏ vào nó.
+    /// </summary>
+    private void ResetWorldObjects()
+    {
+        // 1. Buông vật đang cầm + xoá phần vật thể map trong túi
+        foreach (PlayerHealth p in PlayerHealth.AllPlayers)
+        {
+            if (p == null) continue;
+
+            PlayerMagnetController magnet = p.GetComponent<PlayerMagnetController>();
+            if (magnet != null) magnet.ReleaseGrabbedObject();
+
+            InventorySystem inventory = p.GetComponent<InventorySystem>();
+            if (inventory != null) inventory.ClearStoredObjects();
+        }
+
+        // 2. Giờ mới trả mọi vật thể về đúng chỗ đứng ban đầu
+        int count = 0;
+        foreach (MagneticObject obj in MagneticObject.AllObjects)
+        {
+            if (obj == null) continue;
+
+            obj.ResetForNewRound();
+            count++;
+        }
+
+        Debug.Log($"<color=cyan>[RESET MAP] Đã trả {count} vật thể về chỗ cũ</color>");
     }
 
     // --- PHẢN ỨNG TRÊN MỌI MÁY ---
