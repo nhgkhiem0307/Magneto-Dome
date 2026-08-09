@@ -1,391 +1,343 @@
 # TIẾN ĐỘ — Magneto-Dome
 
-> Nhật ký tiến độ. Cập nhật sau mỗi buổi làm việc.
-> Đọc kèm [CLAUDE.md](CLAUDE.md) — file đó chứa đặc tả và quy tắc, file này chỉ ghi *đang làm tới đâu*.
-
-**Cập nhật lần cuối:** 30/07/2026
-**Deadline:** khoảng 16/09/2026 (còn ~7 tuần)
+> Ghi cho session sau. Đọc file này trước, rồi đọc [CLAUDE.md](CLAUDE.md) để nắm đặc tả và quy tắc.
+> **Cập nhật:** 09/08/2026 · **Deadline:** ~16/09/2026 (còn ~5 tuần)
 
 ---
 
-## Lộ trình (tư duy Valorant)
+## 1. Tóm tắt một dòng
 
-| # | Giai đoạn | Mức | Tiến độ |
+Game **chạy được trọn vẹn**: vào phòng → chia đội → đánh nhau → tính điểm → mua đồ → dùng đồ
+→ có đội vô địch → về menu. **Toàn bộ code đã xong.** Việc còn lại là **map** và một ít dựng UI.
+
+> ⚡ **09/08: đã đổi mục tiêu tối thượng sang CHẾ ĐỘ QUÁ TẢI.** Không còn thanh máu — trúng đòn
+> nạp điện tích, càng nhiễm càng bị hất xa, chết chỉ khi rơi khỏi đảo. Code xong và đã biên dịch
+> sạch (`dotnet build`, 0 error), **chưa test lần nào.** Đặc tả đầy đủ ở [CLAUDE.md](CLAUDE.md) mục 4.
+
+---
+
+## 2. Đã xong và đã kiểm chứng trên 2 máy
+
+Lobby (mã PIN, đổi đội) · spawn theo đội đúng vị trí và hướng nhìn · WASD + xoay + Dash ·
+đổi điện tích · cận chiến 3 kiểu · nạp điện / hút / cầm / ném vật thể · máu + giáp ·
+vòng đấu đầy đủ (BuyPhase 15s → Combat → RoundEnd → tính điểm → hồi sinh) · rào chắn spawn ·
+KillZone · Shop (mua bán, trừ tiền, thưởng cuối round) · túi đồ · Radial Menu ·
+4 vật phẩm tiêu hao · HUD.
+
+### Giá trị Inspector đã cân bằng tay (ghi lại phòng khi prefab hỏng)
+
+Đọc thẳng từ file `.prefab` ngày 09/08 nên đây là giá trị THẬT, không phải mặc định trong code.
+
+```
+[Project Settings → Physics]
+  Gravity              (0, -3, 0)      ← mặc định Unity là -9.81. Chỉ ảnh hưởng RIGIDBODY (đạn)
+
+[Player.prefab]
+FPSMovement          moveSpeed 13 · mouseSensitivity 1 · dashForce 100 · dashCooldown 1
+                     gravity -9.81 · mass 3 · drag 5     ← gravity này CHỈ cho nhân vật
+PlayerMagnetController  pullForce 13 · pushForce 50 · shootRange 50
+                     meleeRange 4 · meleeCooldown 1 · dashLockRange 20
+                     meleePushForce 200 · grapplePullForce 100
+                     heldObjectSize 1 · onlyShrinkLargeObjects true
+PlayerHealth         maxCharge 100 · knockbackAtMaxCharge 5 · maxArmor 30 · armorPerPurchase 10
+                     bandageMaxDischarge 20 · bandageChargeRatio 0.5
+PlayerEconomy        start 500 · cap 750 · win 150 · lose 100
+
+[GameManager.prefab]
+                     buyPhase 15 · roundEnd 5 · matchEnd 8 · warmup 2
+                     killZoneY -20 · pointsToWin 5 · requiredLead 2
+                     combatDuration — CHƯA có trong prefab, sẽ lấy mặc định 90 khi Unity biên dịch lại
+
+[Shop]               Armor 150 · EnergyDrink 100 · Bandage 100 · Gasoline 150 · EMBarrier 200
+```
+
+> ⚠️ **Hai trọng lực riêng biệt, đừng lẫn.** Project Settings `-3` cho vật thể (đạn bay lơ lửng),
+> `FPSMovement.gravity` `-9.81` cho nhân vật (rơi bình thường). Tính quỹ đạo đạn phải dùng **-3**.
+
+> 🔴 **`knockbackAtMaxCharge = 5` gần như chắc chắn quá lố.** Quãng đường bị đẩy ≈ `(lực/mass) × 0.2`
+> với `drag 5`. Với `meleePushForce 200` và `mass 3`: sạch điện đã bay **13m**, đầy điện bay **67m** —
+> văng khỏi mọi map. Bắt đầu bằng **2.5**, nếu vẫn quá thì hạ `meleePushForce` 200 → 120
+> trước khi động vào hệ số. *(Ước lượng trên giấy, chưa test.)*
+
+---
+
+## 3. Còn phải làm
+
+### 🔴 Map — rủi ro lớn nhất, dồn thời gian vào đây
+
+Hiện **toàn cube và model mặc định Unity**. Đây là thứ mất điểm rõ nhất khi bảo vệ.
+
+Đừng dựng đẹp — cần **map đọc được, chơi được**. Ghép từ asset đã có trong project
+(Polytope Studio, Fantasy Environments, Unvik Cross Plains) nhanh hơn tự dựng nhiều.
+
+⚠️ Đổi map làm hỏng 4 giá trị đã chỉnh, phải cân bằng lại sau:
+`redTeamSpawnPoint` · `blueTeamSpawnPoint` · vị trí 2 rào chắn · `killZoneY`
+
+🔥 **Từ 09/08 map còn quan trọng hơn nữa.** Chế độ Quá Tải sống chết bằng **rìa vực**:
+bị hất bay 15m chỉ đáng sợ khi có chỗ để rơi xuống. Map phải có **nhiều rìa hở, ít tường bao**,
+và nên có vài mỏm hẹp nhô ra ngoài để tạo điểm nóng. Map kín sẽ giết mode này.
+
+Dấu hiệu map chưa đạt: **mọi round đều kết thúc bằng hết giờ 90s** thay vì có người rơi.
+
+#### 📐 Bố cục đã thiết kế: **"LÕI TỪ"** *(09/08, chưa dựng)*
+
+Đảo bát giác, một lõi nâng cao ở giữa, 4 mỏm nhô ra vực ở 4 góc chéo.
+
+```
+      ◆TNT                                      ◆TNT
+        ╲     ╔══════════════════════════╗     ╱
+         ╲────╢   ▓▓▓  SPAWN ĐỎ  ▓▓▓     ╟────╱      Z=62 (y=+4)
+              ║        [rào chắn]        ║
+              ║   ╭───────╨───╨──────╮   ║
+   V Ự C      ║dốc│   LÕI TỪ  y=+7   │dốc║      V Ự C
+              ║   │     r = 9m       │   ║
+              ║   ╰───────╥───╥──────╯   ║
+              ║        [rào chắn]        ║
+         ╱────╢   ▓▓▓ SPAWN XANH ▓▓▓     ╟────╲      Z=18 (y=+4)
+        ╱     ╚══════════════════════════╝     ╲
+      ◆TNT                                      ◆TNT
+            X=12                          X=68
+```
+
+| Khu | Cao | Kích thước | Vai trò |
 |---|---|---|---|
-| 0 | Chuyển gameplay sang Fusion Host Mode | 🔴 Bắt buộc | ✅ **XONG** |
-| 1 | Khung xương vòng đấu (`GameManager`) | 🔴 Bắt buộc | ✅ **XONG** |
-| 2 | Buy Phase + rào chắn spawn | 🔴 Bắt buộc | 🟡 Code xong, **chờ dựng rào trong Unity** |
-| — | Đại tu túi đồ cho chạy với Fusion | 🔴 Bắt buộc | ✅ **XONG** — chờ test |
-| 3a | Kinh tế (tiền, thưởng round) + thanh giáp | 🟡 Cắt được | ✅ **XONG — đã test** |
-| 3b | Shop UI + mua bán | 🟡 Cắt được | ✅ **XONG — đã test** |
-| 3c | 4 hiệu ứng vật phẩm + Radial Menu | 🟡 Cắt được | ✅ **XONG** |
-| 4 | HUD | 🔴 Bắt buộc | ⬜ **← đang tới đây** |
-| 5 | Chết & Quan sát (xem qua mắt đồng đội) | 🟢 Cắt được | 🟡 **Code xong** — chờ dựng UI |
-| 6a | Âm thanh | 🔴 Bắt buộc | 🟡 **Code xong** — chờ gán file âm thanh |
-| 6b | Settings UI | 🔴 Bắt buộc | 🟡 **Code xong** — chờ dựng UI |
-| 6c | Polish + build | 🔴 Bắt buộc | ⬜ |
+| Vành đai | `y=0` | rộng ~19m | Sân đánh chính |
+| **Lõi Từ** | `y=+7` | bán kính 9m | Cao điểm tranh chấp, 4 dốc lên |
+| 2 bệ spawn | `y=+4` | 12×10m | Có rào chắn Buy Phase |
+| 4 mỏm chéo | `y=0` | 10×10m, cổ nối 4m | **Chỗ để TNT** |
 
-### Chia thời gian dự kiến
+```
+Tâm map      (40, 0, 40)          Spawn Đỏ    (40, 4, 62) yaw 180
+Lõi Từ       (40, 7, 40) r=9      Spawn Xanh  (40, 4, 18) yaw 0
+Rào Đỏ       (40, 4, 56)          Rào Xanh    (40, 4, 24)
+4 mỏm        (16,0,16) (64,0,16) (16,0,64) (64,0,64)
+Đảo bát giác X và Z từ 12 đến 68  ·  killZoneY -20
+```
+
+**Nguyên tắc rải đạn — đừng làm qua loa:** *đạn ngon nhất nằm ở chỗ dễ chết nhất.*
+Normal ×5–6 ở vành đai gần spawn · Heavy ×2 trên Lõi Từ · Spike ×2 vành đai nửa ngoài ·
+**TNT ×4 ở đúng đầu 4 mỏm**. Nếu rải đều khắp map thì không ai có lý do ra rìa vực → mode Quá Tải chết yểu.
+
+**Vì sao vành đai rộng 19m:** một cú `meleePushForce 200` lúc sạch điện đẩy đi ~13m.
+Đứng giữa vành đai thì sống, nửa ngoài thì chết. Nhiễm đầy điện (~33m) thì đứng đâu cũng chết.
+Sự leo thang đến từ **kích thước map**, không phải từ code.
+
+> ⚠️ **DỰNG BẰNG CUBE TRẮNG TRƯỚC.** Không texture, không model, không ánh sáng.
+> Chắc chắn sẽ phải sửa kích thước sau khi test. Sửa cube mất 5 giây; sửa khu đã kitbash 40 model
+> mất nửa buổi, rồi sẽ ngại sửa và chấp nhận một map dở. Khoá layout xong mới dán art.
+
+### 🟡 Dựng UI còn thiếu
+
+| Việc | Ghi chú |
+|---|---|
+| **Sửa nhãn HUD "MÁU" → "ĐIỆN TÍCH"** | Chỉ đổi chữ. Ô `Health Fill`/`Health Text` giữ nguyên reference, KHÔNG phải gán lại |
+| *(tuỳ chọn)* Thêm TMP text cho ô `Knockback Text` | Hiện `x2.4` — cho người chơi biết đang nguy hiểm cỡ nào |
+| Gắn `SpectatorController` lên Canvas TestScene | + 1 panel + 1 TMP text. Rất nhẹ |
+| Gắn `SettingsUI` lên Canvas MenuScene | 3 slider âm lượng, slider độ nhạy, dropdown độ phân giải, toggle fullscreen, nút đóng |
+| *(tuỳ chọn)* `SettingsUI` cho TestScene | Mở Settings giữa trận |
+
+> **Luôn gắn script UI lên Canvas, KHÔNG lên panel con.** Panel tắt thì `Update()` chết theo,
+> bấm phím sẽ không mở lại được. Áp dụng cho cả ShopUI / RadialMenu / HUD / Settings / Spectator.
+
+### 🟡 Âm thanh — 18 ô clip trên `AudioManager` (MenuScene)
+
+Chưa cần đủ. Năm cái quan trọng nhất: `sfxHit` `sfxExplosion` `sfxDash` `sfxCharge` `sfxRoundStart`.
+Nguồn: freesound.org, kenney.nl. **Ghi nguồn trong báo cáo.**
+
+### ⚫ Trước khi nộp — xoá phím debug
+
+- `InputButton.DebugSuicide` trong `NetworkInputData.cs`
+- Dòng gửi phím `K` trong `NetworkRunnerHandler.OnInput()`
+- Khối tự sát trong `PlayerMagnetController.FixedUpdateNetwork()`
+- Đặt lại `Points To Win = 5` nếu có hạ để test
+
+### 🟢 Chưa test (code xong, chưa chạy thử lần nào)
+
+- **Reset map đầu round mới** *(làm 09/08)* — `GameManager.ResetWorldObjects()`
+  - Mọi vật thể có về đúng chỗ cũ, sạch điện, hết bị chế thành TNT không?
+  - Thùng TNT đã nổ ở round trước có **sống lại** không?
+  - Túi đồ có bị xoá phần vật thể map, mà **vẫn giữ đồ mua từ Shop** không?
+  - Vật đang cầm trên tay lúc hết round có bị buông ra đúng cách không?
+- **Nắm được vật TO** *(sửa 09/08)* — kéo cái bàn/khúc gỗ to nhất về, phải vào tay được
+- **⚡ Toàn bộ chế độ Quá Tải** — ưu tiên test số 1
+  - Lực văng có tăng đúng theo điện tích không (Console in `x2.4` mỗi lần trúng đòn)
+  - Dash và Grapple có giữ nguyên cự ly ở mọi mức điện không (**phải giữ nguyên**)
+  - Hết giờ 90s có phân thắng bại đúng theo tổng điện tích không
+  - Giáp Cách Điện và Bộ Xả Điện còn hoạt động sau khi ánh xạ lại không
+- Về MenuScene sau khi hết trận → **tạo/vào phòng mới có bình thường không?**
+- 4 hiệu ứng vật phẩm qua Radial Menu
+- Luật riêng Heavy (cản) và Spike (hút nhầm ăn x2)
+- Quan sát khi chết
+
+---
+
+## 4. Nguyên tắc kiến trúc — đã trả cổ tức nhiều lần
+
+### Chỉ đồng bộ những gì BẮT BUỘC
+
+Thứ nào suy ra được tại chỗ thì tính tại chỗ. Đã dùng cho:
+
+| Thứ | Cách làm |
+|---|---|
+| Vật cầm trên tay | Chỉ truyền `GrabbedObjectId`, mỗi máy tự đặt vị trí trong `LateUpdate()` |
+| Thu nhỏ vật cầm | Mỗi máy tự đo bounds rồi scale, `SyncScale` để tắt |
+| Rào chắn Buy Phase | Suy từ `GameManager.Phase`, là MonoBehaviour thường |
+| Âm thanh | Móc vào `OnChangedRender` sẵn có, 0 byte thêm |
+| Quan sát khi chết | Chỉ đổi camera nào đang bật |
+
+### Âm thanh / hiệu ứng: KHÔNG gọi trong `FixedUpdateNetwork()`
+
+Fusion tua lại nhiều tick mỗi khung hình → một cú dash kêu 5–6 lần.
+Cách chữa: biến đếm `[Networked]` + `OnChangedRender`. Xem `DashCount`, `MeleeCount`, `LaunchCount`.
+
+### Đã thử và BỎ: cho Client dự đoán trước thao tác vật thể
+
+Gỡ `if (!HasStateAuthority) return;` → **tệ hơn hẳn**, vật cầm trên tay giật và trễ nặng hơn.
+Đã lùi. **Độ trễ đều đặn dễ quen tay hơn giật ngẫu nhiên.** Đừng thử lại.
+
+### Vật bay lệch ngẫu nhiên → nghi collider chồng lấn TRƯỚC, đừng nghi lực
+
+Lỗi tung `V` lệch loạn (sửa 09/08) hoá ra không phải do lực tung sai, mà do `RestoreScale()`
+làm collider phình to **ngay trong người chơi**, PhysX bắn ra lực gỡ kẹt để tách ra.
+
+Dấu hiệu nhận biết: **vật càng TO càng lệch nhiều**, vật nhỏ lại bay chuẩn. Nếu thấy quy luật
+này thì gần như chắc chắn là chồng lấn collider chứ không phải sai số lực.
+
+Chi tiết đầy đủ ở [CLAUDE.md](CLAUDE.md) mục 5, bẫy số 8.
+
+### "Giật" khi test ParrelSync thường KHÔNG phải lỗi mạng
+
+Đã mất nhiều thời gian nghi ngờ đồng bộ, cuối cùng đo ra **FPS chỉ 15–30** ở cửa sổ clone.
+Test máy phụ → mượt hoàn toàn.
+
+**ĐO FPS TRƯỚC KHI nghi ngờ code mạng.** Giảm tải: đóng Scene view ở clone (ăn nhiều nhất),
+bật VSync, hạ độ phân giải Game view, hoặc build `.exe` chạy 1 build + 1 Editor.
+
+### Các bẫy Fusion khác
+
+Xem **CLAUDE.md mục 5** — 7 bẫy đã gặp kèm cách chữa (CharacterController, `NetworkTransform`,
+`onBeforeSpawned` chỉ chạy trên Host, giá trị Inspector đè code...).
+
+---
+
+## 5. Bản đồ code
+
+```
+Assets/
+├── NetworkRunnerHandler.cs   Lobby, gửi input, spawn, quay về menu. DontDestroyOnLoad singleton
+├── RoomPlayer.cs             Đồng bộ tên + đội trong phòng chờ
+└── Scripts/
+    ├── GameManager.cs        Vòng đấu, tính điểm, hồi sinh, KillZone, Overtime
+    ├── ShopManager.cs        Giao dịch qua RPC, Host duyệt        (trên Player.prefab)
+    ├── AudioManager.cs       Singleton âm thanh                    (trong MenuScene)
+    ├── GameSettings.cs       Class tĩnh: độ nhạy chuột, fullscreen
+    ├── RoundBarrier.cs       Rào spawn, MonoBehaviour thường       (trong TestScene)
+    ├── Player/               FPSMovement · PlayerMagnetController · PlayerHealth
+    │                         InventorySystem · PlayerHotbarController · PlayerInteract
+    │                         RadialMenuController · NetworkInputData · PlayerEconomy
+    ├── Item/                 MagneticObject · MagneticAura · ItemData · EMBarrier
+    └── MenuUI/               HUDController · ShopUI · ShopItemButton
+                              SettingsUI · SpectatorController · RoomItemUI
+```
+
+**Quy ước:** script UI đặt trên Canvas trong scene, đọc `FPSMovement.Local` để tìm nhân vật mình.
+Script gameplay đặt trên `Player.prefab`.
+
+### Prefab
+
+`Prefab/Player.prefab` — 8 script + NetworkObject + NetworkTransform + CharacterController + Camera
+*(NetworkTransform phải nằm TRÊN FPSMovement)*
+`Prefab/GameManager.prefab` · `Prefab/EMBarrier.prefab` · `Prefab/RoomPlayer.prefab`
+`Items/*.prefab` — 5 vật thể từ tính, có NetworkObject + NetworkRigidbody3D
+`Items/Type/*.asset` — 5 ItemData (tên, giá, icon, consumableType)
+
+---
+
+## 6. Quyết định còn treo
+
+### 🔵 ĐỀ XUẤT LỚN: Hồi sinh + Khu chiếm đóng *(bàn 09/08, CHƯA làm, chủ project sẽ quay lại)*
+
+Ý của chủ project: vì game xoay quanh knockback, hãy **bỏ luật "chết là bị loại cả round"**,
+đổi sang **chết → hồi sinh sau X giây**, và thêm **một khu vực nhỏ mà người chơi phải đứng
+trong đó một thời gian** để thắng.
+
+**Vì sao đáng làm — 3 lý do cụ thể:**
+
+1. **Sửa đúng lỗ hổng lớn nhất của Quá Tải.** Người chơi vốn sẽ tránh xa rìa vực.
+   Khu chiếm đóng **ép họ đứng vào một chỗ cố định do mình chọn** → quyết định luôn nơi giao tranh.
+2. **Làm knockback bớt ức chế.** Bị hất khỏi map hiện mất cả round (ngồi nhìn 90s, rất cay).
+   Có hồi sinh thì chết = mất thời gian + mất vị trí, không mất trận → được phép để hệ số
+   knockback mạnh tay hơn.
+3. **Xoá bớt code.** `EndRoundByCharge()` (hết giờ so tổng điện) vốn là giải pháp tình thế cho
+   "không ai chết thì round không kết thúc". Có khu chiếm đóng thì round luôn có đường kết thúc
+   tự nhiên → **xoá hàm đó đi**.
+
+**Chi phí ước lượng: ~1,5–2 ngày code.** Hai mảnh khó nhất đã có sẵn dùng lại được nguyên vẹn:
+`NetworkRunnerHandler.GetSpawnPosition(team, index)` và `PlayerHealth.Respawn(pos, yaw)`.
+
+| Việc | Ước lượng |
+|---|---|
+| Hồi sinh có hẹn giờ | `TickTimer` trong `PlayerHealth`, đếm trong vòng lặp `CheckKillZone` đã có | ~40 dòng |
+| `ControlZone.cs` mới | Đếm người trong bán kính bằng `PlayerHealth.AllPlayers`, không cần `OverlapSphere` | ~130 dòng |
+| Sửa `GameManager` | Đổi điều kiện thắng round, **xoá** `EndRoundByCharge()` | ~50 dòng |
+| HUD | Thanh chiếm đóng + đồng hồ hồi sinh | ~50 dòng + dựng UI |
+
+**KHÔNG phải đụng tới:** kinh tế, Shop, rào chắn Buy Phase, âm thanh, `SpectatorController`,
+toàn bộ `MagneticObject`. Cấu trúc round giữ nguyên (best-of-5), chỉ đổi *cách thắng một round*.
+
+#### ⚠️ Bẫy BẮT BUỘC phải chốt trước khi code
+
+`PlayerHealth.Respawn()` hiện **xả điện tích về 0**. Ghép với hồi sinh tự động thì:
+đang nhiễm 95% điện, sắp bị hất bay → **tự nhảy xuống vực** → 5 giây sau sống lại sạch điện.
+**Tự sát thành nước đi tối ưu.**
+
+→ Cách chữa khuyên dùng: **chết thì đội địch được cộng tiến độ chiếm đóng (+8%)**.
+Giải quyết gọn cả ba việc: tự sát luôn có giá · hất địch khỏi map **trực tiếp đẩy mình tới
+chiến thắng** (knockback và mục tiêu khớp thành một) · không cần thêm luật rườm rà nào.
+*(Phương án thay thế: hồi sinh chỉ xả 50% điện — đơn giản hơn nhưng không có sự cộng hưởng trên.)*
+
+#### Phạm vi đề xuất cho bản đầu
+
+- **Làm:** 1 khu chiếm đóng **cố định**, hình tròn. Cả hai đội cùng đứng = **đóng băng**. Đủ 100% = thắng round.
+- **Cắt:** khu chiếm đóng **di chuyển** (kiểu Hardpoint). Tốn gấp đôi, phải cân bằng lại từ đầu.
+
+#### Tin tốt về map
+
+**Lõi Từ ở giữa map (mục 3) chính là khu chiếm đóng lý tưởng, không phải vẽ lại gì.**
+Cao 7m trống trải → đứng đó là phơi mình · bị đấm trên cao thì bay xa hơn hẳn ·
+cách rìa đủ xa để không chết ngay, đủ gần để một cú mạnh là xong · 4 dốc lên nên không thủ kín được.
+Chỉ cần thêm `ControlZone` ở `(40, 7, 40)` bán kính ~7m.
+
+#### Còn phải chốt 2 con số
+
+1. **Thời gian hồi sinh** — đề xuất **5 giây**
+2. **Chết có cộng tiến độ cho địch không** — đề xuất **có, +8%**
+
+> 🚨 **Cảnh báo về việc đổi hướng liên tục.** Đây là lần đổi thiết kế thứ hai trong hai ngày
+> (30/07 bỏ luật riêng từng loại đạn → 09/08 Quá Tải → 09/08 đề xuất này). Bản thân thay đổi
+> hợp lý, nhưng còn **5 tuần và map vẫn chưa dựng**. Nếu quay lại làm cái này thì
+> **làm xong rồi KHOÁ thiết kế**, dồn toàn bộ thời gian còn lại cho map và test.
+> Có ý tưởng thứ ba thì ghi vào đây để đó, đừng làm.
+
+- **Đền bù kinh tế khi đồng đội thoát giữa trận** — `OnPlayerLeft` chưa despawn nhân vật,
+  người thoát để lại xác đứng im. Chủ project muốn gộp với cơ chế bù tiền 1v2, chưa chốt con số.
+- **Xử lý hoà** (cả hai đội cùng chết) — tạm chọn: không ai được điểm, sang round mới.
+
+---
+
+## 7. Đề xuất thứ tự cho 6 tuần còn lại
+
+Còn ~5 tuần tính từ 09/08.
 
 | Tuần | Việc |
 |---|---|
-| 1 | Giai đoạn 2 (buy phase, rào chắn) |
-| 2 | Đại tu `InventorySystem` + Giai đoạn 3 (kinh tế, shop) |
-| 3 | Giai đoạn 4 — HUD |
-| 4 | Âm thanh + Settings UI |
-| 5 | Polish, build, sửa lỗi |
-| 6–7 | **Dự phòng + viết báo cáo + chuẩn bị bảo vệ** |
-
-Chừa 2 tuần cuối là **cố ý**. Đồ án luôn phát sinh, và còn phải viết báo cáo.
-
----
-
-## Trạng thái từng script
-
-| Script | Trạng thái |
-|---|---|
-| `NetworkRunnerHandler.cs` | ✅ Lobby, gửi input, spawn theo đội, spawn GameManager |
-| `RoomPlayer.cs` | ✅ Đồng bộ tên + đội trong phòng chờ |
-| `NetworkInputData.cs` | ✅ 7 nút (kèm 1 nút debug cần xoá trước khi nộp) |
-| `FPSMovement.cs` | ✅ Đã test 2 máy |
-| `PlayerHealth.cs` | ✅ Máu, đội, sống/chết, hồi sinh |
-| `PlayerMagnetController.cs` | ✅ Điện tích, cận chiến, hút/đẩy/cầm/bắn |
-| `MagneticObject.cs` | ✅ `NetworkBehaviour` + Fusion Physics Addon |
-| `GameManager.cs` | ✅ Vòng đấu, tính điểm, hồi sinh, KillZone, Overtime |
-| `RoundBarrier.cs` | ✅ Rào chắn Buy Phase *(cố ý không networked)* |
-| `PlayerEconomy.cs` | ✅ Ví tiền, thưởng cuối round, trần $750 |
-| `ShopManager.cs` | ✅ Giao dịch qua RPC, Host duyệt |
-| `MenuUI/ShopUI.cs` | ✅ Panel cửa hàng, phím `B` |
-| `MenuUI/ShopItemButton.cs` | ✅ Một ô hàng: icon, tên, giá |
-| `Item/EMBarrier.cs` | ✅ Tường tạm, tự huỷ sau 10s |
-| `InventorySystem.cs` | ✅ Viết lại dùng `NetworkArray<NetworkBehaviourId>` |
-| `PlayerHotbarController.cs` | ✅ `Z`/`X`/`C` đi qua mạng |
-| `PlayerInteract.cs` | ✅ Phím `F` đi qua mạng |
-| `RadialMenuController.cs` | 🟡 **Đã viết lại xong**, nhưng chưa dựng UI nên chưa chạy |
-
----
-
-## Đã chạy được và đã kiểm chứng trên 2 máy
-
-- Tạo phòng bằng mã PIN, vào phòng, đổi đội, hiển thị danh sách 2 đội
-- Host bắt đầu trận → load `TestScene` → spawn mỗi người đúng vị trí + hướng nhìn của đội mình
-- Di chuyển WASD, xoay chuột, Dash `Q`
-- Đổi điện tích `1`/`2` — đối thủ thấy đúng cực găng
-- Cận chiến đủ 3 trường hợp: đấm văng, nảy bật, kéo áp sát
-- Nạp điện, hút, cầm, ném vật thể — **vật dính chặt vào tay, không trễ**
-- Máu host-authoritative, không bị trừ trùng
-- **Vòng đấu trọn vẹn**: BuyPhase → Combat → RoundEnd → tính điểm → hồi sinh → lặp lại
-
-### Giá trị đã chỉnh tay ở Inspector (ghi lại phòng khi prefab hỏng)
-
-`meleeRange = 4` · `dashLockRange = 20` · `meleePushForce = 100` · `grapplePullForce = 100`
-`moveSpeed = 13` · `mouseSensitivity = 1` · `dashForce = 100`
-`redTeamSpawnPoint = (40, 6, 60)` · `blueTeamSpawnPoint = (40, 6, 20)`
-
----
-
-## 🧠 Bài học đã rút ra (đọc trước khi debug)
-
-### 1. "Giật" khi test ParrelSync thường KHÔNG phải lỗi mạng
-
-Mất nhiều thời gian nghi ngờ đồng bộ, cuối cùng đo ra **FPS chỉ 15–30** ở cửa sổ clone.
-Hai Unity Editor chạy URP trên một máy là quá nặng. Test trên **máy phụ → mượt hoàn toàn**.
-
-**Lần sau thấy giật, ĐO FPS TRƯỚC KHI nghi ngờ code mạng.** Cách giảm tải:
-1. Đóng tab **Scene view** ở cửa sổ clone (nó vẽ lại toàn cảnh lần nữa — ăn nhiều nhất)
-2. Bật **VSync** (`Project Settings → Quality`), hiện đang `0` nên cửa sổ focus giành sạch CPU
-3. Hạ độ phân giải Game view ở clone
-4. Chuẩn nhất: **build ra `.exe`** rồi chạy 1 build + 1 Editor
-
-### 2. Chỉ đồng bộ những gì bắt buộc
-
-Vật cầm trên tay từng bị trễ nặng vì Host đặt vị trí rồi truyền qua mạng. Nhưng vị trí vật
-**suy ra được** từ vị trí bàn tay — mà máy nào cũng biết chính xác. Giải pháp: chỉ truyền
-`GrabbedObjectId` (ai cầm vật nào), còn mỗi máy tự đặt vật vào tay trong `LateUpdate()`.
-
-Sẽ dùng lại nguyên tắc này cho hiệu ứng găng tay, âm thanh, animation.
-
-### 3. Đã thử và BỎ: cho Client dự đoán trước thao tác vật thể
-
-Gỡ `if (!HasStateAuthority) return;` để Client tự đoán → **tệ hơn hẳn**, vật cầm trên tay
-giật và trễ nặng hơn. Đã lùi. Kết luận: **độ trễ đều đặn dễ quen tay hơn giật ngẫu nhiên.**
-
-### 4. Đẩy vật từ môi trường không gây sát thương *(đã sửa 30/07)*
-
-Vật nằm dưới đất thì **đang chạm mặt đất**. Vừa đẩy đi là dính ngay một lần `OnCollisionEnter`
-với mặt đất, mà code cũ coi mọi va chạm không phải người chơi là "hết bay" → gọi
-`ResetBulletState()` → mất tư cách đạn trước cả khi bay tới đối thủ.
-
-Bắn từ tay thì không dính, vì lúc đó vật đang lơ lửng giữa không trung.
-
-**Cách sửa:** xét **tốc độ** thay vì "cứ va là hết". Còn bay nhanh hơn `minBulletSpeed` (mặc định 3)
-thì vẫn là đạn. Kèm `bulletArmTime` (0.25s) khoá lúc vừa phóng, vì lực đẩy phải sang bước vật lý
-kế tiếp mới biến thành vận tốc.
-
-**Bài học chung:** hai đường "đẩy từ môi trường" và "bắn từ tay" trước đây tự viết riêng nên
-lệch nhau. Giờ cả hai gọi chung `MagneticObject.LaunchAsBullet()`. Có logic trùng lặp ở hai nơi
-thì sớm muộn cũng lệch.
-
-### 5. Các bẫy Fusion khác
-
-Xem **CLAUDE.md mục 5** — có danh sách 6 bẫy đã gặp kèm cách chữa.
-
----
-
-## 🔴 Quyết định đang chờ
-
-### Đền bù kinh tế khi đồng đội thoát giữa trận
-
-`OnPlayerLeft` hiện **chưa despawn** nhân vật — người thoát để lại "xác" đứng im trên map.
-Cố ý chưa làm, vì muốn gộp chung với cơ chế: 1v2 thì người còn lại được bù tiền, 1v1 giữ nguyên.
-**Chưa chốt con số.**
-
-### Xử lý hoà (cả hai đội cùng chết)
-
-Đã tạm chọn: **không ai được điểm, sang round mới luôn.** Sửa dễ nếu muốn khác.
-
----
-
----
-
----
-
----
-
-# 🔖 ĐANG DỞ TỚI ĐÂY — đọc mục này trước tiên
-
-Dừng giữa chừng ngày 30/07 khi đang làm **Radial Menu**.
-Shop đã xong và đã test: mua bán, trừ tiền, giáp, thưởng cuối round đều chạy đúng.
-
-## 1. Một sửa đổi code CHƯA áp dụng
-
-Trong `FPSMovement.Spawned()` còn đoạn tắt `RadialMenuController` trên nhân vật người khác:
-
-```csharp
-if (!isMine)
-{
-    RadialMenuController radialMenu = GetComponent<RadialMenuController>();
-    if (radialMenu != null) radialMenu.enabled = false;
-}
-```
-
-Đoạn này **giờ đã thành code chết** — Radial Menu không còn nằm trên prefab nhân vật nữa,
-nó đã chuyển sang Canvas. Xoá đi là xong, không ảnh hưởng gì.
-
-## 2. Phát hiện quan trọng về Radial Menu cũ
-
-Kiểm tra `Player.prefab` thấy `radialMenuUI: {fileID: 0}` và `slots: []` — **rỗng hoàn toàn**.
-
-Nghĩa là Radial Menu **chưa từng chạy được** trong bản multiplayer. Các tham chiếu UI ngày xưa
-được gán trên bản Player *đặt sẵn trong scene*, mà bản đó đã bị xoá khi chuyển sang spawn động.
-Prefab thì chưa bao giờ được gán.
-
-→ Vì vậy đã viết lại theo đúng kiểu `ShopUI`: **UI nằm trên Canvas trong scene**, không nằm
-trên prefab nhân vật. Prefab không tham chiếu được tới object trong scene.
-
-## 3. Cấu trúc UI Radial Menu cần dựng
-
-```
-Canvas
-└── RadialMenuController          ← gắn script vào ĐÂY (giống ShopUI)
-    │
-    └── RadialMenuPanel           → kéo vào ô "Radial Menu UI"
-        ├── Slot_EnergyDrink      Anchored Position (106, 106)    - trên phải
-        │   ├── Background  (Image)  → ô Slot Image
-        │   ├── Icon        (Image)  → ô Icon Image
-        │   └── CountText   (TMP)    → ô Count Text
-        │   + CanvasGroup trên chính Slot  → ô Canvas Group
-        │   + RectTransform của Slot       → ô Slot Rect
-        ├── Slot_Bandage          (-106,  106)   - trên trái
-        ├── Slot_Gasoline         (-106, -106)   - dưới trái
-        └── Slot_EMBarrier        ( 106, -106)   - dưới phải
-```
-
-**Vị trí 4 ô nằm ở GÓC CHÉO, không phải trên/dưới/trái/phải.**
-
-Công thức chọn múi trong code là `floor(góc / 90)` với 4 ô, nên mỗi múi rộng 90° và
-tâm của nó rơi vào đường chéo:
-
-| Index | Vùng góc | Tâm ô | Món |
-|---|---|---|---|
-| `slots[0]` | 0°–90° | 45° trên-phải | Energy Drink |
-| `slots[1]` | 90°–180° | 135° trên-trái | Bandage |
-| `slots[2]` | 180°–270° | 225° dưới-trái | Gasoline Canister |
-| `slots[3]` | 270°–360° | 315° dưới-phải | EM Barrier Core |
-
-Đặt sai vị trí thì rê chuột lên trên nhưng lại sáng ô bên phải.
-Cả 4 ô để **Anchor = Middle Center**.
-
-Ô **`Item Data Source`**: kéo 4 asset `ItemData` của món tiêu hao vào, để menu tự lấy icon.
-Nhờ vậy icon chỉ gán một lần trong `ItemData`, dùng chung cho cả Shop lẫn Radial Menu.
-
-## 4. Việc trong Unity còn lại
-
-- [ ] Xoá component `RadialMenuController` khỏi `Assets/Prefab/Player.prefab`
-- [ ] Dựng UI Radial Menu trên Canvas theo cấu trúc trên
-- [ ] Dùng **TextMeshPro**, không dùng Legacy Text
-      *(bản cũ dùng `UI.Text`, bản mới đã đổi sang `TMP_Text` nên tham chiếu cũ sẽ không nhận)*
-
-## 5. Sau khi dựng xong thì test
-
-4 hiệu ứng vật phẩm **đã viết nhưng CHƯA CHẠY THỬ LẦN NÀO**:
-
-| Món | Kỳ vọng |
-|---|---|
-| Energy Drink | Cooldown dash giảm 15% trong 15 giây. Đang còn hiệu lực mà dùng tiếp → từ chối, không mất đồ |
-| Bandage | Máu 80/100 → hồi 10 → thành 90. Máu đầy mà dùng → từ chối, không mất đồ |
-| Gasoline | Dùng xong bấm chuột trái vào vật thường → vật chuyển **màu cam** và thành TNT |
-| EM Barrier | Thả tường trước mặt, tự biến mất sau 10 giây, cả 2 máy cùng thấy |
-
----
-
-## Việc thủ công trong Unity còn tồn
-
-- [x] ~~Dựng 2 rào chắn `Barrier_Red` / `Barrier_Blue`~~ — xong
-- [x] ~~Thêm `PlayerEconomy` + `ShopManager` vào `Player.prefab`~~ — xong
-- [x] ~~Cấu hình 5 asset `ItemData` + mảng `Catalogue`~~ — xong
-- [x] ~~Dựng UI cửa hàng~~ — xong, đã test
-- [ ] **Tạo prefab `EM_Barrier`** — bức tường tạm (NetworkObject + EMBarrier + Collider + Renderer),
-      gán vào ô `Em Barrier Prefab` của `InventorySystem` trên `Player.prefab`
-- [ ] **Dựng UI Radial Menu** — xem mục "ĐANG DỞ TỚI ĐÂY" ở trên
-- [ ] Tạo prefab `GameManager` (NetworkObject + GameManager) và gán vào `NetworkRunnerHandler`
-- [ ] Bật `Read/Write Enabled` cho 5 file `.fbx` trong
-      `Assets/Resources/Polytope Studio/Lowpoly_Environments/Sources/Meshes/Trees/`
-      (`PT_Pine_Tree_03_logs`, `PT_Pine_Tree_03_stump`, `PT_Pine_Tree_03_green_cut`,
-      `PT_Fruit_Tree_01_logs`, `PT_Fruit_Tree_01_stump`)
-      → dẹp cảnh báo QuickOutline. Không gấp, chỉ là cảnh báo vô hại.
-- [ ] Chỉnh `Kill Zone Y` trên prefab GameManager cho khớp map (mặc định `-20`)
-
-## ✅ Đã khép kín vòng lặp trận đấu (03/08)
-
-`MatchEnd` giờ tự đưa mọi người về MenuScene sau `matchEndDuration` giây.
-
-**Luồng:** Host hết giờ pha MatchEnd → `NetworkRunnerHandler.ReturnToMenu()` → tắt Runner
-→ Client nhận `OnShutdown` → tự gọi `ReturnToMenu()` bên máy mình.
-
-**Cái bẫy đã xử lý:** `NetworkRunnerHandler` là singleton `DontDestroyOnLoad`. Quay về MenuScene
-thì bản cũ vẫn sống nhưng **mọi tham chiếu UI của nó đã chết theo scene cũ** → menu hiện ra
-một đống nút không bấm được. Cách chữa: bỏ `Instance = null` rồi `Destroy` bản cũ **trước khi**
-load scene, để bản nằm sẵn trong MenuScene được nhận vai.
-
-Cũng dọn luôn các danh sách tĩnh (`RoomPlayer.AllPlayers`, `PlayerHealth.AllPlayers`,
-`RoomPlayer.Local`) — chúng sống xuyên scene nên không tự mất, để sót thì trận sau đếm nhầm người.
-
-**Cần test:** chơi tới khi một đội thắng chung cuộc → cả 2 máy phải cùng về MenuScene và
-**tạo/vào phòng mới được bình thường**.
-
-## 🔊 Âm thanh — code xong, chờ gán file (03/08)
-
-`Assets/Scripts/AudioManager.cs` — singleton `DontDestroyOnLoad`, âm lượng lưu `PlayerPrefs`.
-
-### Nguyên tắc: KHÔNG truyền âm thanh qua mạng
-
-Mọi tiếng động móc vào các hàm `OnChangedRender` đã có sẵn — chúng vốn chạy trên **mọi máy**
-mỗi khi trạng thái `[Networked]` đổi. Ai cũng nghe mà không tốn thêm băng thông.
-
-### ⚠️ Bẫy: đừng phát tiếng trong `FixedUpdateNetwork()`
-
-Fusion tua lại nhiều tick mỗi khung hình → một cú dash sẽ kêu 5–6 lần.
-
-Cách chữa cho các hành động xảy ra trong tick: thêm một biến đếm `[Networked]` kèm
-`OnChangedRender`. Con số không có ý nghĩa gì, nó chỉ tồn tại để mỗi hành động là
-giá trị đổi đúng một lần. Đã dùng cho `DashCount`, `MeleeCount`, `LaunchCount`.
-
-### 14 điểm phát tiếng đã móc
-
-| Sự kiện | Móc ở đâu |
-|---|---|
-| Trúng đòn / giáp chặn / bị loại | `PlayerHealth` — 3 hàm `OnChangedRender` |
-| Dash | `FPSMovement.OnDashPerformed` |
-| Cận chiến | `PlayerMagnetController.OnMeleePerformed` |
-| Nạp điện / phóng vật / chế TNT | `MagneticObject` — 3 hàm |
-| TNT nổ | `MagneticObject.Despawned` *(vì `Explode()` chỉ chạy trên Host)* |
-| Buy phase / rào hạ / thắng / thua round | `GameManager.OnPhaseChanged` |
-| Mua hàng / dùng vật phẩm | `ShopManager` / `InventorySystem` |
-
-### Việc trong Unity
-
-- [ ] Tạo GameObject `AudioManager` trong **MenuScene**, gắn script `AudioManager`
-      *(nó tự `DontDestroyOnLoad`, không cần đặt ở TestScene)*
-- [ ] Tìm và gán các file âm thanh vào 18 ô clip
-- [ ] Gọi `AudioManager.PlayMenuMusic()` / `PlayGameMusic()` khi cần đổi nhạc nền
-
-Chưa gán clip nào thì game vẫn chạy bình thường, chỉ là im lặng — mọi hàm đều null-check.
-
-## ⚙️ Settings — code xong, chờ dựng UI (03/08)
-
-Hai file mới:
-- `Assets/Scripts/GameSettings.cs` — class **tĩnh**, giữ độ nhạy chuột + toàn màn hình, lưu `PlayerPrefs`
-- `Assets/Scripts/MenuUI/SettingsUI.cs` — bảng giao diện, đặt trên Canvas
-
-Đủ 6 mục GDD chương 6 yêu cầu: **Master / Music / SFX volume, độ phân giải, fullscreen, độ nhạy chuột.**
-
-### Độ nhạy chuột đã đổi nguồn
-
-Trước đây `NetworkRunnerHandler` đọc thẳng `localPlayer.mouseSensitivity` từ prefab — người chơi
-không đổi được lúc chạy. Giờ nó đọc `GameSettings.MouseSensitivity`.
-
-Field trên prefab **vẫn còn tác dụng**: nó là giá trị mặc định cho lần chơi đầu tiên.
-`FPSMovement.Spawned()` gọi `SeedDefaultSensitivity()` — chỉ ghi khi người chơi chưa từng tự chỉnh.
-
-### Cấu trúc UI cần dựng
-
-```
-Canvas
-└── SettingsUI                    ← gắn script vào ĐÂY, không phải vào panel
-    └── SettingsPanel             → ô "Settings Panel"
-        ├── Nhóm Âm thanh
-        │   ├── MasterSlider  + MasterValueText
-        │   ├── MusicSlider   + MusicValueText
-        │   └── SfxSlider     + SfxValueText
-        ├── Nhóm Điều khiển
-        │   └── SensitivitySlider + SensitivityValueText
-        ├── Nhóm Hiển thị
-        │   ├── ResolutionDropdown   (TMP_Dropdown)
-        │   └── FullscreenToggle     (Toggle)
-        └── CloseButton           → OnClick: SettingsUI.Close()
-```
-
-**Không cần đặt Min/Max cho slider** — script tự đặt: âm lượng `0–1`, độ nhạy `0.1–5`.
-Danh sách độ phân giải cũng tự sinh từ máy đang chạy, đã lọc trùng tần số quét.
-
-Phím `Esc` mở/đóng, đổi được ở ô `Toggle Key`.
-
-### Việc trong Unity
-
-- [ ] Dựng bảng Settings trên Canvas của **MenuScene**
-- [ ] *(tuỳ chọn)* Gắn thêm một bản nữa vào Canvas của **TestScene** để mở Settings giữa trận
-- [ ] Nút mở Settings ở màn hình chính → OnClick: `SettingsUI.Open()`
-
-## 👁 Quan sát khi chết — code xong (03/08)
-
-`Assets/Scripts/MenuUI/SpectatorController.cs` — đặt trên **Canvas** của TestScene.
-
-### Vì sao không cần đồng bộ gì thêm
-
-Camera của nhân vật người khác trên máy mình **vốn đã xoay đúng sẵn**:
-`FPSMovement.Render()` áp `NetPitch` cho họ, `NetworkTransform` lo hướng thân.
-Nên "quan sát" chỉ là **đổi xem camera nào đang bật** — thuần cục bộ, 0 byte băng thông.
-
-### Hành vi
-
-- Bị loại → tự chuyển sang camera đồng đội còn sống
-- Đồng đội đó cũng chết → tự nhảy sang người khác, hết người thì về camera của chính mình
-- `Space` chuyển giữa các đồng đội *(2v2 thường chỉ có 1 nên ít dùng)*
-- Hồi sinh → tự trả camera về cho mình
-- **Không xem được đội địch**
-
-HUD cũng bám theo: đang xem đồng đội thì hiện **máu/đạn của họ**, không phải máu 0 của xác mình.
-Riêng tâm ngắm và bảng "đã bị loại" vẫn theo trạng thái thật của mình.
-
-### Việc trong Unity
-
-- [ ] Gắn `SpectatorController` lên **Canvas** của TestScene
-- [ ] Tạo `SpectatorPanel` + `SpectatingText` (TMP) → kéo vào 2 ô tương ứng
-- [ ] *(Không cần gán gì trên prefab nhân vật)*
-
-## Việc phải làm TRƯỚC KHI NỘP BÀI
-
-- [ ] Xoá `InputButton.DebugSuicide` khỏi `NetworkInputData.cs`
-- [ ] Xoá dòng gửi phím `K` trong `NetworkRunnerHandler.OnInput()`
-- [ ] Xoá khối xử lý tự sát trong `PlayerMagnetController.FixedUpdateNetwork()`
+| 1 | **Map — dựng blockout bằng cube theo bố cục "Lõi Từ"**, test Quá Tải, cân lại `knockbackAtMaxCharge` |
+| 2 | *(nếu chọn làm)* Hồi sinh + Khu chiếm đóng — xem mục 6. Rồi **KHOÁ THIẾT KẾ** |
+| 3 | Dán art lên map + âm thanh + dựng nốt Settings/Spectator |
+| 4 | Test kỹ 2 máy, cân bằng lại toàn bộ số liệu |
+| 5 | **Dự phòng + build + viết báo cáo + chuẩn bị bảo vệ** |
+
+Chừa tuần cuối là cố ý. Đồ án luôn phát sinh.
+
+⚠️ Nếu tới cuối tuần 2 mà map vẫn chưa chơi được thì **bỏ mục 6, giữ nguyên Quá Tải** và dồn hết
+cho map. Game có bố cục tử tế mà luật đơn giản vẫn hơn game luật hay mà map toàn cube.

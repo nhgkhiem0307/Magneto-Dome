@@ -150,16 +150,59 @@ GDD sẽ được sửa lại cho khớp code sau, không phải ngược lại.
 > Cả 3 loại giờ hút, đẩy, va chạm **y hệt nhau**, chỉ khác đúng con số sát thương.
 > Chủ project sẽ thêm lại các luật này sau. TNT vẫn giữ nguyên cơ chế nổ.
 
-| Loại | Sát thương | Đặc tính theo thiết kế gốc | Đã làm? |
+> ⚠️ **Từ 09/08 các con số dưới đây là ĐIỂM ĐIỆN TÍCH, không phải HP** — xem mục Quá Tải bên dưới.
+> Tên hàm `TakeDamage()` và field `baseDamage` giữ nguyên, chỉ ý nghĩa con số là đổi.
+
+| Loại | Nạp điện | Đặc tính theo thiết kế gốc | Đã làm? |
 |---|---|---|---|
-| **Normal** | 10 HP | Hút/đẩy linh hoạt | ✅ |
-| **Heavy** | 20 HP | Không hút được khi đang bay; giảm 50% lực nếu bị cản | ⬜ Đã bỏ, thêm lại sau |
-| **Spike** | 25 HP | Cắm dính vào người trúng; nhận x2 (50 HP) nếu nạn nhân hút sai lầm khi nó đang bay tới | ⬜ Đã bỏ, thêm lại sau |
-| **TNT** | 35 HP | Nổ bán kính 6m, sát thương giảm dần theo khoảng cách, hất văng diện rộng | ✅ |
+| **Normal** | 10 | Hút/đẩy linh hoạt | ✅ |
+| **Heavy** | 20 | Không hút được khi đang bay; giảm 50% lực nếu bị cản | ⬜ Đã bỏ, thêm lại sau |
+| **Spike** | 25 | Cắm dính vào người trúng; nhận x2 nếu nạn nhân hút sai lầm khi nó đang bay tới | ⬜ Đã bỏ, thêm lại sau |
+| **TNT** | 35 | Nổ bán kính 6m, giảm dần theo khoảng cách, hất văng diện rộng | ✅ |
+
+### ⚡ CHẾ ĐỘ QUÁ TẢI — mục tiêu tối thượng (chốt 09/08/2026)
+
+**Đây là thay đổi thiết kế lớn nhất của project. Game KHÔNG CÒN THANH MÁU.**
+
+Trúng đòn không làm mất máu — nó **nạp điện tích** vào người. Càng nhiễm điện, từ trường
+tác động lên bạn càng mạnh, nên cùng một cú đấm sẽ hất bạn đi càng xa.
+
+| Luật | Chi tiết |
+|---|---|
+| Thanh đo | Điện tích `0 → 100`. Đầy 100% **KHÔNG chết** |
+| Lực văng | Nhân tuyến tính `x1.0` (sạch điện) → `x5.0` (đầy điện) |
+| Cái chết **duy nhất** | Rơi khỏi đảo (`GameManager.CheckKillZone`) |
+| Hết giờ Combat (90s) | Đội có **tổng điện tích thấp hơn** thắng round. Người đã rơi tính là đầy 100 |
+| Sang round mới | Xả sạch điện về 0 |
+
+**Vì sao đầy điện không chết:** nếu đầy là chết thì đây chỉ là thanh máu chạy ngược, không có gì mới.
+Để cái chết đến từ **VỊ TRÍ** mới tạo được sự căng thẳng thật — đứng giữa sân với 90% điện vẫn an toàn,
+đứng sát rìa với 30% đã là mạo hiểm. Đây là cơ chế phần trăm của Smash Bros. đặt vào FPS từ tính.
+
+**Vì sao pha Combat phải có giới hạn giờ:** không còn ai chết vì hết máu, nên hai bên cùng né rìa vực
+thì round kéo dài vô tận. Đồng hồ 90s là bắt buộc, không phải tuỳ chọn.
+
+**Hai đường `AddImpact()` phải tách bạch — ĐỪNG GỘP LẠI:**
+
+| Loại chuyển động | `scaleByCharge` | Ví dụ |
+|---|---|---|
+| Bị đẩy từ bên ngoài | `true` *(mặc định)* | Đấm cận chiến, nổ TNT, trúng vật thể |
+| Tự mình tạo ra | `false` | Dash (`Q`), Grapple kéo áp sát |
+
+Nếu nhân hệ số cho cả Dash thì người sắp thua sẽ lướt xa gấp 5 lần — vừa vô lý vừa vỡ cân bằng.
+
+**Ánh xạ lại 2 món Shop** (giữ nguyên tên hàm nên `ShopManager`/`InventorySystem` không phải sửa):
+- `AddArmor()` → **Giáp Cách Điện**: hấp thụ điện thay cơ thể, hỏng dần
+- `ApplyBandage()` → **Bộ Xả Điện**: xả tối đa 20 điểm, không quá 50% lượng đang mang
+
+⚠️ **Mode này phụ thuộc nặng vào map.** Bị hất bay 15m chỉ đáng sợ khi có rìa vực để rơi.
+Trên map cube hiện tại gần như không ai chết, mọi round kết thúc bằng hết giờ — **đó là dấu hiệu
+map chưa sẵn sàng, không phải mode hỏng.**
 
 ### Vòng đấu & Điều kiện thắng (BẢN CHÍNH THỨC — theo GDD FR-7)
 
-- Thắng 1 round = **hạ gục toàn bộ đội đối phương**.
+- Thắng 1 round = **hạ gục toàn bộ đội đối phương** *(nay là: hất hết họ khỏi đảo)*,
+  **hoặc** tổng điện tích thấp hơn khi hết giờ 90s.
 - Chết là **bị loại khỏi round đó**, hồi sinh khi round sau bắt đầu.
 - Đội thắng round được **+1 điểm**.
 - Thắng chung cuộc: **đạt 5 điểm trước VÀ cách biệt tối thiểu 2 round**.
@@ -176,9 +219,9 @@ GDD sẽ được sửa lại cho khớp code sau, không phải ngược lại.
 
 | Vật phẩm | Giá | Hiệu ứng |
 |---|---|---|
-| **Shield Armor** | $150 | Tự động cộng vào thanh giáp ngay khi mua. **Không nằm trong Radial Menu.** Reset mỗi khi hết round |
+| **Shield Armor** *(Giáp Cách Điện)* | $150 | Hấp thụ điện tích thay cơ thể. **Không nằm trong Radial Menu.** Reset mỗi khi hết round |
 | **Energy Drink** | $100 | Giảm 15% cooldown Dash |
-| **Bandage** | $100 | Hồi tối đa 20 HP, nhưng không quá 50% lượng máu đã mất |
+| **Bandage** *(Bộ Xả Điện)* | $100 | Xả tối đa 20 điểm điện, nhưng không quá 50% lượng đang mang |
 | **Gasoline Canister** | $150 | Chuột trái vào 1 vật Normal trong tầm → biến nó thành thùng TNT |
 | **EM Barrier Core** | $200 | Thả lõi tạo tường chắn trước mặt, tồn tại 10 giây |
 
@@ -263,22 +306,49 @@ Dấu hiệu: máy **gọi lệnh spawn** thì thấy object đúng chỗ, máy 
 | Nhân vật dùng CharacterController | `NetworkObject` + `NetworkTransform` |
 | Vô hình, chỉ chứa dữ liệu *(GameManager)* | Chỉ `NetworkObject` |
 
+**8. Phình collider ngay trong người = vật bay lệch ngẫu nhiên** *(bẫy VẬT LÝ, không phải Fusion — sửa 09/08)*
+Vật cầm trên tay bị thu nhỏ còn `heldObjectSize`. Nếu gọi `RestoreScale()` rồi bật va chạm và
+`isKinematic = false` **ngay tại `holdPoint`**, collider phình to lồng xuyên qua người chơi.
+PhysX phát hiện chồng lấn sâu → bắn ra **lực gỡ kẹt (depenetration)** để tách hai vật ra.
+Lực đó lớn hơn lực tung nhiều lần và hướng phụ thuộc hình dạng chỗ chồng → vật bay mỗi lần một kiểu.
+→ Cách chữa: hàm `PlayerMagnetController.PrepareForRelease()` — trả cỡ gốc, **dời vật ra khỏi
+người theo phương ngang**, rồi mới bật va chạm. Mọi đường buông tay đều phải đi qua hàm này.
+→ Kèm theo: tung vật dùng **đặt thẳng `linearVelocity`** thay cho `AddForce(Impulse)`, vì phép gán
+ghi đè sạch mọi vận tốc rác, và vật nặng vật nhẹ tung lên cao như nhau.
+→ Đo kích thước vật phải dùng `rend.localBounds`, **không dùng `rend.bounds`** — `bounds` là hộp bao
+theo trục thế giới nên phình ra khi vật xoay nghiêng, cho ra cỡ khác nhau tuỳ hướng nhìn lúc nhặt.
+
+**9. Ngưỡng "bắt vật vào tay" phải cộng bán kính vật** *(bẫy VẬT LÝ — sửa 09/08)*
+Ngưỡng cũ là con số cứng `0.7m` đo từ **tâm (pivot)** vật tới `holdPoint`. Vật to (bàn rộng 3m)
+có collider chạm người chơi khi tâm còn cách hơn 2m → **không bao giờ xuống dưới 0.7m** → cứ nghiến
+vào người mà không lọt vào tay được.
+→ Cách chữa: `grabThreshold = grabDistance + magObj.GetBoundingRadius()`.
+→ `GetBoundingRadius()` dùng `localBounds × lossyScale` nên **không đổi khi vật xoay**.
+Mọi phép đo kích thước vật thể trong project đều phải đi qua hàm này, đừng dùng `bounds` thẳng.
+
+**10. TNT nổ KHÔNG despawn nữa** *(đổi 09/08 — đọc kỹ trước khi sửa `Explode()`)*
+Trước đây `Explode()` gọi `Runner.Despawn(Object)`. Giờ chỉ đặt `IsDestroyed = true` để ẩn vật đi.
+Lý do: despawn là xoá vĩnh viễn, nên sang round mới không dựng lại được đúng vật đó — mà spawn lại
+từ prefab thì sai vì nhiều prefab khác nhau cùng một loại (xem ghi chú InventorySystem ở Mục 4).
+→ Kéo theo: tiếng nổ đã chuyển từ `Despawned()` sang bộ đếm `ExplodeCount` + `OnChangedRender`,
+đúng khuôn với `LaunchCount` / `DashCount`.
+→ `ApplyStoredState()` giờ ẩn vật khi `IsStored` **hoặc** `IsDestroyed`.
+
 **7. Giá trị Inspector luôn đè lên giá trị mặc định trong code**
 Sửa `public float x = 5f;` trong code KHÔNG làm thay đổi component đã tồn tại trong scene/prefab.
 Phải sửa trực tiếp ở Inspector. Chỉ field **mới hoàn toàn** mới lấy giá trị mặc định từ code.
 
-### Lộ trình đã thống nhất
+### Lộ trình — TOÀN BỘ CODE ĐÃ XONG (05/08/2026)
 
-1. **Chuyển gameplay sang Fusion Host Mode** ← đang ở đây
-   - ✅ `FPSMovement` (di chuyển, xoay, dash) + `NetworkInputData` + spawn theo đội
-   - ⬜ `PlayerMagnetController` (hút/đẩy/bắn/cận chiến) — phần khó nhất
-   - ⬜ `PlayerHealth`, `InventorySystem`, `PlayerHotbarController`, `RadialMenuController`
-   - ⬜ `MagneticObject` → `NetworkObject` + `NetworkRigidbody3D`
-2. `GameManager` — vòng lặp round, đếm ngược, điều kiện thắng/Overtime, KillZone (rơi khỏi đảo)
-3. Shop + hệ thống kinh tế
-4. HUD / UI (máu, giáp, tiền, đồng hồ, tỉ số, tâm ngắm)
-5. Âm thanh + Settings UI (volume, độ phân giải, fullscreen, độ nhạy chuột)
-6. Polish
+Sáu bước dưới đây đều đã hoàn thành phần lập trình. Việc còn lại là **map** và một ít dựng UI.
+→ **Xem [PROGRESS.md](PROGRESS.md) để biết chính xác còn thiếu gì.**
+
+1. ✅ Gameplay chạy trên Fusion Host Mode
+2. ✅ `GameManager` — vòng lặp round, Overtime, KillZone, quay về menu khi hết trận
+3. ✅ Shop + kinh tế + 5 vật phẩm
+4. ✅ HUD
+5. ✅ Âm thanh (`AudioManager`) + Settings (`GameSettings` + `SettingsUI`)
+6. ✅ Quan sát khi chết (`SpectatorController`)
 
 ---
 
@@ -332,10 +402,11 @@ Chủ project dùng linh hoạt cả hai cách:
 
 ### 🟢 Thiếu tính năng (theo lộ trình, chưa phải lỗi)
 
-- `PlayerHealth.cs` — chưa có **thanh giáp** (Shield Armor mua từ Shop).
-- `RadialMenuController.cs` — `itemQuantity` là số nhập tay ở Inspector, **chưa nối với `InventorySystem`**. `UseItemFromRadialMenu()` mới chỉ `Debug.Log`.
-- Chưa có: kinh tế, Shop, HUD, âm thanh, Settings UI.
-- `GameManager.MatchEnd` chưa quay về MenuScene, mới chỉ dừng lại và in log đội thắng.
+- `RadialMenuController.cs` — vẫn là MonoBehaviour thuần, đọc `Input.` trực tiếp (đã vá tạm bằng cách tắt component khi không phải nhân vật mình).
+- Nhãn HUD trong TestScene vẫn ghi "MÁU" dù giờ hiển thị điện tích — cần sửa chữ trong Unity.
+
+> Các mục cũ ở đây (thanh giáp, kinh tế, Shop, HUD, âm thanh, Settings UI, MatchEnd về menu)
+> **đã làm xong hết** tính tới 05/08. Xem [PROGRESS.md](PROGRESS.md) để biết chính xác còn thiếu gì.
 
 ### ⚪ Cảnh báo vô hại
 
