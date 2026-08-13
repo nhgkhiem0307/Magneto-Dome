@@ -146,9 +146,9 @@ GDD sẽ được sửa lại cho khớp code sau, không phải ngược lại.
 
 ### Hệ sinh thái đạn (vật thể từ tính)
 
-> ⚠️ **Trạng thái hiện tại (chốt 30/07):** đã **tạm bỏ hết luật riêng** của Normal / Heavy / Spike.
-> Cả 3 loại giờ hút, đẩy, va chạm **y hệt nhau**, chỉ khác đúng con số sát thương.
-> Chủ project sẽ thêm lại các luật này sau. TNT vẫn giữ nguyên cơ chế nổ.
+> ✅ **Cập nhật 09/08:** luật riêng của Heavy và Spike **đã được làm lại**, không còn "tạm bỏ"
+> như ghi chú cũ ngày 30/07 nữa. Cả hai nằm trong `PlayerMagnetController` ở nhánh HÚT (trái dấu).
+> Riêng tính chất "Spike cắm dính vào người trúng" thì vẫn bỏ, chưa làm.
 
 > ⚠️ **Từ 09/08 các con số dưới đây là ĐIỂM ĐIỆN TÍCH, không phải HP** — xem mục Quá Tải bên dưới.
 > Tên hàm `TakeDamage()` và field `baseDamage` giữ nguyên, chỉ ý nghĩa con số là đổi.
@@ -156,9 +156,17 @@ GDD sẽ được sửa lại cho khớp code sau, không phải ngược lại.
 | Loại | Nạp điện | Đặc tính theo thiết kế gốc | Đã làm? |
 |---|---|---|---|
 | **Normal** | 10 | Hút/đẩy linh hoạt | ✅ |
-| **Heavy** | 20 | Không hút được khi đang bay; giảm 50% lực nếu bị cản | ⬜ Đã bỏ, thêm lại sau |
-| **Spike** | 25 | Cắm dính vào người trúng; nhận x2 nếu nạn nhân hút sai lầm khi nó đang bay tới | ⬜ Đã bỏ, thêm lại sau |
+| **Heavy** | 20 | Đang bay thì **KHÔNG hút về tay được**, chỉ cản: tốc ×0.5, sát thương ×0.5 | ✅ *(chưa test)* |
+| **Spike** | 25 | Hút nhầm khi nó đang bay tới thì **ăn x2 (50)**. Đã bỏ tính chất cắm dính | ✅ *(chưa test)* |
 | **TNT** | 35 | Nổ bán kính 6m, giảm dần theo khoảng cách, hất văng diện rộng | ✅ |
+
+**Heavy và Spike là cặp đối xứng** — cùng dùng `MagneticObject.TryCounterInFlight()` (chỉ cho can
+thiệp 1 lần mỗi cú bay, chặn spam giữ chuột), nhưng ý nghĩa ngược nhau: Heavy **thưởng** cho phản
+xạ hút, Spike **phạt** phản xạ hút. Người chơi phải nhìn màu vật trước khi bấm.
+
+⚠️ **Heavy không tự nặng.** Code chỉ cho nó `baseDamage 20` + không hút được; khối lượng vật lý
+hoàn toàn do `Rigidbody.mass` đặt tay trên prefab. Để mass = 1 giống Normal thì nó bay nhanh y hệt
+Normal và người chơi không cảm nhận được gì. Đặt `mass` 3–5 khi làm prefab Heavy.
 
 ### ⚡ CHẾ ĐỘ QUÁ TẢI — mục tiêu tối thượng (chốt 09/08/2026)
 
@@ -190,6 +198,21 @@ thì round kéo dài vô tận. Đồng hồ 90s là bắt buộc, không phải
 | Tự mình tạo ra | `false` | Dash (`Q`), Grapple kéo áp sát |
 
 Nếu nhân hệ số cho cả Dash thì người sắp thua sẽ lướt xa gấp 5 lần — vừa vô lý vừa vỡ cân bằng.
+
+**Ba nguồn knockback, đừng nhầm lẫn** *(cập nhật 09/08)*:
+
+| Nguồn | Lực | Ở đâu |
+|---|---|---|
+| Đấm cận chiến | `meleePushForce` 200 | `PlayerMagnetController` |
+| **Trúng đạn** | `hitKnockbackForce` 120 × (sátthương/10) | `MagneticObject.OnCollisionEnter` |
+| Nổ TNT | `explosionForce × 2` = 30 ⚠️ yếu bất thường | `MagneticObject.Explode()` |
+
+⚠️ Knockback khi trúng đạn **trước 09/08 KHÔNG TỒN TẠI** — va chạm chỉ trừ máu rồi thôi.
+Nếu thấy nhân vật không bị đẩy khi trúng đạn thì kiểm tra nhánh `CompareTag("Player")` trước tiên.
+
+**Buff sát thương toàn cục:** `PlayerHealth.chargeGainMultiplier` (1.5) nhân **mọi** lượng điện
+nhận vào, ngay đầu `TakeDamage()` trước cả giáp. Muốn chỉnh độ sát thương chung thì sửa ô này,
+**đừng** đi sửa `baseDamage` từng prefab.
 
 **Ánh xạ lại 2 món Shop** (giữ nguyên tên hàm nên `ShopManager`/`InventorySystem` không phải sửa):
 - `AddArmor()` → **Giáp Cách Điện**: hấp thụ điện thay cơ thể, hỏng dần

@@ -39,8 +39,10 @@ PlayerMagnetController  pullForce 13 · pushForce 50 · shootRange 50
                      meleeRange 4 · meleeCooldown 1 · dashLockRange 20
                      meleePushForce 200 · grapplePullForce 100
                      heldObjectSize 1 · onlyShrinkLargeObjects true
-PlayerHealth         maxCharge 100 · knockbackAtMaxCharge 5 · maxArmor 30 · armorPerPurchase 10
+PlayerHealth         maxCharge 100 · knockbackAtMaxCharge 5 · chargeGainMultiplier 1.5
+                     maxArmor 30 · armorPerPurchase 10
                      bandageMaxDischarge 20 · bandageChargeRatio 0.5
+MagneticObject       hitKnockbackForce 120  ← lực hất khi TRÚNG ĐẠN (mới 09/08, trước đây = 0)
 PlayerEconomy        start 500 · cap 750 · win 150 · lose 100
 
 [GameManager.prefab]
@@ -248,8 +250,35 @@ Script gameplay đặt trên `Player.prefab`.
 `Prefab/Player.prefab` — 8 script + NetworkObject + NetworkTransform + CharacterController + Camera
 *(NetworkTransform phải nằm TRÊN FPSMovement)*
 `Prefab/GameManager.prefab` · `Prefab/EMBarrier.prefab` · `Prefab/RoomPlayer.prefab`
-`Items/*.prefab` — 5 vật thể từ tính, có NetworkObject + NetworkRigidbody3D
-`Items/Type/*.asset` — 5 ItemData (tên, giá, icon, consumableType)
+`Items/Type/*.asset` — 7 ItemData (tên, giá, icon, consumableType)
+`Items/*.prefab` — prefab vật thể từ tính, cần `NetworkObject` + `NetworkRigidbody3D`
+
+### Gasoline Canister — giới hạn cần nhớ
+
+`ConvertToTNT()` **chỉ đổi được vật loại Normal**. Spike, Heavy, và TNT sẵn đều trả về `false`.
+Đúng theo đặc tả, không phải lỗi. Dùng hụt thì **không mất chai**.
+
+⚠️ Nhưng bấm hụt **không có phản hồi nào** — không tiếng, không log, không thông báo.
+Người chơi sẽ tưởng vật phẩm hỏng. Nên thêm tiếng "tạch" hoặc dòng chữ trên HUD nếu còn thời gian.
+
+**Cách nó nổ:** không có cơ chế riêng. Chỉ đổi `CurrentType = TNT`, rồi đi theo đúng đường của
+TNT thường — `OnCollisionEnter` chỉ nổ khi `isMovingAsBullet == true`.
+→ **Vật đã chế nằm dưới đất, ai đi vào cũng KHÔNG nổ.** Phải bắn/đẩy nó đi rồi đâm vào gì đó mới nổ.
+Đây là "bom ném", không phải "mìn đặt".
+
+### Các bước tạo 1 vật thể từ tính mới
+
+| # | Việc | Ghi chú |
+|---|---|---|
+| 1 | Kéo model vào scene | |
+| 2 | **Tag = `Magnetic`** | ⚠️ Thiếu là raycast bỏ qua hoàn toàn, bấm chuột không ăn gì |
+| 3 | **Collider** | Không tick Is Trigger |
+| 4 | **Rigidbody** | |
+| 5 | **NetworkObject** + **NetworkRigidbody3D** | Thiếu cái sau là máy kia thấy vật ở (0,0,0) |
+| 6 | **MagneticObject** | `objectType` · `baseDamage` (10/20/25, TNT dùng `tntDamage` 35) · `itemData` |
+| 7 | **MagneticAura** *(tuỳ chọn)* | Hiệu ứng hào quang |
+
+Renderer phải có Material riêng — script tự đổi màu theo điện tích.
 
 ---
 

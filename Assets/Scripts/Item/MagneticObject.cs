@@ -23,6 +23,11 @@ public class MagneticObject : NetworkBehaviour
     // Giờ nó va chạm y hệt vật thường, chỉ khác ở con số sát thương cao hơn.
 
     [Header("Bullet Settings")]
+    [Tooltip("Lực hất văng khi đạn TRÚNG NGƯỜI, tính cho đạn Normal (10 sát thương). " +
+             "Heavy và Spike tự động mạnh hơn theo tỉ lệ sát thương. " +
+             "So sánh: cú đấm cận chiến đang để 200.")]
+    public float hitKnockbackForce = 120f;
+
     [Tooltip("Bay chậm hơn tốc độ này thì thôi không tính là đạn nữa, không gây sát thương.")]
     public float minBulletSpeed = 3f;
 
@@ -459,6 +464,33 @@ public class MagneticObject : NetworkBehaviour
             {
                 health.TakeDamage(CurrentDamage);
             }
+
+            // HẤT VĂNG NGƯỜI TRÚNG ĐẠN.
+            //
+            // Trước 09/08 phần này KHÔNG TỒN TẠI - trúng đạn chỉ mất máu chứ không hề
+            // bị đẩy. Với chế độ Quá Tải thì đó là thiếu sót lớn, vì lực văng chính là
+            // toàn bộ trò chơi: nạn nhân nhiễm điện càng nặng phải bay càng xa.
+            //
+            // Hướng đẩy tính từ vật tới người, ép về phương ngang rồi hất nhẹ lên -
+            // cùng công thức với cú đấm cận chiến, để hai đòn cho cảm giác nhất quán.
+            // Nhấc chân khỏi mặt đất mới bay xa được, dính đất thì ma sát hãm lại ngay.
+            Vector3 hitDir = collision.collider.transform.position - transform.position;
+            hitDir.y = 0f;
+            if (hitDir.sqrMagnitude < 0.0001f) hitDir = transform.forward;
+            hitDir.Normalize();
+            hitDir.y = 0.25f;
+
+            // Đạn mạnh đẩy mạnh: Normal(10) x1, Heavy(20) x2, Spike(25) x2.5.
+            // Tự động đúng tỉ lệ, không phải chỉnh tay từng prefab.
+            float knockback = hitKnockbackForce * (CurrentDamage / 10f);
+
+            // KHÔNG truyền scaleByCharge - để mặc định true, vì đây là cú đẩy từ bên ngoài.
+            // Chính chỗ này làm nạn nhân nhiễm điện nặng bay xa gấp nhiều lần.
+            FPSMovement playerMove = collision.collider.GetComponent<FPSMovement>();
+            if (playerMove != null) playerMove.AddImpact(hitDir, knockback);
+
+            DummyGravity dummyGrav = collision.collider.GetComponent<DummyGravity>();
+            if (dummyGrav != null) dummyGrav.AddImpact(hitDir, knockback);
 
             // Trúng người rồi thì hết là đạn, tránh trừ máu nhiều lần trong một cú bắn
             ResetBulletState();

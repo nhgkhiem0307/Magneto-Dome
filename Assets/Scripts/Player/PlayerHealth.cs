@@ -28,6 +28,11 @@ public class PlayerHealth : NetworkBehaviour
     [Tooltip("Hệ số lực văng khi điện tích ĐẦY. 5 = bị hất xa gấp 5 lần lúc sạch điện.")]
     public float knockbackAtMaxCharge = 5f;
 
+    [Tooltip("Nhân TOÀN BỘ lượng điện nhận vào. Đặt ở đây - một chỗ duy nhất - thay vì sửa " +
+             "baseDamage của từng prefab, nên chỉnh một con số là cả game đổi theo: đạn, " +
+             "nổ TNT, và mọi nguồn sát thương thêm vào sau này.")]
+    public float chargeGainMultiplier = 1.5f;
+
     [Header("Giáp Cách Điện")]
     [Tooltip("Lượng giáp cộng thêm mỗi lần mua Shield Armor.")]
     public float armorPerPurchase = 10f;
@@ -137,6 +142,10 @@ public class PlayerHealth : NetworkBehaviour
 
         // Đã bị loại rồi thì không nhiễm thêm nữa
         if (!IsAlive) return;
+
+        // Nhân hệ số NGAY TỪ ĐẦU, trước cả giáp. Nghĩa là đòn mạnh hơn thì giáp cũng
+        // phải gánh nhiều hơn, thay vì giáp chặn được y như cũ rồi mới nhân phần thừa.
+        amount *= chargeGainMultiplier;
 
         // GIÁP CÁCH ĐIỆN CHỊU TRƯỚC. Nó hấp thụ điện thay cho cơ thể,
         // hỏng dần cho tới khi hết. Phần thừa mới ngấm vào người.
