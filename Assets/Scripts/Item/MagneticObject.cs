@@ -34,6 +34,20 @@ public class MagneticObject : NetworkBehaviour
     [Tooltip("Khoảng thời gian ngay sau khi phóng, chưa xét tốc độ vội. Cần vì lực đẩy phải sang bước vật lý kế tiếp mới thành vận tốc.")]
     public float bulletArmTime = 0.25f;
 
+    [Header("Ngủ đông - nằm bất động khi không ai đụng tới")]
+    [Tooltip("Bật thì vật tự khoá cứng tại chỗ khi đã đứng yên, và tự tỉnh khi bị tác động. " +
+             "Tắt nếu muốn vật lăn tự do như vật lý bình thường.")]
+    public bool enableAutoSleep = true;
+
+    [Tooltip("Chậm hơn mức này (m/s) thì coi như đã đứng yên. Để quá cao thì vật đang lăn chậm cũng bị khoá đứng lại giữa chừng.")]
+    public float sleepSpeedThreshold = 0.4f;
+
+    [Tooltip("Phải đứng yên liên tục bấy nhiêu giây mới ngủ. Có độ trễ này để vật không ngủ ngay ở đỉnh đường bay, lúc nó chậm nhất.")]
+    public float sleepDelay = 0.6f;
+
+    [Tooltip("Bị vật khác đâm trúng thì nhận lại bao nhiêu phần động lượng. 1 = giống hệt va chạm thường, 0.5 = nặng nề hơn.")]
+    public float wakeImpulseTransfer = 1f;
+
     [Header("Explosion Settings (chỉ dùng cho TNT)")]
     public float explosionRadius = 6f;
     public float explosionForce = 15f;
@@ -82,6 +96,19 @@ public class MagneticObject : NetworkBehaviour
     // chuyển sang bộ đếm, đúng khuôn với LaunchCount / DashCount.
     [Networked, OnChangedRender(nameof(OnExploded))]
     private int ExplodeCount { get; set; }
+
+    // Đang ngủ đông (khoá cứng tại chỗ) hay không.
+    //
+    // Vì sao phải [Networked] chứ không để mỗi máy tự quyết: Client cũng phải biết vật
+    // đang ngủ để đặt isKinematic giống Host. Nếu Host khoá mà Client vẫn mô phỏng vật lý,
+    // vật sẽ trượt trên máy Client rồi bị Fusion giật về mỗi khi nhận dữ liệu từ Host.
+    //
+    // Cùng khuôn với IsStored / IsDestroyed: một cờ [Networked] + OnChangedRender áp dụng.
+    [Networked, OnChangedRender(nameof(ApplySleepState))]
+    public NetworkBool IsSleeping { get; set; }
+
+    // Đếm thời gian đứng yên liên tục trước khi ngủ. Đặt lại về None mỗi khi vật động lại.
+    [Networked] private TickTimer SleepCheckTimer { get; set; }
 
     // Khoảng khoá ngay sau khi phóng, chưa xét tốc độ để tắt tư cách đạn.
     [Networked] private TickTimer BulletArmTimer { get; set; }
@@ -419,18 +446,160 @@ public class MagneticObject : NetworkBehaviour
     public override void FixedUpdateNetwork()
     {
         if (!HasStateAuthority) return;
-        if (!isMovingAsBullet) return;
         if (rb == null) return;
 
-        // Chưa hết thời gian khoá thì cứ để yên
-        if (!BulletArmTimer.ExpiredOrNotRunning(Runner)) return;
-
+        // 1. HẾT TƯ CÁCH ĐẠN KHI BAY CHẬM LẠI
         // Bay chậm lại rồi thì thôi không còn là đạn nữa, dù chưa va vào đâu cả.
         // Không có bước này thì một vật lăn tới khi dừng hẳn vẫn gây sát thương.
-        if (rb.linearVelocity.magnitude < minBulletSpeed)
+        //
+        // BulletArmTimer: chưa hết thời gian khoá thì chưa xét tốc độ vội.
+        if (isMovingAsBullet && BulletArmTimer.ExpiredOrNotRunning(Runner))
         {
-            ResetBulletState();
+            if (rb.linearVelocity.magnitude < minBulletSpeed)
+            {
+                ResetBulletState();
+            }
         }
+
+        // 2. NGỦ ĐÔNG
+        UpdateSleepState();
+    }
+
+    /// <summary>
+    /// Quyết định lúc nào vật nên khoá cứng tại chỗ.
+    ///
+    /// VÌ SAO CẦN: địa hình gồ ghề khiến vật nằm trên dốc trượt và rung mãi không dứt.
+    /// Unity có cơ chế tự ngủ sẵn (Rigidbody.sleepThreshold) nhưng nó chỉ ngủ khi vật
+    /// thật sự đứng yên - mà trên dốc thì trọng lực kéo liên tục nên không bao giờ đạt.
+    /// Ở đây khoá thẳng bằng isKinematic nên dốc cỡ nào cũng nằm im.
+    ///
+    /// Kèm theo hai cái lợi: Host thôi phải mô phỏng vật lý cho nó, và NetworkRigidbody3D
+    /// thôi phải gửi vị trí qua mạng mỗi tick. Với hai chục vật thể trong map thì đáng kể.
+    /// </summary>
+    private void UpdateSleepState()
+    {
+        if (!enableAutoSleep) return;
+
+        // Đang nằm trong túi hoặc đã nổ tan: ApplyStoredState() lo phần vật lý rồi, đừng tranh
+        if (IsStored || IsDestroyed) return;
+
+        if (IsSleeping)
+        {
+            // TỰ CHỮA LỆCH TRẠNG THÁI.
+            //
+            // Các đường hút / đẩy / bắn / tung bên PlayerMagnetController đặt thẳng
+            // isKinematic = false chứ không gọi WakeUp(). Nếu không có nhánh này thì cờ
+            // IsSleeping kẹt ở true trong khi vật đã chạy vật lý bình thường -> vật sẽ
+            // KHÔNG BAO GIỜ ngủ lại được nữa, vì nhánh dưới bị chặn ngay ở đây.
+            //
+            // Cố ý bắt lỗi tại chỗ thay vì đi sửa 6 chỗ bên kia: bớt rủi ro đụng vào
+            // đường bắn vốn đã cân bằng tay xong, và sau này thêm đường tương tác mới
+            // cũng không phải nhớ gọi WakeUp().
+            if (!rb.isKinematic)
+            {
+                IsSleeping = false;
+                SleepCheckTimer = TickTimer.None;
+            }
+            return;
+        }
+
+        // Đang bay với tư cách đạn thì tuyệt đối không ngủ - ngủ là mất khả năng
+        // va chạm gây sát thương giữa chừng.
+        if (isMovingAsBullet) return;
+
+        // Đang bị giữ kinematic bởi người khác (cầm trên tay) thì không đụng vào
+        if (rb.isKinematic) return;
+
+        bool isStill = rb.linearVelocity.magnitude < sleepSpeedThreshold
+                    && rb.angularVelocity.magnitude < sleepSpeedThreshold;
+
+        if (!isStill)
+        {
+            // Động lại thì xoá đồng hồ, lần sau phải đếm lại từ đầu
+            SleepCheckTimer = TickTimer.None;
+            return;
+        }
+
+        if (!SleepCheckTimer.IsRunning)
+        {
+            SleepCheckTimer = TickTimer.CreateFromSeconds(Runner, sleepDelay);
+            return;
+        }
+
+        if (SleepCheckTimer.Expired(Runner))
+        {
+            SleepCheckTimer = TickTimer.None;
+            IsSleeping = true;
+            ApplySleepState();
+        }
+    }
+
+    /// <summary>
+    /// Áp cờ ngủ lên Rigidbody. Chạy trên MỌI máy nhờ OnChangedRender của IsSleeping.
+    /// </summary>
+    private void ApplySleepState()
+    {
+        if (rb == null) return;
+
+        // Vật đang ẩn trong túi / đã nổ: ApplyStoredState() mới là chủ của isKinematic
+        // lúc này, ghi đè ở đây sẽ làm vật sống lại giữa lúc đang nằm trong túi.
+        if (IsStored || IsDestroyed) return;
+
+        rb.isKinematic = IsSleeping;
+
+        // CỐ Ý KHÔNG đụng tới useGravity. Lúc bị hút về tay, PlayerMagnetController
+        // tắt trọng lực đi để vật bay thẳng - bật lại ở đây sẽ làm nó rơi giữa đường.
+    }
+
+    /// <summary>
+    /// Đánh thức vật khỏi ngủ đông. Gọi trước khi định tác động lực lên nó.
+    /// </summary>
+    public void WakeUp()
+    {
+        if (!HasStateAuthority) return;
+
+        SleepCheckTimer = TickTimer.None;
+
+        if (!IsSleeping) return;
+
+        IsSleeping = false;
+        ApplySleepState();
+    }
+
+    /// <summary>
+    /// Bị vật khác đâm trúng lúc đang ngủ: tỉnh dậy VÀ nhận lại động lượng của cú đâm.
+    ///
+    /// Phải trả động lượng bằng tay vì vật ngủ là kinematic - PhysX coi nó như bức tường
+    /// khối lượng vô hạn, nên toàn bộ lực của cú đâm bị nuốt mất. Không có bước này thì
+    /// bắn cái ghế vào cái bàn, bàn chỉ tỉnh dậy rồi đứng nguyên tại chỗ, nhìn như
+    /// cú va chạm không có tác dụng gì.
+    /// </summary>
+    private void WakeUpFromImpact(Collision collision)
+    {
+        Rigidbody otherRb = collision.rigidbody;
+
+        // Vật đâm vào cũng đang đứng yên / cũng đang ngủ thì kệ, không có động lượng nào để truyền
+        if (otherRb == null || otherRb.isKinematic) return;
+
+        float impactSpeed = collision.relativeVelocity.magnitude;
+
+        // Cú chạm quá nhẹ (vật lăn lều bều tới sát bên) thì không đáng để tỉnh
+        if (impactSpeed < sleepSpeedThreshold) return;
+
+        WakeUp();
+
+        // relativeVelocity là vận tốc của vật kia SO VỚI mình. Mình đứng yên nên nó
+        // chính là vận tốc vật kia, mang dấu ngược - nên đảo dấu ra hướng nó đang lao tới.
+        Vector3 impactDir = -collision.relativeVelocity.normalized;
+
+        // Bảo toàn động lượng thô: vật nặng đâm vật nhẹ thì vật nhẹ bay mạnh, và ngược lại.
+        //
+        // Đặt THẲNG linearVelocity thay vì AddForce, cùng lý do với cú tung V ở
+        // PlayerMagnetController: phép gán xoá sạch mọi vận tốc rác, và nó ăn ngay
+        // trong khung hình này chứ không phải đợi bước vật lý sau - quan trọng vì
+        // isKinematic vừa mới được gỡ xong.
+        float massRatio = otherRb.mass / Mathf.Max(rb.mass, 0.01f);
+        rb.linearVelocity = impactDir * (impactSpeed * massRatio * wakeImpulseTransfer);
     }
 
     void OnCollisionEnter(Collision collision)
@@ -438,6 +607,16 @@ public class MagneticObject : NetworkBehaviour
         // Chỉ Host tính va chạm và sát thương.
         // Nếu để mọi máy cùng tính thì nạn nhân sẽ bị trừ máu nhiều lần.
         if (Object == null || !Object.IsValid || !HasStateAuthority) return;
+
+        // ĐANG NGỦ MÀ BỊ ĐÂM -> tỉnh dậy và văng đi theo cú đâm.
+        //
+        // Phải xét TRƯỚC dòng chặn bên dưới. Vật đang ngủ thì isMovingAsBullet = false,
+        // nên nếu để sau thì hàm thoát mất và vật ngủ trở thành bất tử: bắn gì vào cũng
+        // trơ ra như đá tảng.
+        if (IsSleeping)
+        {
+            WakeUpFromImpact(collision);
+        }
 
         if (!isMovingAsBullet) return;
 
@@ -555,6 +734,14 @@ public class MagneticObject : NetworkBehaviour
             Rigidbody targetRb = hit.GetComponent<Rigidbody>();
             if (targetRb != null && targetRb != rb)
             {
+                // ĐÁNH THỨC TRƯỚC KHI CỘNG LỰC.
+                //
+                // AddExplosionForce hoàn toàn vô tác dụng lên Rigidbody kinematic - PhysX
+                // bỏ qua mọi lực tác động lên vật kinematic. Thiếu hai dòng này thì bom nổ
+                // giữa đống bàn ghế đang ngủ mà không cái nào nhúc nhích.
+                MagneticObject targetMag = hit.GetComponent<MagneticObject>();
+                if (targetMag != null) targetMag.WakeUp();
+
                 targetRb.AddExplosionForce(explosionForce, transform.position, explosionRadius, 1f, ForceMode.Impulse);
             }
 
@@ -628,6 +815,14 @@ public class MagneticObject : NetworkBehaviour
         currentPolarity = Polarity.None;
 
         transform.localScale = _originalScale;
+
+        // Xoá trạng thái ngủ của round cũ.
+        //
+        // Cố ý cho vật THỨC dậy chứ không ngủ luôn: nó cần rơi xuống và tự ổn định ở chỗ
+        // đứng mới đã, rồi UpdateSleepState() sẽ tự ru nó ngủ sau sleepDelay giây.
+        // Ép ngủ ngay tại đây thì vật nào có vị trí gốc hơi lơ lửng sẽ treo giữa không trung.
+        IsSleeping = false;
+        SleepCheckTimer = TickTimer.None;
 
         // Dừng hẳn rồi mới dịch chuyển, nếu không vật về tới chỗ cũ vẫn còn đà bay tiếp
         if (rb != null)

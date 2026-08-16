@@ -43,6 +43,7 @@ GameObject:
   - component: {fileID: 8644669993631743010}
   - component: {fileID: 3240709537986570239}
   - component: {fileID: 2912485309755868214}
+  - component: {fileID: 7785807459250388440}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -169,6 +170,27 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &7785807459250388440
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4416789730624801688}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 59992988edc3119479083a38c39e70a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CameraShake
+  maxShakeAngles: {x: 2.5, y: 2.5, z: 3.5}
+  maxShakeOffset: 0.06
+  shakeFrequency: 25
+  shakeDuration: 0.5
+  enableHeadBob: 1
+  bobFrequency: 8
+  bobVerticalAmount: 0.045
+  bobRollAmount: 0.6
+  bobSmoothing: 8
 --- !u!1 &6178301003363824090
 GameObject:
   m_ObjectHideFlags: 0
@@ -356,12 +378,15 @@ MonoBehaviour:
   holdPoint: {fileID: 202164235604517974}
   shootRange: 50
   pullForce: 13
-  pushForce: 50
+  pushForce: 125
+  grabDistance: 0.7
   tossKey: 118
-  tossUpForce: 0.8
-  tossForwardForce: 0.2
+  tossUpSpeed: 3
+  tossForwardSpeed: 0.75
+  tossSpinStrength: 0.3
+  releaseClearance: 0.15
   meleeRange: 4
-  dashLockRange: 20
+  dashLockRange: 30
   meleePushForce: 200
   meleeCooldown: 1
   heldObjectSize: 1
@@ -370,7 +395,8 @@ MonoBehaviour:
   heavyBlockDamageFactor: 0.5
   spikeDamageMultiplier: 2
   spikePullBoost: 1.5
-  grapplePullForce: 100
+  grapplePullForce: 333
+  fireShakeTrauma: 0.4
   _currentGlovePolarity: 0
   _HasGasolineEquipped:
     _value: 0
@@ -392,6 +418,7 @@ MonoBehaviour:
   cameraTransform: {fileID: 6162753422709012679}
   dashForce: 100
   dashCooldown: 1
+  dashShakeTrauma: 0.35
   energyDrinkDuration: 15
   energyDrinkCooldownReduction: 0.15
   gravity: -9.81
@@ -412,6 +439,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   maxCharge: 100
   knockbackAtMaxCharge: 5
+  chargeGainMultiplier: 1.5
   armorPerPurchase: 10
   maxArmor: 30
   bandageMaxDischarge: 20
@@ -481,7 +509,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b785ae5b4ce97324b91ec907b9a7755b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerEconomy
-  startingMoney: 500
+  startingMoney: 300
   moneyCap: 750
   winReward: 150
   loseReward: 100

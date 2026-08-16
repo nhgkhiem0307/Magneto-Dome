@@ -1,7 +1,7 @@
 # TIẾN ĐỘ — Magneto-Dome
 
 > Ghi cho session sau. Đọc file này trước, rồi đọc [CLAUDE.md](CLAUDE.md) để nắm đặc tả và quy tắc.
-> **Cập nhật:** 09/08/2026 · **Deadline:** ~16/09/2026 (còn ~5 tuần)
+> **Cập nhật:** 16/08/2026 · **Deadline:** ~16/09/2026 (còn ~4 tuần)
 
 ---
 
@@ -13,6 +13,65 @@ Game **chạy được trọn vẹn**: vào phòng → chia đội → đánh nh
 > ⚡ **09/08: đã đổi mục tiêu tối thượng sang CHẾ ĐỘ QUÁ TẢI.** Không còn thanh máu — trúng đòn
 > nạp điện tích, càng nhiễm càng bị hất xa, chết chỉ khi rơi khỏi đảo. Code xong và đã biên dịch
 > sạch (`dotnet build`, 0 error), **chưa test lần nào.** Đặc tả đầy đủ ở [CLAUDE.md](CLAUDE.md) mục 4.
+
+> 🎬 **16/08: thêm rung camera + cơ chế ngủ đông cho vật thể.** Cả hai đều sinh ra từ việc bắt đầu
+> dựng map thật (địa hình gồ ghề). Biên dịch sạch 0 error, **chưa test lần nào.** Chi tiết ở mục 2b.
+
+---
+
+## 2b. Việc làm ngày 16/08 — CHƯA TEST
+
+### 🎬 Rung camera *(file mới: `Scripts/Player/CameraShake.cs`)*
+
+MonoBehaviour thuần, **cố ý không networked** — rung camera chỉ mình mình thấy, gửi qua mạng là
+phí băng thông. Ba nguồn rung: **đi bộ** (nhấp nhô đầu), **Dash**, **bắn vật đang cầm**.
+
+⚠️ **Nguyên tắc quan trọng: chỉ có MỘT chỗ được ghi vào transform của camera** — đó là
+`FPSMovement.Render()`. `CameraShake` chỉ *tính ra* độ lệch rồi để `Render()` cộng vào.
+Cho nó tự xoay camera thì hai bên tranh nhau ghi, ai chạy sau xoá công người trước, mà thứ tự
+Unity gọi hàm thì không đoán được.
+
+| Chi tiết kỹ thuật | Vì sao |
+|---|---|
+| Dash móc vào `OnDashPerformed()` **có sẵn**, không tạo đường mới | Rung thẳng trong `FixedUpdateNetwork` sẽ cộng trauma 5-6 lần mỗi cú do Fusion tua lại |
+| Bắn vật phải thêm `FireCount` **`[Networked]`** | `FireGrabbedObject()` nằm sau `if (!HasStateAuthority) return;` nên chỉ chạy trên Host — máy Client bắn sẽ không rung gì cả |
+| Dao động bằng **Perlin noise**, không phải `Random.Range` | Random cho camera giật xành xạch như hỏng; Perlin liền mạch mới ra cảm giác chấn động |
+| Trauma **bình phương** trước khi dùng | Mắt người cảm nhận phi tuyến. Lấy thẳng thì cái đuôi lắc lay mãi như camera bị lỏng |
+
+**Bước Unity còn thiếu:** Add Component `Camera Shake` lên **GameObject Camera** trong `Player.prefab`
+(không phải lên Player). Chưa gắn thì không có gì rung, code vẫn chạy bình thường.
+
+### 😴 Ngủ đông vật thể *(`MagneticObject`)*
+
+Vật đứng yên `sleepDelay` giây → khoá cứng `isKinematic = true`. Bị hút/đẩy/đâm/nổ → tự tỉnh.
+
+**Vì sao cần:** địa hình gồ ghề làm vật nằm trên dốc trượt và rung mãi không dứt. Unity có
+`Rigidbody.sleepThreshold` sẵn nhưng nó chỉ ngủ khi vật *thật sự* đứng yên — trên dốc thì trọng lực
+kéo liên tục nên không bao giờ đạt. Khoá thẳng bằng `isKinematic` thì dốc cỡ nào cũng nằm im.
+Lợi ích kèm theo: Host thôi mô phỏng, `NetworkRigidbody3D` thôi gửi vị trí mỗi tick.
+
+⚠️ **Hai cái bẫy đã xử lý, đừng gỡ ra:**
+
+1. **`AddExplosionForce` vô tác dụng lên vật kinematic.** PhysX bỏ qua mọi lực tác động lên vật
+   kinematic. Nên `Explode()` phải gọi `WakeUp()` cho từng vật **trước khi** cộng lực, nếu không
+   bom nổ giữa đống bàn ghế mà không cái nào nhúc nhích.
+2. **Vật ngủ bị đâm thì mất sạch động lượng.** Kinematic được PhysX coi như tường khối lượng vô hạn.
+   `WakeUpFromImpact()` phải tính lại động lượng bằng tay theo tỉ lệ khối lượng, nếu không vật chỉ
+   tỉnh dậy rồi đứng nguyên tại chỗ.
+
+**Tự chữa lệch trạng thái:** các đường hút/đẩy/bắn bên `PlayerMagnetController` đặt thẳng
+`isKinematic = false` chứ không gọi `WakeUp()`. `UpdateSleepState()` phát hiện và tự sửa cờ.
+Cố ý làm vậy thay vì đi sửa 6 chỗ bên kia — bớt rủi ro đụng vào đường bắn đã cân bằng xong.
+
+⚠️ **Phải BỎ tick `Is Kinematic` thủ công trên prefab.** Để nguyên thì vật **bất tử**: nó đứng yên,
+nhưng cờ `IsSleeping` vẫn `false` nên `OnCollisionEnter` không đánh thức, bắn gì vào cũng trơ ra.
+
+### 🔧 Sửa: nhiều collider trên một vật *(`PlayerMagnetController`)*
+
+Ba chỗ dùng `GetComponent<Collider>()` **số ít** đã gộp thành `SetIgnoreCollisionWithPlayer()`
+duyệt hết mọi collider. Cần vì cây/đá dùng **nhiều BoxCollider ghép** thay cho MeshCollider lõm.
+Sót một collider là dính lại đúng **bẫy số 8** ở CLAUDE.md: cái chưa tắt nằm chồng trong người chơi,
+PhysX bắn ra lực gỡ kẹt, vật bay đi mỗi lần một hướng.
 
 ---
 
@@ -128,6 +187,45 @@ Sự leo thang đến từ **kích thước map**, không phải từ code.
 > Chắc chắn sẽ phải sửa kích thước sau khi test. Sửa cube mất 5 giây; sửa khu đã kitbash 40 model
 > mất nửa buổi, rồi sẽ ngại sửa và chấp nhận một map dở. Khoá layout xong mới dán art.
 
+### 🔴 Hai lỗi phát hiện 16/08 khi dựng map — SỬA TRONG UNITY, KHÔNG PHẢI CODE
+
+**1. Thiếu tag `Magnetic` → bấm chuột vào vật không ăn gì.**
+
+Triệu chứng: "nhiều cục đá và cây bắn điện tích không lên được, cục khác thì được".
+Nguyên nhân: prefab `Tree9_*` có `Tag = Untagged`, phải override tay từng cái trong scene.
+Đọc `TestScene.unity` ngày 16/08: chỉ **8 object** được override, trong khi log báo **~16** vật
+có Rigidbody. Raycast lọc bằng `CompareTag("Magnetic")` nên bỏ qua hoàn toàn số còn lại.
+
+→ **Cách sửa:** đặt `Tag = Magnetic` ngay **trên prefab**, khỏi tick tay từng bản sao.
+Đúng cái bẫy đã ghi sẵn ở mục "Các bước tạo 1 vật thể từ tính mới" — vẫn dính lại lần nữa.
+
+**2. Concave Mesh Collider — 32 dòng lỗi đỏ trong Console.**
+
+```
+Concave Mesh Colliders are not supported when used with dynamic Rigidbody GameObjects.
+Scene hierarchy path "Environment/Rock1A"
+```
+
+Dính: `Rock1A` `Rock4A` `Tree9_2/3/4/5` và các bản sao. Hậu quả thật: **những vật này gần như
+không va chạm được gì** — đạn bay xuyên qua, người chơi lọt qua.
+
+Unity chỉ cấm MeshCollider **lõm** đi cùng **Rigidbody động**. Hai đường sửa:
+
+| Vật đó là gì | Làm gì |
+|---|---|
+| **Trang trí** (đa số cây) | **Xoá Rigidbody + MagneticObject.** MeshCollider lõm hợp lệ ngay khi không còn Rigidbody. Giải quyết luôn cả chuyện cây đổ nhào và giảm tải mạng |
+| **Làm đạn** (có tag `Magnetic`) | 2 BoxCollider — 1 thân, 1 vòm lá — đặt **trên chính GameObject gốc** |
+
+⚠️ **Đừng tách collider ra GameObject con.** Raycast dùng `hit.collider.GetComponent<MagneticObject>()`,
+trúng vào con thì trả `null` và mất hẳn khả năng tương tác.
+
+✅ Hai BoxCollider **chồng lên nhau một chút là tốt** (khỏi hở khe cho đạn lọt qua). Collider cùng
+một Rigidbody thì PhysX không bao giờ cho chúng va chạm với nhau, nên không sinh lực gỡ kẹt.
+
+> 💡 **Cây đổ nhào là đúng vật lý, không phải lỗi.** Khúc gỗ dựng đứng có Rigidbody động, trọng tâm
+> cao, đặt trên dốc thì nó *phải* ngã. Câu hỏi thật là cây đó có cần là vật thể vật lý không —
+> với phần lớn cây trong map thì không.
+
 ### 🟡 Dựng UI còn thiếu
 
 | Việc | Ghi chú |
@@ -155,6 +253,19 @@ Nguồn: freesound.org, kenney.nl. **Ghi nguồn trong báo cáo.**
 
 ### 🟢 Chưa test (code xong, chưa chạy thử lần nào)
 
+- **🎬 Rung camera** *(làm 16/08)* — cần Add Component `CameraShake` lên Camera trước đã
+  - Đi bộ có nhấp nhô không, có chóng mặt không (hạ `Bob Vertical Amount` hoặc bỏ tick nếu có)
+  - Dash và bắn vật có rung đúng **một lần** không — rung nhiều lần là dấu hiệu Fusion tua lại lọt qua
+  - Máy **Client** bắn vật có rung không (đây là lý do phải thêm `FireCount` networked)
+- **😴 Ngủ đông vật thể** *(làm 16/08)* — nhớ bỏ tick `Is Kinematic` thủ công trước
+  - Vật trên dốc có trượt một đoạn rồi **dừng hẳn** không
+  - Bắn vật khác vào vật đang ngủ — nó phải văng đi tự nhiên, không được trơ ra
+  - **TNT nổ có thổi bay được đồ đạc đang ngủ không** (nghi ngờ nhất)
+  - ⚠️ **`NetworkRigidbody3D` có ghi đè `isKinematic` không** — tài liệu Fusion không nói rõ.
+    Dấu hiệu xung đột: vật vẫn trượt dù đã ngủ, hoặc Client thấy vật ở chỗ khác Host.
+    → Cách chữa nếu dính: đổi từ `isKinematic` sang `RigidbodyConstraints.FreezeAll`
+- **Nhiều BoxCollider trên một vật** *(sửa 16/08)* — cầm cây lên bấm `V` tung.
+  Bay lệch loạn xạ mỗi lần một hướng = còn collider nào chưa được tắt va chạm
 - **Reset map đầu round mới** *(làm 09/08)* — `GameManager.ResetWorldObjects()`
   - Mọi vật thể có về đúng chỗ cũ, sạch điện, hết bị chế thành TNT không?
   - Thùng TNT đã nổ ở round trước có **sống lại** không?
@@ -186,6 +297,19 @@ Thứ nào suy ra được tại chỗ thì tính tại chỗ. Đã dùng cho:
 | Rào chắn Buy Phase | Suy từ `GameManager.Phase`, là MonoBehaviour thường |
 | Âm thanh | Móc vào `OnChangedRender` sẵn có, 0 byte thêm |
 | Quan sát khi chết | Chỉ đổi camera nào đang bật |
+
+### Một thứ chỉ được có MỘT chỗ ghi vào *(rút ra 16/08)*
+
+`FPSMovement.Render()` là nơi duy nhất ghi vào transform của camera. `CameraShake` không tự xoay
+camera mà chỉ *tính ra* độ lệch để `Render()` cộng vào.
+
+Nếu hai script cùng ghi một thứ thì ai chạy sau sẽ xoá công người trước, mà thứ tự Unity gọi hàm
+phụ thuộc vào thứ tự component và loại hàm (`Update` / `LateUpdate` / `Render` của Fusion) — rất
+khó đoán và hay đổi khi thêm component mới. Gộp về một chỗ ghi thì không bao giờ có lớp lỗi đó.
+
+Cùng lý do với việc **Animation gió đung đưa phải làm bằng vertex shader, không bằng Animator**:
+Animator ghi `transform`, mà Rigidbody và Fusion cũng ghi `transform`. Shader đẩy đỉnh mesh lúc vẽ
+nên không tranh với ai, và collider cũng đứng yên — đó là điều mong muốn chứ không phải hạn chế.
 
 ### Âm thanh / hiệu ứng: KHÔNG gọi trong `FixedUpdateNetwork()`
 
@@ -237,6 +361,7 @@ Assets/
     ├── Player/               FPSMovement · PlayerMagnetController · PlayerHealth
     │                         InventorySystem · PlayerHotbarController · PlayerInteract
     │                         RadialMenuController · NetworkInputData · PlayerEconomy
+    │                         CameraShake  ← MonoBehaviour thuần, đặt trên Camera
     ├── Item/                 MagneticObject · MagneticAura · ItemData · EMBarrier
     └── MenuUI/               HUDController · ShopUI · ShopItemButton
                               SettingsUI · SpectatorController · RoomItemUI

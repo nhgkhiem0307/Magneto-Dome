@@ -22,6 +22,10 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     public float dashForce = 100f;      // Độ mạnh cú lướt
     public float dashCooldown = 1f;    // Thời gian hồi chiêu Dash (giây)
 
+    [Header("Rung camera")]
+    [Tooltip("Độ mạnh cú rung khi Dash, thang 0..1. Đặt 0 để tắt.")]
+    public float dashShakeTrauma = 0.35f;
+
     [Header("Nước Tăng Lực")]
     [Tooltip("Hiệu lực kéo dài bao nhiêu giây sau khi uống.")]
     public float energyDrinkDuration = 15f;
@@ -86,10 +90,31 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     private CharacterController controller;
     private PlayerHealth health;
 
+    // Bộ rung camera, nằm trên chính GameObject của Camera. Có thể null nếu chưa
+    // gắn component — mọi chỗ dùng đều phải kiểm tra null, không được coi là chắc chắn có.
+    private CameraShake cameraShake;
+
+    // Vị trí gốc của camera trong người nhân vật, đo đúng một lần lúc spawn.
+    // Rung camera là CỘNG THÊM vào vị trí này, nên phải nhớ mốc gốc, nếu không
+    // mỗi khung hình sẽ cộng dồn lên chỗ đã lệch và camera trôi dần ra khỏi đầu.
+    private Vector3 cameraBaseLocalPosition;
+
+    // Đang đi nhanh cỡ nào, thang 0..1, dùng cho nhịp nhấp nhô đầu.
+    //
+    // Cố ý là biến thường chứ KHÔNG [Networked]: nhấp nhô chỉ là hiệu ứng hình ảnh
+    // trên màn hình của chính mình, người khác không nhìn thấy nên không cần gửi đi.
+    private float walkSpeed01;
+
     public override void Spawned()
     {
         controller = GetComponent<CharacterController>();
         health = GetComponent<PlayerHealth>();
+
+        if (cameraTransform != null)
+        {
+            cameraShake = cameraTransform.GetComponent<CameraShake>();
+            cameraBaseLocalPosition = cameraTransform.localPosition;
+        }
 
         // Tắt rồi bật lại CharacterController ngay khi vừa sinh ra.
         //
@@ -186,7 +211,11 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
 
         // ĐÃ BỊ LOẠI KHỎI ROUND -> đứng yên tại chỗ, không đi lại được nữa.
         // Cố ý đặt SAU phần xoay ở trên, để người chết vẫn ngó nghiêng xem trận đấu tiếp diễn.
-        if (health != null && !health.IsAlive) return;
+        if (health != null && !health.IsAlive)
+        {
+            walkSpeed01 = 0f; // xác đứng im thì đầu không nhấp nhô nữa
+            return;
+        }
 
         // 2. DI CHUYỂN WASD
         Vector3 inputDir = new Vector3(input.MoveDirection.x, 0f, input.MoveDirection.y);
@@ -248,6 +277,23 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         // 6. GỘP LỰC VÀ DI CHUYỂN (1 LẦN MOVE/TICK)
         Vector3 finalMovement = (moveDirection * moveSpeed) + velocity + impact;
         controller.Move(finalMovement * Runner.DeltaTime);
+
+        // 7. ĐO TỐC ĐỘ ĐI BỘ CHO NHỊP NHẤP NHÔ ĐẦU
+        //
+        // Nhân hai thứ với nhau chứ không lấy riêng cái nào:
+        //   - controller.velocity: quãng đường THẬT vừa đi được. Húc vào tường thì bằng 0,
+        //     nên đứng đè tường giữ W sẽ không nhấp nhô — đúng như thực tế.
+        //   - inputDir.magnitude: có đang BẤM phím đi hay không. Cần cái này vì
+        //     controller.velocity còn tính cả lúc bị hất văng và lúc Dash; thiếu nó thì
+        //     bay ngang giữa trời cũng nhấp nhô như đang đi bộ.
+        //
+        // Chỉ tính khi chạm đất — trên không thì không có bước chân nào cả.
+        Vector3 flatVelocity = controller.velocity;
+        flatVelocity.y = 0f;
+
+        walkSpeed01 = controller.isGrounded
+            ? Mathf.Clamp01(flatVelocity.magnitude / moveSpeed) * inputDir.magnitude
+            : 0f;
     }
 
     // Render chạy mỗi khung hình (giống Update cũ), dùng cho phần hình ảnh thuần tuý.
@@ -259,6 +305,27 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         // nếu dùng giá trị mạng thì rê chuột sẽ có cảm giác nặng và giật.
         // Nhân vật người khác: dùng giá trị đã đồng bộ qua mạng.
         float pitch = HasInputAuthority ? NetworkRunnerHandler.LookPitch : NetPitch;
+
+        // KHÔNG rung camera của nhân vật người khác.
+        //
+        // Không phải vì nó sai, mà vì vô nghĩa: camera của họ đã bị tắt trong Spawned(),
+        // chẳng ai nhìn qua nó cả. Tính toán Perlin noise cho 3 camera tắt mỗi khung hình
+        // là phí công. Ngoài ra rung camera thuần cục bộ nên cũng không cần khớp giữa các máy.
+        if (cameraShake != null && HasInputAuthority)
+        {
+            cameraShake.Tick(walkSpeed01);
+
+            // CỘNG độ lệch vào góc nhìn thay vì gán đè.
+            // Góc ngẩng/cúi theo chuột vẫn phải là thành phần chính, rung chỉ là gia vị
+            // thêm lên trên. Gán đè sẽ làm mất luôn khả năng ngắm.
+            Vector3 shakeRot = cameraShake.RotationOffset;
+            cameraTransform.localRotation = Quaternion.Euler(pitch + shakeRot.x, shakeRot.y, shakeRot.z);
+
+            // Vị trí thì cộng vào MỐC GỐC đã đo lúc spawn, không cộng vào vị trí hiện tại.
+            // Cộng dồn vào vị trí hiện tại sẽ khiến camera trôi dần khỏi đầu nhân vật.
+            cameraTransform.localPosition = cameraBaseLocalPosition + cameraShake.PositionOffset;
+            return;
+        }
 
         cameraTransform.localRotation = Quaternion.Euler(pitch, 0f, 0f);
     }
@@ -296,6 +363,39 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     private void OnDashPerformed()
     {
         AudioManager.Dash(transform.position);
+
+        // Móc rung camera vào đúng chỗ đã phát tiếng dash, không tạo đường riêng.
+        //
+        // Vì sao KHÔNG rung thẳng trong FixedUpdateNetwork lúc bấm Q: Fusion tua lại
+        // (resimulation) nhiều tick mỗi khung hình, nên một cú dash sẽ chạy qua đoạn code đó
+        // 5-6 lần, cộng trauma 5-6 lần và rung mạnh gấp mấy lần dự tính. Đây đúng là căn bệnh
+        // đã làm tiếng dash kêu chồng lên nhau trước đây, chữa bằng chính bộ đếm DashCount này.
+        // OnChangedRender chỉ chạy đúng một lần cho mỗi lần con số thật sự đổi.
+        ShakeCamera(dashShakeTrauma);
+    }
+
+    /// <summary>
+    /// Rung camera của chính người chơi này.
+    ///
+    /// PlayerMagnetController gọi vào đây khi bắn vật. Để nó gọi qua hàm này thay vì
+    /// tự đi tìm CameraShake, như vậy nó không cần biết bộ rung nằm ở đâu và trông ra sao —
+    /// mai này đổi cách làm rung thì chỉ phải sửa một chỗ duy nhất.
+    /// </summary>
+    /// <param name="trauma">Độ mạnh 0..1. Cộng dồn nếu đang rung sẵn.</param>
+    public void ShakeCamera(float trauma)
+    {
+        // Chỉ rung camera của người ngồi trước máy này. Camera nhân vật khác đang tắt,
+        // rung nó không ai thấy mà vẫn tốn công tính.
+        if (!HasInputAuthority) return;
+        if (cameraShake == null || trauma <= 0f) return;
+
+        cameraShake.AddTrauma(trauma);
+    }
+
+    /// <summary>Xoá sạch dư chấn camera. Gọi khi hồi sinh / sang round mới nếu cần.</summary>
+    public void ResetCameraShake()
+    {
+        if (cameraShake != null) cameraShake.ResetShake();
     }
 
     /// <summary>Xoá hiệu lực Nước Tăng Lực. GameManager gọi khi hồi sinh đầu round.</summary>

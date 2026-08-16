@@ -76,6 +76,10 @@ public class PlayerMagnetController : NetworkBehaviour
     [Tooltip("Lực kéo bản thân bay về phía đối thủ khi cận chiến ở tầm 3-8m và trái dấu điện tích.")]
     public float grapplePullForce = 100f;
 
+    [Header("Rung camera")]
+    [Tooltip("Độ mạnh cú rung khi bắn vật đang cầm đi, thang 0..1. Đặt 0 để tắt.")]
+    public float fireShakeTrauma = 0.4f;
+
     // --- TRẠNG THÁI ĐỒNG BỘ QUA MẠNG ---
 
     // Cố ý giữ nguyên tên viết thường 'currentGlovePolarity' dù giờ nó là property,
@@ -97,6 +101,18 @@ public class PlayerMagnetController : NetworkBehaviour
     // một cú đấm sẽ kêu chồng lên nhau nhiều lần.
     [Networked, OnChangedRender(nameof(OnMeleePerformed))]
     private int MeleeCount { get; set; }
+
+    // Đếm số vật đã bắn đi, để rung camera đúng một lần mỗi phát.
+    //
+    // Vì sao phải [Networked] cho một hiệu ứng thuần cục bộ: FireGrabbedObject() nằm SAU
+    // dòng "if (!HasStateAuthority) return;" ở FixedUpdateNetwork, nghĩa là nó CHỈ chạy
+    // trên máy Host. Nếu rung thẳng trong đó thì người chơi ở máy Client bắn vật sẽ
+    // không thấy camera rung gì cả — mà Client mới là phần lớn người chơi.
+    // Cho con số đi qua mạng thì máy nào cũng nhận được tín hiệu "vừa có phát bắn".
+    //
+    // Đây đúng khuôn mẫu của MeleeCount / DashCount / LaunchCount, không phải cách làm mới.
+    [Networked, OnChangedRender(nameof(OnObjectFired))]
+    private int FireCount { get; set; }
 
     // Đang cầm sẵn Chai Xăng Tẩy Chế trên tay hay không.
     // Dùng xong một lần là hết, phải rút chai khác từ túi.
@@ -279,6 +295,7 @@ public class PlayerMagnetController : NetworkBehaviour
         {
             if (!justPressed) return;
 
+            magObj.WakeUp(); // đang ngủ đông thì đánh thức, không thì lực đẩy bị PhysX bỏ qua
             targetRb.isKinematic = false;
             targetRb.useGravity = true;
             magObj.LaunchAsBullet(this);
@@ -324,6 +341,7 @@ public class PlayerMagnetController : NetworkBehaviour
         }
 
         // KÉO VẬT THỂ MƯỢT MÀ VỀ TAY (Không Teleport)
+        magObj.WakeUp(); // đang ngủ đông thì đánh thức, không thì hút mãi không nhúc nhích
         targetRb.isKinematic = false;
         targetRb.useGravity = false;
 
@@ -479,11 +497,8 @@ public class PlayerMagnetController : NetworkBehaviour
         // Trả cỡ gốc TRƯỚC, để đo được bán kính thật ở bước sau
         obj.RestoreScale();
 
-        Collider objCol = obj.GetComponent<Collider>();
-        Collider playerCol = GetComponent<Collider>();
-
         // Bán kính vật SAU khi đã phình lại cỡ thật.
-        // Dùng GetBoundingRadius() thay cho objCol.bounds vì bounds đổi theo góc xoay.
+        // Dùng GetBoundingRadius() thay cho bounds của collider vì bounds đổi theo góc xoay.
         float objRadius = obj.GetBoundingRadius();
 
         float playerRadius = 0.5f;
@@ -504,7 +519,47 @@ public class PlayerMagnetController : NetworkBehaviour
             new Vector3(transform.position.x, holdHeight, transform.position.z) + flatAim * safeDistance;
 
         // GIỜ mới bật lại va chạm, khi vật đã đứng ở chỗ không chồng lấn với ai
-        if (playerCol != null && objCol != null) Physics.IgnoreCollision(playerCol, objCol, false);
+        SetIgnoreCollisionWithPlayer(obj, false);
+    }
+
+    /// <summary>
+    /// Bật/tắt va chạm giữa người chơi này và MỌI collider của vật thể.
+    ///
+    /// VÌ SAO PHẢI DUYỆT HẾT chứ không lấy một cái:
+    /// trước đây chỗ này viết là GetComponent&lt;Collider&gt;() - số ít - và nó chỉ trả về
+    /// collider ĐẦU TIÊN tìm thấy. Với vật thể một collider thì không sao, nhưng cây cối
+    /// và đá dùng NHIỀU BoxCollider ghép lại (một cho thân, một cho vòm lá) để thay cho
+    /// MeshCollider lõm - thứ mà Unity không cho đi cùng Rigidbody động.
+    ///
+    /// Sót một collider là dính lại đúng BẪY SỐ 8 trong CLAUDE.md: cái collider chưa được
+    /// tắt nằm chồng trong người chơi, PhysX bắn ra lực gỡ kẹt để tách hai vật ra, và vật
+    /// bay đi mỗi lần một hướng. Lần đó mất rất nhiều thời gian mới tìm ra thủ phạm.
+    /// </summary>
+    private void SetIgnoreCollisionWithPlayer(MagneticObject obj, bool ignore)
+    {
+        if (obj == null) return;
+
+        // CharacterController cũng là một loại Collider nên nằm luôn trong danh sách này.
+        //
+        // Dùng InChildren để khớp với cachedColliders của MagneticObject (nó cũng quét
+        // cả con). Nhờ vậy mai này có tách phần mesh ra GameObject con - chẳng hạn để
+        // gắn hiệu ứng gió lay lá riêng - thì chỗ này không phải sửa lại.
+        Collider[] playerCols = GetComponentsInChildren<Collider>();
+        Collider[] objCols = obj.GetComponentsInChildren<Collider>();
+
+        foreach (Collider pc in playerCols)
+        {
+            // Bỏ qua collider đang tắt: Unity báo lỗi đỏ nếu gọi IgnoreCollision lên
+            // collider đã disable. Vật nằm trong túi bị tắt hết collider (ApplyStoredState).
+            if (pc == null || !pc.enabled || pc.isTrigger) continue;
+
+            foreach (Collider oc in objCols)
+            {
+                if (oc == null || !oc.enabled || oc.isTrigger) continue;
+
+                Physics.IgnoreCollision(pc, oc, ignore);
+            }
+        }
     }
 
     void TossObjectUp(Vector3 aimDirection)
@@ -565,6 +620,8 @@ public class PlayerMagnetController : NetworkBehaviour
         fireDirection.Normalize();
 
         rbToFire.AddForce(fireDirection * pushForce, ForceMode.Impulse);
+
+        FireCount++; // để máy của người bắn rung camera, xem OnObjectFired
     }
 
     /// <summary>
@@ -575,9 +632,7 @@ public class PlayerMagnetController : NetworkBehaviour
     {
         if (grabbedObject != null)
         {
-            Collider playerCol = GetComponent<Collider>();
-            Collider objCol = grabbedObject.GetComponent<Collider>();
-            if (playerCol != null && objCol != null) Physics.IgnoreCollision(playerCol, objCol, false);
+            SetIgnoreCollisionWithPlayer(grabbedObject, false);
 
             grabbedObject.ResetBulletState();
         }
@@ -611,16 +666,23 @@ public class PlayerMagnetController : NetworkBehaviour
         grabbedRb.useGravity = false;
         grabbedRb.linearDamping = 10f;
 
-        // TẮT VA CHẠM: Để vật thể không đè lên người chơi
-        Collider playerCol = GetComponent<Collider>();
-        Collider objCol = targetObj.GetComponent<Collider>();
-        if (playerCol != null && objCol != null) Physics.IgnoreCollision(playerCol, objCol, true);
+        // TẮT VA CHẠM: Để vật thể không đè lên người chơi.
+        // Phải tắt HẾT mọi collider của vật, xem ghi chú ở SetIgnoreCollisionWithPlayer().
+        SetIgnoreCollisionWithPlayer(targetObj, true);
     }
 
     // Chạy trên MỌI máy, đúng một lần cho mỗi cú cận chiến
     private void OnMeleePerformed()
     {
         AudioManager.MeleePunch(transform.position);
+    }
+
+    // Chạy trên MỌI máy, đúng một lần cho mỗi phát bắn.
+    // Bản thân FPSMovement.ShakeCamera() đã tự lọc để chỉ rung camera của chủ nhân vật,
+    // nên gọi thẳng ở đây không sợ rung nhầm màn hình người khác.
+    private void OnObjectFired()
+    {
+        if (movement != null) movement.ShakeCamera(fireShakeTrauma);
     }
 
     /// <summary>
