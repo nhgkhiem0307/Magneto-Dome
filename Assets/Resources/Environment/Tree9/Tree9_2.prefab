@@ -141,6 +141,12 @@ MonoBehaviour:
   hitKnockbackForce: 120
   minBulletSpeed: 3
   bulletArmTime: 0.25
+  bounceRiseDamp: 0.2
+  bulletGravityMultiplier: 2
+  enableAutoSleep: 1
+  sleepSpeedThreshold: 0.4
+  sleepDelay: 0.6
+  wakeImpulseTransfer: 1
   explosionRadius: 6
   explosionForce: 15
   tntDamage: 35
@@ -152,6 +158,8 @@ MonoBehaviour:
   _IsStored:
     _value: 0
   _IsDestroyed:
+    _value: 0
+  _IsSleeping:
     _value: 0
   _CurrentType: 0
   shooterOwner: {fileID: 0}
