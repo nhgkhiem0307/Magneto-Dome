@@ -10,7 +10,33 @@ public class PlayerMagnetController : NetworkBehaviour
     [Header("Magnet Settings")]
     public float shootRange = 100f;
     public float pullForce = 40f;
-    public float pushForce = 300f;
+
+    [Tooltip("Tốc độ ĐẨY vật thể trong môi trường ra xa (chuột trái, cùng dấu), mét/giây. " +
+             "Là VẬN TỐC chứ không phải lực, nên vật nặng vật nhẹ bay đi như nhau. " +
+             "KHÔNG dùng cho cú bắn vật đang cầm - cái đó dùng fireSpeed bên dưới.")]
+    public float pushSpeed = 125f;
+
+    [Tooltip("Độ chếch LÊN của cú đẩy. MẶC ĐỊNH LÀ 0 - CỐ Ý.\n\n" +
+             "Trọng lực project chỉ -3 nên quãng đường để vật rơi lại độ cao ban đầu là " +
+             "d = 2*v_doc*v_ngang/g. Với pushSpeed 125 và chếch 0.18 thì d = 906m, trong khi " +
+             "map chỉ ~56m - vật chưa bao giờ kịp rơi xuống, nó chỉ leo lên rồi bay qua đầu địch.\n\n" +
+             "Việc vượt gờ đất do Push Lift Offset lo. Đừng dùng ô này cho việc đó.")]
+    [Range(0f, 1f)]
+    public float pushUpwardBias = 0f;
+
+    [Tooltip("Nâng vật lên bao nhiêu mét trước khi đẩy. ĐÂY MỚI LÀ THỨ GIÚP VƯỢT GỜ ĐẤT: " +
+             "nâng lên tầm ngực rồi bắn ngang thì mọi gờ thấp hơn mức này đều không chạm " +
+             "tới, mà đạn vẫn ở đúng tầm trúng người suốt quãng đường.")]
+    public float pushLiftOffset = 0.45f;
+
+    [Tooltip("Tốc độ BẮN vật đang cầm trên tay, tính bằng mét/giây. " +
+             "Đây là VẬN TỐC chứ không phải lực, nên vật nặng vật nhẹ đều bay đi như nhau. " +
+             "Cao hơn = đường đạn thẳng hơn, ít rơi hơn, dễ ngắm hơn.")]
+    public float fireSpeed = 45f;
+
+    [Tooltip("BẬT: đường đạn luôn nằm ngang, bất kể đang ngắm cao hay thấp. Dễ đoán nhất. " +
+             "TẮT: bắn đúng theo hướng đang nhìn, ngắm được lên xuống nhưng khó canh hơn.")]
+    public bool lockFireToHorizontal = true;
 
     [Tooltip("Khoảng cách cơ bản để vật lọt vào tay. BÁN KÍNH CỦA VẬT sẽ được cộng thêm " +
              "vào con số này, nên vật càng to càng được bắt từ xa - nếu không thì vật to " +
@@ -302,12 +328,30 @@ public class PlayerMagnetController : NetworkBehaviour
             targetRb.useGravity = true;
             magObj.LaunchAsBullet(this);
 
+            // NÂNG VẬT LÊN TẦM NGỰC RỒI BẮN NGANG. Sửa 16/08.
+            //
+            // Vấn đề gốc: vật nằm trên mặt đất bị đẩy ngang tuyệt đối sẽ trượt lê trên nền,
+            // và mọi gờ đất phía trước là một bức tường ngay tầm của nó -> đâm vào là dừng.
+            //
+            // ĐÃ THỬ VÀ BỎ: chếch đường bay lên 10 độ. Nó vượt được gờ đất thật, nhưng
+            // với pushSpeed 50 và trọng lực hiệu dụng -6 thì đạn đạt đỉnh ở tận 72m -
+            // tức là trên map này nó CHỈ ĐI LÊN. Ở khoảng cách 20m đạn đã cao 3m, bay qua
+            // đầu địch. Đứng xa là an toàn tuyệt đối. Đổi lỗi này lấy lỗi khác.
+            //
+            // Cách đúng: nâng ĐIỂM XUẤT PHÁT lên tầm ngực, rồi bắn gần như nằm ngang.
+            // Bay ngang ở độ cao 0.9m thì mọi gờ thấp hơn mức đó đều không chạm tới,
+            // mà đạn vẫn ở đúng tầm trúng người suốt quãng đường.
+            targetRb.position += Vector3.up * pushLiftOffset;
+
             Vector3 pushDirection = aimDirection;
-            pushDirection.y = 0f;
+            pushDirection.y = pushUpwardBias;
             pushDirection.Normalize();
 
-            targetRb.linearVelocity = Vector3.zero;
-            targetRb.AddForce(pushDirection * pushForce, ForceMode.Impulse);
+            // ĐẶT THẲNG VẬN TỐC thay cho AddForce, cùng lý do như cú bắn và cú tung:
+            // AddForce chia cho khối lượng, nên prefab Heavy (mass 3-5) sẽ bị đẩy chậm
+            // bằng 1/5 và dừng ngay tại chỗ.
+            targetRb.linearVelocity = pushDirection * pushSpeed;
+            targetRb.angularVelocity = Vector3.zero;
             return;
         }
 
@@ -491,7 +535,7 @@ public class PlayerMagnetController : NetworkBehaviour
     /// Lực gỡ kẹt đó lớn hơn lực tung nhiều lần, và hướng của nó phụ thuộc vào hình dạng
     /// chỗ chồng lấn - nên vật bay đi mỗi lần một kiểu.
     ///
-    /// Bắn bằng chuột phải không lộ lỗi này vì pushForce (300) quá lớn, lực gỡ kẹt bị lấn át.
+    /// Bắn bằng chuột phải không lộ lỗi này vì tốc độ bắn quá lớn, lực gỡ kẹt bị lấn át.
     /// Tung lên thì lực bé nên lỗi hiện ra rõ mồn một.
     /// </summary>
     private void PrepareForRelease(MagneticObject obj, Vector3 aimDirection)
@@ -603,7 +647,7 @@ public class PlayerMagnetController : NetworkBehaviour
 
         // Trả cỡ gốc + dời ra khỏi người + bật va chạm, dùng chung hàm với tung V.
         //
-        // Bắn thẳng vốn không lộ lỗi lệch hướng vì pushForce quá lớn, nhưng dùng chung
+        // Bắn thẳng vốn không lộ lỗi lệch hướng vì tốc độ quá lớn, nhưng dùng chung
         // vẫn có lợi: hết cảnh vật to bị kẹt trong người rồi vọt ra sai đường.
         PrepareForRelease(objToFire, aimDirection);
 
@@ -617,11 +661,35 @@ public class PlayerMagnetController : NetworkBehaviour
         rbToFire.useGravity = true;
         rbToFire.linearDamping = 0f;
 
-        Vector3 fireDirection = aimDirection;
-        fireDirection.y = 0.05f;
-        fireDirection.Normalize();
+        Vector3 fireDirection = aimDirection.normalized;
 
-        rbToFire.AddForce(fireDirection * pushForce, ForceMode.Impulse);
+        // KHOÁ ĐƯỜNG ĐẠN VỀ PHƯƠNG NGANG (chủ ý thiết kế của chủ project).
+        //
+        // Ép y = 0 CHÍNH XÁC, không phải 0.05 như bản cũ. Con số 0.05 nghe như bằng không
+        // nhưng sau khi Normalize() nó thành một góc chếch lên ~3 độ - đủ để vật bay vồng
+        // lên rồi rơi xuống theo đường cong, khiến điểm chạm đất khó đoán.
+        // Bằng 0 tuyệt đối thì vật rời tay ở đúng độ cao đó và giữ nguyên phương ngang.
+        if (lockFireToHorizontal)
+        {
+            fireDirection.y = 0f;
+
+            // Ngắm thẳng đứng lên trời thì thành phần ngang bằng 0, không có hướng nào
+            // để bắn - lấy tạm hướng thân người để khỏi chia cho 0.
+            if (fireDirection.sqrMagnitude < 0.0001f) fireDirection = transform.forward;
+
+            fireDirection.Normalize();
+        }
+
+        // ĐẶT THẲNG VẬN TỐC, không dùng AddForce.
+        //
+        // AddForce(..., Impulse) cho ra Δv = lực / khối lượng. Hiện mọi prefab đạn đều
+        // mass = 1 nên chưa lộ, nhưng prefab Heavy sắp tới sẽ đặt mass 3-5 - lúc đó cùng
+        // một cú bắn sẽ khiến nó bay chậm bằng 1/5 và rơi xuống đất ngay trước mặt.
+        //
+        // Đặt thẳng vận tốc thì vật nặng vật nhẹ bay đi y hệt nhau. Đây cũng chính là
+        // cách đã dùng cho cú tung V, và cùng một lý do.
+        rbToFire.linearVelocity = fireDirection * fireSpeed;
+        rbToFire.angularVelocity = Vector3.zero;
 
         FireCount++; // để máy của người bắn rung camera, xem OnObjectFired
     }

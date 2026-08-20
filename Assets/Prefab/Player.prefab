@@ -321,7 +321,11 @@ MonoBehaviour:
   holdPoint: {fileID: 202164235604517974}
   shootRange: 50
   pullForce: 13
-  pushForce: 125
+  pushSpeed: 50
+  pushUpwardBias: 0.055
+  pushLiftOffset: 0.3
+  fireSpeed: 45
+  lockFireToHorizontal: 1
   grabDistance: 0.7
   tossKey: 118
   tossUpSpeed: 3
@@ -368,6 +372,11 @@ MonoBehaviour:
   mass: 3
   drag: 5
   _SpawnYaw: 0
+  _WalkSpeed01: 0
+  _IsGrounded:
+    _value: 0
+  _MovingBackward:
+    _value: 0
 --- !u!114 &4855774138493323295
 MonoBehaviour:
   m_ObjectHideFlags: 0

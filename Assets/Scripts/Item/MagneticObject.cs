@@ -46,6 +46,17 @@ public class MagneticObject : NetworkBehaviour
              "đụng vào trọng lực chung của cả game. 1 = không đổi gì.")]
     public float bulletGravityMultiplier = 2f;
 
+    [Tooltip("Chạm vào mặt có pháp tuyến hướng lên hơn mức này thì coi là ĐẤT/GỜ (lướt qua, " +
+             "giữ nguyên hướng bay). Thấp hơn thì coi là TƯỜNG (dội lại bình thường). " +
+             "0.5 tương đương dốc 60 độ. Hạ xuống nếu đạn vẫn quẹo ở sườn dốc.")]
+    [Range(0f, 1f)]
+    public float groundNormalThreshold = 0.5f;
+
+    [Tooltip("Lướt qua gờ đất thì giữ lại bao nhiêu phần tốc độ ngang. " +
+             "1 = không mất tốc chút nào, 0.85 = mất 15% mỗi lần chạm.")]
+    [Range(0f, 1f)]
+    public float groundHitSpeedRetain = 0.85f;
+
     [Header("Ngủ đông - nằm bất động khi không ai đụng tới")]
     [Tooltip("Bật thì vật tự khoá cứng tại chỗ khi đã đứng yên, và tự tỉnh khi bị tác động. " +
              "Tắt nếu muốn vật lăn tự do như vật lý bình thường.")]
@@ -169,6 +180,12 @@ public class MagneticObject : NetworkBehaviour
     // Biến thường, không cần [Networked]: chỉ Host mô phỏng vật lý, và kết quả (vận tốc)
     // đã được NetworkRigidbody3D truyền đi rồi.
     private bool _dampRiseNextTick;
+
+    private bool _keepHeadingNextTick;
+
+    // Hướng bay NGANG gần nhất khi đạn còn đang bay tự do, đã chuẩn hoá.
+    // Dùng để dựng lại đường bay sau khi lướt qua gờ đất.
+    private Vector3 _flightHeading;
 
     public override void Spawned()
     {
@@ -498,19 +515,41 @@ public class MagneticObject : NetworkBehaviour
     private void DampBounceRise()
     {
         if (!_dampRiseNextTick) return;
+
+        bool keepHeading = _keepHeadingNextTick;
         _dampRiseNextTick = false;
+        _keepHeadingNextTick = false;
 
         if (rb.isKinematic) return;
-        if (bounceRiseDamp >= 1f) return;
 
         Vector3 v = rb.linearVelocity;
 
-        // Chỉ đụng khi đang đi LÊN. Đang rơi xuống thì để yên.
-        if (v.y > 0f)
+        // GIỮ NGUYÊN HƯỚNG BAY khi chỉ lướt qua gờ đất.
+        //
+        // Đây là phần chữa việc "đạn quẹo trái quẹo phải dù mặt đất gần như phẳng".
+        // Mesh collider của model địa hình có hàng chục nghìn tam giác với pháp tuyến
+        // lệch nhau vài độ. PhysX phản xạ vận tốc theo pháp tuyến của đúng tam giác vừa
+        // chạm, nên chỉ cần một gờ cao vài centimet là đường đạn đổi hướng hẳn.
+        //
+        // Thay vì để nó phản xạ, ép vận tốc ngang quay về ĐÚNG hướng đang bay trước đó,
+        // chỉ giảm tốc một chút. Đạn sẽ cày thẳng qua chỗ gồ ghề thay vì nảy tứ tung.
+        if (keepHeading && _flightHeading.sqrMagnitude > 0.0001f)
+        {
+            float horizontalSpeed = new Vector2(v.x, v.z).magnitude * groundHitSpeedRetain;
+
+            Vector3 restored = _flightHeading * horizontalSpeed;
+            restored.y = v.y; // phần dọc để đoạn dưới xử lý
+
+            v = restored;
+        }
+
+        // Ghìm cú nảy lên. Chỉ đụng khi đang đi LÊN, đang rơi xuống thì để yên.
+        if (bounceRiseDamp < 1f && v.y > 0f)
         {
             v.y *= bounceRiseDamp;
-            rb.linearVelocity = v;
         }
+
+        rb.linearVelocity = v;
     }
 
     /// <summary>
@@ -520,13 +559,43 @@ public class MagneticObject : NetworkBehaviour
     /// con số đó làm đường đạn bay vòng cung quá lâu. Nhân riêng ở đây thì đường đạn
     /// nặng và dứt khoát mà không phải đụng vào trọng lực chung của cả game.
     /// </summary>
+    /// <summary>
+    /// Ghi nhớ hướng bay NGANG hiện tại, để dựng lại được sau khi lướt qua gờ đất.
+    ///
+    /// Cập nhật mỗi tick trong lúc đạn bay tự do. Ngay sau va chạm thì KHÔNG cập nhật
+    /// (DampBounceRise() đã tiêu thụ cờ trước rồi), nếu không nó sẽ ghi nhớ đúng cái
+    /// hướng vừa bị lệch - thành ra chẳng chữa được gì.
+    /// </summary>
+    private void RememberFlightHeading()
+    {
+        if (!isMovingAsBullet) return;
+        if (rb.isKinematic) return;
+
+        Vector3 flat = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+
+        // Bay quá chậm thì hướng không còn đáng tin, giữ nguyên hướng cũ
+        if (flat.sqrMagnitude < 1f) return;
+
+        _flightHeading = flat.normalized;
+    }
+
     private void ApplyBulletGravity()
     {
         if (!isMovingAsBullet) return;
         if (rb.isKinematic) return;
-        if (bulletGravityMultiplier <= 1f) return;
+        if (Mathf.Approximately(bulletGravityMultiplier, 1f)) return;
 
         // Chỉ cộng PHẦN DƯ, vì Physics.gravity đã được áp một lần rồi.
+        //
+        // Công thức này chạy đúng cho MỌI giá trị, không riêng gì lớn hơn 1:
+        //   2   -> cộng thêm 1 lần  = nặng gấp đôi, rơi dứt khoát
+        //   1   -> không cộng gì    = trọng lực bình thường
+        //   0   -> cộng thêm -1 lần = TRIỆT TIÊU hoàn toàn, đạn bay THẲNG TUYỆT ĐỐI
+        //
+        // Mốc 0 là thứ đáng chú ý nhất: kết hợp với lockFireToHorizontal bên
+        // PlayerMagnetController thì đường đạn thành một đường thẳng nằm ngang hoàn hảo,
+        // đi đúng nơi người chơi ngắm và không bao giờ tự cắm xuống đất.
+        //
         // ForceMode.Acceleration để không phụ thuộc khối lượng - đúng bản chất trọng lực.
         rb.AddForce(Physics.gravity * (bulletGravityMultiplier - 1f), ForceMode.Acceleration);
     }
@@ -540,6 +609,10 @@ public class MagneticObject : NetworkBehaviour
         // Phải chạy TRƯỚC bước xét tốc độ bên dưới, vì cả hai đều làm đổi vận tốc.
         DampBounceRise();
         ApplyBulletGravity();
+
+        // Ghi nhớ hướng SAU khi đã xử lý va chạm, để lần chạm kế tiếp dựng lại đúng
+        // hướng đã được sửa chứ không phải hướng bị lệch.
+        RememberFlightHeading();
 
         // 1. HẾT TƯ CÁCH ĐẠN KHI BAY CHẬM LẠI
         // Bay chậm lại rồi thì thôi không còn là đạn nữa, dù chưa va vào đâu cả.
@@ -777,6 +850,19 @@ public class MagneticObject : NetworkBehaviour
         // một lần va chạm với mặt đất -> code cũ tước tư cách đạn ngay lập tức, nên đẩy vật
         // từ môi trường không bao giờ gây được sát thương. Bắn từ tay thì không dính lỗi này
         // vì lúc đó vật đang lơ lửng giữa không trung.
+        // ĐẤT/GỜ hay TƯỜNG? Phân biệt bằng PHÁP TUYẾN của điểm chạm.
+        //
+        // Pháp tuyến hướng lên  -> mặt đất, mô đất, gờ nhỏ -> chỉ lướt qua, giữ nguyên hướng bay
+        // Pháp tuyến nằm ngang  -> tường, thân cây, vách đá -> để vật lý dội lại bình thường
+        //
+        // Nhờ vậy đạn CÀY THẲNG qua chỗ đất lồi lõm mà vẫn còn phản ứng đúng khi đâm tường.
+        // Không phân biệt thì hoặc là đạn xuyên tường, hoặc là vẫn lệch hướng ở mọi gờ đất.
+        if (collision.contactCount > 0)
+        {
+            float normalUp = collision.GetContact(0).normal.y;
+            _keepHeadingNextTick = normalUp > groundNormalThreshold;
+        }
+
         // Vừa đập vào môi trường -> hẹn giảm bớt cú nảy ở tick sau.
         // Xem DampBounceRise() để biết vì sao không xử lý thẳng tại đây.
         _dampRiseNextTick = true;

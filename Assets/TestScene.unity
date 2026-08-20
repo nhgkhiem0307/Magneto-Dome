@@ -354,6 +354,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
@@ -803,6 +805,14 @@ PrefabInstance:
     - target: {fileID: 2410885598532092950, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
       propertyPath: bounceRiseDamp
       value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 5351767728474116487, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
+      propertyPath: m_Size.x
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 5351767728474116487, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
+      propertyPath: m_Size.z
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 7386421496451542836, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
       propertyPath: m_Mass
@@ -1483,7 +1493,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 865abbcb5f7714c4abbb95f487061c82, type: 3}
       propertyPath: m_LocalScale.z
-      value: 1499.9999
+      value: 1250
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 865abbcb5f7714c4abbb95f487061c82, type: 3}
       propertyPath: m_LocalPosition.x
@@ -1491,7 +1501,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 865abbcb5f7714c4abbb95f487061c82, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -2
+      value: -0.78
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 865abbcb5f7714c4abbb95f487061c82, type: 3}
       propertyPath: m_LocalPosition.z
@@ -1798,6 +1808,26 @@ PrefabInstance:
       propertyPath: m_IsKinematic
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5988549212540057623, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.x
+      value: 13
+      objectReference: {fileID: 0}
+    - target: {fileID: 5988549212540057623, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.z
+      value: 13
+      objectReference: {fileID: 0}
+    - target: {fileID: 5988549212540057623, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Center.y
+      value: 14
+      objectReference: {fileID: 0}
+    - target: {fileID: 6156042490668310717, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.x
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6156042490668310717, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.z
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 7511468819326772450, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
       propertyPath: SortKey
       value: 514939992
@@ -1987,6 +2017,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
@@ -2361,6 +2393,26 @@ PrefabInstance:
     - target: {fileID: 5896395385118297756, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
       propertyPath: m_IsKinematic
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5988549212540057623, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.x
+      value: 13
+      objectReference: {fileID: 0}
+    - target: {fileID: 5988549212540057623, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.z
+      value: 13
+      objectReference: {fileID: 0}
+    - target: {fileID: 5988549212540057623, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Center.y
+      value: 14
+      objectReference: {fileID: 0}
+    - target: {fileID: 6156042490668310717, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.x
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6156042490668310717, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.z
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 7511468819326772450, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
       propertyPath: SortKey
@@ -2841,6 +2893,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
@@ -2928,6 +2982,18 @@ PrefabInstance:
     - target: {fileID: 2205393075374967857, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
       propertyPath: m_IsKinematic
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3002689027242736060, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Size.x
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 3002689027242736060, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Size.z
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 3565821378925128089, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Center.y
+      value: 14
       objectReference: {fileID: 0}
     - target: {fileID: 7782509603254082126, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
       propertyPath: bounceRiseDamp
@@ -3191,6 +3257,18 @@ PrefabInstance:
     - target: {fileID: 2205393075374967857, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
       propertyPath: m_IsKinematic
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3002689027242736060, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Size.x
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 3002689027242736060, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Size.z
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 3565821378925128089, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Center.y
+      value: 14
       objectReference: {fileID: 0}
     - target: {fileID: 7782509603254082126, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
       propertyPath: itemData
@@ -4836,6 +4914,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
@@ -5062,6 +5142,18 @@ PrefabInstance:
     - target: {fileID: 5529503536301086320, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
       propertyPath: bounceRiseDamp
       value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 6919800671165145952, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Size.x
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 6919800671165145952, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Size.z
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 8606625269073713861, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Center.y
+      value: 14
       objectReference: {fileID: 0}
     - target: {fileID: 8666865333004230054, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
       propertyPath: m_Mass
@@ -5648,6 +5740,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
@@ -5744,6 +5838,14 @@ PrefabInstance:
       propertyPath: bounceRiseDamp
       value: 0.05
       objectReference: {fileID: 0}
+    - target: {fileID: 5351767728474116487, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
+      propertyPath: m_Size.x
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 5351767728474116487, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
+      propertyPath: m_Size.z
+      value: 3
+      objectReference: {fileID: 0}
     - target: {fileID: 7386421496451542836, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
       propertyPath: m_Mass
       value: 1.75
@@ -5751,6 +5853,10 @@ PrefabInstance:
     - target: {fileID: 7386421496451542836, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
       propertyPath: m_IsKinematic
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7762968867609332985, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
+      propertyPath: m_Center.y
+      value: 14
       objectReference: {fileID: 0}
     - target: {fileID: 9074186808495294549, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
       propertyPath: SortKey
@@ -5941,6 +6047,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
@@ -6922,6 +7030,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
@@ -7025,6 +7135,26 @@ PrefabInstance:
     - target: {fileID: 5896395385118297756, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
       propertyPath: m_IsKinematic
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5988549212540057623, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.x
+      value: 13
+      objectReference: {fileID: 0}
+    - target: {fileID: 5988549212540057623, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.z
+      value: 13
+      objectReference: {fileID: 0}
+    - target: {fileID: 5988549212540057623, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Center.y
+      value: 14
+      objectReference: {fileID: 0}
+    - target: {fileID: 6156042490668310717, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.x
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6156042490668310717, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
+      propertyPath: m_Size.z
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 7511468819326772450, guid: 9b8fc966f95ea9c4194dc091fc40b478, type: 3}
       propertyPath: SortKey
@@ -7257,6 +7387,18 @@ PrefabInstance:
       propertyPath: bounceRiseDamp
       value: 0.05
       objectReference: {fileID: 0}
+    - target: {fileID: 6919800671165145952, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Size.x
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 6919800671165145952, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Size.z
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 8606625269073713861, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Center.y
+      value: 14
+      objectReference: {fileID: 0}
     - target: {fileID: 8666865333004230054, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
       propertyPath: m_Mass
       value: 1.75
@@ -7429,6 +7571,18 @@ PrefabInstance:
     - target: {fileID: 2205393075374967857, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
       propertyPath: m_IsKinematic
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3002689027242736060, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Size.x
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 3002689027242736060, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Size.z
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 3565821378925128089, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Center.y
+      value: 14
       objectReference: {fileID: 0}
     - target: {fileID: 7782509603254082126, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
       propertyPath: itemData
@@ -7829,6 +7983,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
@@ -8115,6 +8271,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
@@ -8210,6 +8368,14 @@ PrefabInstance:
     - target: {fileID: 2410885598532092950, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
       propertyPath: bounceRiseDamp
       value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 5351767728474116487, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
+      propertyPath: m_Size.x
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 5351767728474116487, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
+      propertyPath: m_Size.z
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 7386421496451542836, guid: 956bd2acf7aae244dac8fc20cf57858d, type: 3}
       propertyPath: m_Mass
@@ -8951,6 +9117,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
@@ -9610,6 +9778,18 @@ PrefabInstance:
       propertyPath: bounceRiseDamp
       value: 0.05
       objectReference: {fileID: 0}
+    - target: {fileID: 6919800671165145952, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Size.x
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 6919800671165145952, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Size.z
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 8606625269073713861, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Center.y
+      value: 14
+      objectReference: {fileID: 0}
     - target: {fileID: 8666865333004230054, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
       propertyPath: m_Mass
       value: 1.75
@@ -9707,6 +9887,18 @@ PrefabInstance:
     - target: {fileID: 2205393075374967857, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
       propertyPath: m_IsKinematic
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3002689027242736060, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Size.x
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 3002689027242736060, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Size.z
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 3565821378925128089, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
+      propertyPath: m_Center.y
+      value: 14
       objectReference: {fileID: 0}
     - target: {fileID: 7782509603254082126, guid: be878d9ea17907f4a8068678a5ce7908, type: 3}
       propertyPath: itemData
@@ -10339,6 +10531,18 @@ PrefabInstance:
     - target: {fileID: 5529503536301086320, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
       propertyPath: bounceRiseDamp
       value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 6919800671165145952, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Size.x
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 6919800671165145952, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Size.z
+      value: 2.7
+      objectReference: {fileID: 0}
+    - target: {fileID: 8606625269073713861, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
+      propertyPath: m_Center.y
+      value: 14
       objectReference: {fileID: 0}
     - target: {fileID: 8666865333004230054, guid: 8b2d47fdc2e25ac4f9721480a68bbefa, type: 3}
       propertyPath: m_Mass
@@ -13277,6 +13481,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
@@ -13567,6 +13773,8 @@ MonoBehaviour:
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
   bulletGravityMultiplier: 2
+  groundNormalThreshold: 0.5
+  groundHitSpeedRetain: 0.85
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6
