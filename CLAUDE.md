@@ -440,3 +440,15 @@ Chủ project dùng linh hoạt cả hai cách:
   (`PT_Pine_Tree_03_logs`, `PT_Pine_Tree_03_stump`, `PT_Pine_Tree_03_green_cut`,
   `PT_Fruit_Tree_01_logs`, `PT_Fruit_Tree_01_stump`) → Inspector → tab Model → tích `Read/Write Enabled` → Apply.
   Đây là import settings, chỉ sửa được trong Unity Editor.
+
+**11. Trên Host, transform của nhân vật CLIENT không đáng tin để đo tốc độ** *(bẫy Fusion — sửa 16/08)*
+`FPSMovement.BeforeAllTicks()` tắt/bật `CharacterController` cho mọi nhân vật mà máy này có quyền
+mô phỏng. Trên **Host, điều kiện đó đúng với TẤT CẢ nhân vật**, kể cả của client — nên transform
+của họ **nhảy thô từng tick** thay vì được `NetworkTransform` nội suy mượt.
+→ Triệu chứng đã gặp: `PlayerAnimatorDriver` tự đo quãng đường giữa hai khung hình để suy ra tốc độ,
+kết quả là trên màn hình Host **mọi đối thủ đều hiện animation rơi tự do** dù đang đứng yên.
+Máy Client không dính vì ở đó nhân vật Host là proxy, được nội suy đàng hoàng.
+→ Cách chữa: **đừng suy từ transform.** Đồng bộ thẳng con số đã tính ở nơi có mô phỏng thật —
+`FPSMovement.WalkSpeed01`, `IsGrounded`, `MovingBackward` (cộng lại chưa tới 6 byte/tick).
+→ **Bài học chung:** nguyên tắc "suy ra tại chỗ thay vì đồng bộ" của project chỉ đúng khi thứ
+dùng để suy ra là ĐÁNG TIN. Transform trên Host không đáng tin cho việc đo tốc độ.

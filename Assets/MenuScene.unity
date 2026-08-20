@@ -703,6 +703,7 @@ GameObject:
   - component: {fileID: 94441950}
   - component: {fileID: 94441949}
   - component: {fileID: 94441948}
+  - component: {fileID: 94441951}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -784,6 +785,50 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &94441951
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 94441947}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
+  m_RenderShadows: 1
+  m_RequiresDepthTextureOption: 2
+  m_RequiresOpaqueTextureOption: 2
+  m_CameraType: 0
+  m_Cameras: []
+  m_RendererIndex: -1
+  m_VolumeLayerMask:
+    serializedVersion: 2
+    m_Bits: 1
+  m_VolumeTrigger: {fileID: 0}
+  m_VolumeFrameworkUpdateModeOption: 2
+  m_RenderPostProcessing: 0
+  m_Antialiasing: 2
+  m_AntialiasingQuality: 2
+  m_StopNaN: 0
+  m_Dithering: 0
+  m_ClearDepth: 1
+  m_AllowXRRendering: 1
+  m_AllowHDROutput: 1
+  m_UseScreenCoordOverride: 0
+  m_ScreenSizeOverride: {x: 0, y: 0, z: 0, w: 0}
+  m_ScreenCoordScaleBias: {x: 0, y: 0, z: 0, w: 0}
+  m_RequiresDepthTexture: 0
+  m_RequiresColorTexture: 0
+  m_TaaSettings:
+    m_Quality: 3
+    m_FrameInfluence: 0.1
+    m_JitterScale: 1
+    m_MipBias: 0
+    m_VarianceClampScale: 0.9
+    m_ContrastAdaptiveSharpening: 0
+  m_Version: 2
 --- !u!1 &101632564
 GameObject:
   m_ObjectHideFlags: 0
@@ -1039,7 +1084,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &262778139
 MonoBehaviour:
@@ -1488,7 +1533,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &417925656
 MonoBehaviour:
@@ -3347,6 +3392,7 @@ GameObject:
   - component: {fileID: 785132596}
   - component: {fileID: 785132595}
   - component: {fileID: 785132594}
+  - component: {fileID: 785132598}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -3442,6 +3488,22 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!114 &785132598
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 785132593}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bbc237a31dcd1640b551ff7297a10ce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ButtonClickSound
+  scanWholeScene: 1
+  includeToggles: 1
+  rescanPeriodically: 1
+  rescanInterval: 1
 --- !u!1 &807177966
 GameObject:
   m_ObjectHideFlags: 0
@@ -5582,25 +5644,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 30c199b5468732143b8e213d107e7d6e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AudioManager
-  menuMusic: {fileID: 0}
-  gameMusic: {fileID: 0}
-  sfxDash: {fileID: 0}
-  sfxHit: {fileID: 0}
-  sfxArmorHit: {fileID: 0}
-  sfxDeath: {fileID: 0}
-  sfxMeleePunch: {fileID: 0}
-  sfxCharge: {fileID: 0}
-  sfxLaunch: {fileID: 0}
-  sfxExplosion: {fileID: 0}
-  sfxConvertTNT: {fileID: 0}
-  sfxBuyPhase: {fileID: 0}
-  sfxRoundStart: {fileID: 0}
+  menuSceneName: MenuScene
+  menuMusic: {fileID: 8300000, guid: e7b2eb847d4bd91419626f0fefb00846, type: 3}
+  gameMusic: {fileID: 8300000, guid: a3430d391597e2c45b58caa07c770de1, type: 3}
+  sfxDash: {fileID: 8300000, guid: 019f876905682c841a4bccd3f86d89ba, type: 3}
+  sfxHit: {fileID: 8300000, guid: 5b605c1cd727b2f4abd1443d4f38050b, type: 3}
+  sfxArmorHit: {fileID: 8300000, guid: 68c001d00b6271a49ad5d232a383e820, type: 3}
+  sfxDeath: {fileID: 8300000, guid: 9d12dcadb99258a4a903473eb71c383c, type: 3}
+  sfxMeleePunch: {fileID: 8300000, guid: db82fb713a17ca942a1f4eae2b98e0d5, type: 3}
+  sfxCharge: {fileID: 8300000, guid: 310ab96704d0c694eb60b9d25526ed01, type: 3}
+  sfxLaunch: {fileID: 8300000, guid: 02ace8bc09f05cc4b8c16c86271db290, type: 3}
+  sfxExplosion: {fileID: 8300000, guid: aad96877995d1dc468c5c41acf9e8510, type: 3}
+  sfxConvertTNT: {fileID: 8300000, guid: 950505f3f552f874d982ad003142a1c7, type: 3}
+  sfxBuyPhase: {fileID: 8300000, guid: b58ab2a808dfee942a7d4aa58bae8ba0, type: 3}
+  sfxRoundStart: {fileID: 8300000, guid: 6d681b998cb0b234583c1d6793e79219, type: 3}
   sfxRoundWin: {fileID: 0}
   sfxRoundLose: {fileID: 0}
-  sfxButtonClick: {fileID: 0}
-  sfxBuy: {fileID: 0}
-  sfxUseItem: {fileID: 0}
-  sfxError: {fileID: 0}
+  sfxButtonClick: {fileID: 8300000, guid: 0fe7f4cc0e4e9134b88c9874605f7b09, type: 3}
+  sfxBuy: {fileID: 8300000, guid: b8034e5cc3656834b90bee0382864ee7, type: 3}
+  sfxUseItem: {fileID: 8300000, guid: c317fc4221eac9f4d9f4b3168f556992, type: 3}
+  sfxError: {fileID: 8300000, guid: fbd1569efd4967247bb381f2e0c1d33b, type: 3}
 --- !u!4 &1522659847
 Transform:
   m_ObjectHideFlags: 0
@@ -7384,7 +7447,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1935694819
 MonoBehaviour:
@@ -7669,7 +7732,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1968125298
 MonoBehaviour:
@@ -7888,7 +7951,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1993894014
 MonoBehaviour:

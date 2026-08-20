@@ -63,6 +63,22 @@ Lợi ích kèm theo: Host thôi mô phỏng, `NetworkRigidbody3D` thôi gửi v
 `isKinematic = false` chứ không gọi `WakeUp()`. `UpdateSleepState()` phát hiện và tự sửa cờ.
 Cố ý làm vậy thay vì đi sửa 6 chỗ bên kia — bớt rủi ro đụng vào đường bắn đã cân bằng xong.
 
+🔧 **Sửa 16/08 (khi test vòng 2): vật thể ngủ NGAY, không rơi tự do lấy một giây.**
+
+Triệu chứng: vài cái cây đổ rạp ngay khi round bắt đầu, và một số vật không bao giờ nằm im.
+
+Nguyên nhân: `ResetForNewRound()` **cố ý đánh thức** mọi vật với lý do *"nó cần rơi xuống và tự
+ổn định"*. Lý do đó sai — cây cao mảnh chỉ cần collider chạm đất lệch chút là trọng lực lật đổ,
+mà muốn ngủ lại phải đứng yên liên tục `sleepDelay` giây nên nó đổ hẳn mới thôi.
+
+`_originalPosition` **chính là chỗ đã đặt tay trong Editor**. Vật lý "ổn định" chỉ có thể đẩy vật
+RỜI KHỎI chỗ đó, không bao giờ đưa nó về đúng hơn.
+
+→ Giờ `ResetForNewRound()` đóng băng ngay **sau** khi Teleport, và `Spawned()` cũng cho ngủ luôn
+(bịt khoảng hở `warmupDuration` 2 giây trước round đầu).
+→ Hệ quả **có chủ đích**: vật đặt lơ lửng sẽ **treo giữa không trung** thay vì rơi.
+Đó là dấu hiệu đặt sai chỗ trong Editor, sửa ở Editor mới đúng — đừng sửa lại code cho nó rơi.
+
 ⚠️ **Phải BỎ tick `Is Kinematic` thủ công trên prefab.** Để nguyên thì vật **bất tử**: nó đứng yên,
 nhưng cờ `IsSleeping` vẫn `false` nên `OnCollisionEnter` không đánh thức, bắn gì vào cũng trơ ra.
 
@@ -409,7 +425,33 @@ Renderer phải có Material riêng — script tự đổi màu theo điện tí
 
 ## 6. Quyết định còn treo
 
-### 🔵 ĐỀ XUẤT LỚN: Hồi sinh + Khu chiếm đóng *(bàn 09/08, CHƯA làm, chủ project sẽ quay lại)*
+### ✅ ĐÃ LÀM 16/08: Hồi sinh + Khu chiếm đóng — CHƯA TEST
+
+> Toàn bộ đề xuất bên dưới **đã được code xong**, biên dịch sạch 0 error.
+> Ba quyết định khác với bản đề xuất gốc:
+>
+> 1. **`ControlZone` là MonoBehaviour thuần**, không phải NetworkBehaviour. Tiến độ chiếm
+>    nằm trên `GameManager` (vốn đã là NetworkObject). Tránh phải đặt NetworkObject sẵn
+>    trong scene — thêm một chỗ có thể hỏng mà không được gì.
+> 2. **Mỗi đội một thanh riêng, KHÔNG tụt.** Bỏ cơ chế tụt vì nó kéo dài round và gây ức chế;
+>    đồng hồ `combatDuration` đã đủ chặn round lê thê.
+> 3. **`EndRoundByCharge()` đã bị XOÁ.** Hết giờ giờ so **tiến độ chiếm**, không so điện tích.
+>    `CheckRoundOver()` (xoá sổ cả đội) cũng bỏ — có hồi sinh thì xoá sổ chỉ là tạm thời.
+>
+> **Việc còn phải làm trong Unity:**
+> 1. Tạo Empty GameObject giữa map → gắn **`ControlZone`** → chỉnh `radius` / `halfHeight`
+>    *(Scene view có vẽ hình trụ vàng để căn)*
+> 2. Dựng UI cho 5 ô mới trên `HUDController`: `zoneGroup`, `zoneRedFill`, `zoneBlueFill`,
+>    `zoneStatusText`, `respawnCountdownText`. Bỏ trống vẫn chạy, chỉ là không thấy tiến độ.
+>
+> **Số liệu mặc định** *(trên `GameManager.prefab`)*: `zoneCaptureRate 10` · `zoneProgressToWin 100`
+> · `zoneTwoPlayerMultiplier 1.5` · `deathZoneBonus 8` · `respawnDelay 5`
+> → đứng một mình 10 giây liên tục là thắng round.
+
+<details>
+<summary>Bản đề xuất gốc ngày 09/08 (giữ lại để tra lý do thiết kế)</summary>
+
+### 🔵 Hồi sinh + Khu chiếm đóng
 
 Ý của chủ project: vì game xoay quanh knockback, hãy **bỏ luật "chết là bị loại cả round"**,
 đổi sang **chết → hồi sinh sau X giây**, và thêm **một khu vực nhỏ mà người chơi phải đứng
@@ -472,6 +514,8 @@ Chỉ cần thêm `ControlZone` ở `(40, 7, 40)` bán kính ~7m.
 > hợp lý, nhưng còn **5 tuần và map vẫn chưa dựng**. Nếu quay lại làm cái này thì
 > **làm xong rồi KHOÁ thiết kế**, dồn toàn bộ thời gian còn lại cho map và test.
 > Có ý tưởng thứ ba thì ghi vào đây để đó, đừng làm.
+
+</details>
 
 - **Đền bù kinh tế khi đồng đội thoát giữa trận** — `OnPlayerLeft` chưa despawn nhân vật,
   người thoát để lại xác đứng im. Chủ project muốn gộp với cơ chế bù tiền 1v2, chưa chốt con số.
