@@ -29,9 +29,8 @@ public class GameManager : NetworkBehaviour
     [Tooltip("Chờ một nhịp sau khi vào scene để mọi nhân vật kịp spawn xong.")]
     public float warmupDuration = 2f;
 
-    [Tooltip("Giới hạn giờ pha chiến đấu. BẮT BUỘC phải có trong chế độ Quá Tải: " +
-             "vì không ai chết vì hết máu, hai bên cùng né rìa vực thì round kéo dài vô tận. " +
-             "Hết giờ thì đội có TỔNG ĐIỆN TÍCH thấp hơn được xử thắng.")]
+    [Tooltip("Giới hạn giờ pha chiến đấu. Hết giờ thì đội có TIẾN ĐỘ CHIẾM cao hơn thắng round. " +
+             "Vẫn cần dù đã có khu chiếm đóng: hai bên cùng né khu thì round sẽ kéo dài vô tận.")]
     public float combatDuration = 90f;
 
     [Header("Điều kiện thắng")]
@@ -39,6 +38,27 @@ public class GameManager : NetworkBehaviour
     public int pointsToWin = 5;
     [Tooltip("Khoảng cách tối thiểu với đối thủ. Không đủ thì vào Overtime, đấu tiếp tới khi đủ.")]
     public int requiredLead = 2;
+
+    [Header("Khu chiếm đóng - điều kiện thắng round")]
+    [Tooltip("Tiến độ cần đạt để thắng round. Để 100 cho dễ hiểu là phần trăm.")]
+    public float zoneProgressToWin = 100f;
+
+    [Tooltip("Một người đứng trong khu thì tiến độ tăng bao nhiêu mỗi giây. " +
+             "10 nghĩa là đứng một mình 10 giây liên tục là thắng round.")]
+    public float zoneCaptureRate = 10f;
+
+    [Tooltip("Có thêm người thứ hai của cùng đội thì nhân tốc độ lên bấy nhiêu. " +
+             "1.5 chứ không phải 2 - thưởng cho phối hợp nhưng không biến trận đấu thành " +
+             "cuộc thi xem ai dồn đủ hai người vào ô trước.")]
+    public float zoneTwoPlayerMultiplier = 1.5f;
+
+    [Tooltip("Đội địch chết một người thì đội mình được cộng bao nhiêu tiến độ. " +
+             "BẮT BUỘC phải lớn hơn 0: hồi sinh xả sạch điện tích, nên nếu chết mà không " +
+             "mất gì thì tự nhảy xuống vực lúc nhiễm nặng sẽ thành nước đi tối ưu.")]
+    public float deathZoneBonus = 8f;
+
+    [Tooltip("Chết rồi bao lâu thì sống lại, tính bằng giây.")]
+    public float respawnDelay = 5f;
 
     [Header("KillZone")]
     [Tooltip("Rơi xuống thấp hơn độ cao này là chết. Map là đảo lơ lửng nên cần cái này.")]
@@ -54,6 +74,13 @@ public class GameManager : NetworkBehaviour
 
     [Networked] public int RedScore { get; set; }
     [Networked] public int BlueScore { get; set; }
+
+    // Tiến độ chiếm khu của từng đội trong round hiện tại, 0 -> zoneProgressToWin.
+    //
+    // Đặt ở đây chứ không đặt trên ControlZone, vì GameManager vốn đã là NetworkObject.
+    // Thêm một NetworkObject đặt sẵn trong scene là thêm một chỗ có thể hỏng.
+    [Networked] public float RedZoneProgress { get; set; }
+    [Networked] public float BlueZoneProgress { get; set; }
     [Networked] public int CurrentRound { get; set; }
 
     // Đội thắng round vừa rồi: 0 = Đỏ, 1 = Xanh, -1 = chưa có
@@ -107,15 +134,20 @@ public class GameManager : NetworkBehaviour
                 break;
 
             case GamePhase.Combat:
-                // Hết giờ trước khi có ai rơi -> phân thắng bại bằng tổng điện tích.
-                // Xét TRƯỚC CheckRoundOver để hết giờ là chốt ngay, không chờ thêm tick nào.
+                // Người chết được sống lại sau respawnDelay giây. Chạy TRƯỚC mọi thứ khác
+                // để người vừa hết giờ chờ được tính là đang sống ngay trong tick này.
+                CheckRespawns();
+
+                // Hết giờ -> đội nào chiếm được nhiều hơn thì thắng.
+                // Xét TRƯỚC phần tích tiến độ, để hết giờ là chốt ngay không chờ tick sau.
                 if (PhaseTimer.Expired(Runner))
                 {
-                    EndRoundByCharge();
+                    EndRoundByProgress();
                     break;
                 }
 
-                CheckRoundOver();
+                UpdateZoneCapture();
+                CheckZoneVictory();
                 break;
 
             case GamePhase.RoundEnd:
@@ -145,6 +177,11 @@ public class GameManager : NetworkBehaviour
     private void StartNewRound()
     {
         CurrentRound++;
+
+        // Xoá tiến độ chiếm của round trước. Không có dòng này thì round 2 bắt đầu
+        // với thanh đã gần đầy sẵn và kết thúc trong vài giây.
+        RedZoneProgress = 0f;
+        BlueZoneProgress = 0f;
 
         // Hồi sinh toàn bộ, kể cả người đang sống, để ai cũng về đúng điểm xuất phát
         RespawnAllPlayers();
@@ -225,84 +262,85 @@ public class GameManager : NetworkBehaviour
 
     // --- KIỂM TRA ĐIỀU KIỆN ---
 
-    // Round kết thúc khi một đội không còn ai sống sót
-    private void CheckRoundOver()
+    /// <summary>
+    /// Hồi sinh những người đã hết giờ chờ.
+    ///
+    /// Từ 16/08 chết KHÔNG còn là bị loại hết round. Cái chết giờ chỉ lấy đi hai thứ:
+    /// thời gian (respawnDelay giây) và vị trí (bị đẩy về điểm xuất phát). Nhờ vậy
+    /// lực văng mạnh tay không còn gây ức chế - bị hất khỏi đảo là mất nhịp, không phải mất round.
+    /// </summary>
+    private void CheckRespawns()
     {
-        int redAlive = 0;
-        int blueAlive = 0;
-        int totalPlayers = 0;
+        NetworkRunnerHandler handler = NetworkRunnerHandler.Instance;
+        if (handler == null) return;
 
         foreach (PlayerHealth p in PlayerHealth.AllPlayers)
         {
-            if (p == null) continue;
-            totalPlayers++;
+            if (p == null || p.IsAlive) continue;
+            if (!p.RespawnTimer.Expired(Runner)) continue;
 
-            if (!p.IsAlive) continue;
+            p.RespawnTimer = TickTimer.None;
 
-            if (p.Team == 0) redAlive++;
-            else blueAlive++;
+            // Dùng index 0: ở 2v2 hai đồng đội hiếm khi chết cùng lúc nên không lo chồng nhau.
+            p.Respawn(handler.GetSpawnPosition(p.Team, 0), handler.GetSpawnYaw(p.Team));
+
+            Debug.Log($"<color=lime>[HỒI SINH] Player {p.Object.InputAuthority} đã trở lại</color>");
         }
-
-        // Chưa có ai trong trận thì chưa xét, tránh kết thúc round oan lúc đang load
-        if (totalPlayers == 0) return;
-
-        // Hoà: cả hai đội cùng bị xoá sổ (ví dụ TNT nổ chết cả hai).
-        // Xử lý: không ai được điểm, đá sang round mới luôn.
-        if (redAlive == 0 && blueAlive == 0)
-        {
-            Debug.Log("<color=grey><b>=== HOÀ! Cả hai đội cùng bị hạ gục, không ai được điểm ===</b></color>");
-            LastRoundWinner = -1;
-
-            // Hoà thì cả hai đội cùng nhận mức thưởng của bên thua
-            GiveRoundRewards(-1);
-
-            Phase = GamePhase.RoundEnd;
-            PhaseTimer = TickTimer.CreateFromSeconds(Runner, roundEndDuration);
-            return;
-        }
-
-        if (redAlive == 0) EndRound(1);       // Đỏ hết người -> Xanh thắng
-        else if (blueAlive == 0) EndRound(0); // Xanh hết người -> Đỏ thắng
     }
 
     /// <summary>
-    /// Hết giờ pha chiến đấu mà chưa đội nào bị xoá sổ: đội nào TỔNG ĐIỆN TÍCH THẤP HƠN
-    /// thì thắng round.
+    /// Cộng tiến độ cho đội đang giữ khu chiếm đóng.
     ///
-    /// Vì sao chọn cách này chứ không phải hoà: nó thưởng cho đội chơi hay hơn.
-    /// Nhiễm ít điện nghĩa là né giỏi và đánh trúng nhiều - xứng đáng thắng.
-    /// Nếu để hoà thì đội đang bị dồn ép sẽ có động cơ chạy vòng quanh câu giờ,
-    /// đúng thứ làm hỏng trải nghiệm.
+    /// LUẬT: chỉ cộng khi MỘT ĐỘI DUY NHẤT có người trong khu. Hai đội cùng đứng thì
+    /// đóng băng - không ai tiến. Tranh chấp phải giải quyết bằng cách đẩy đối phương ra,
+    /// mà đẩy chính là cơ chế cốt lõi của game này. Mục tiêu và cách chơi khớp làm một.
     ///
-    /// Người đã bị loại (rơi khỏi đảo) tính là đã nạp ĐẦY điện, nên đội mất người
-    /// gần như chắc chắn thua nếu để hết giờ.
+    /// Tiến độ KHÔNG tự tụt khi mất khu. Bỏ cơ chế tụt vì nó kéo dài round và gây ức chế,
+    /// mà đồng hồ combatDuration đã đủ để chặn round lê thê rồi.
     /// </summary>
-    private void EndRoundByCharge()
+    private void UpdateZoneCapture()
     {
-        float redCharge = 0f;
-        float blueCharge = 0f;
-        int totalPlayers = 0;
+        ControlZone zone = ControlZone.Instance;
+        if (zone == null) return;
 
-        foreach (PlayerHealth p in PlayerHealth.AllPlayers)
+        zone.CountPlayersInside(out int redInside, out int blueInside);
+
+        // Không ai, hoặc cả hai đội cùng có mặt -> đóng băng
+        if (redInside == 0 && blueInside == 0) return;
+        if (redInside > 0 && blueInside > 0) return;
+
+        int holders = redInside > 0 ? redInside : blueInside;
+
+        // Người thứ hai cộng thêm tốc độ nhưng không gấp đôi - thưởng phối hợp,
+        // không biến trận đấu thành cuộc thi dồn đủ hai người vào ô.
+        float rate = zoneCaptureRate * (holders >= 2 ? zoneTwoPlayerMultiplier : 1f);
+        float gain = rate * Runner.DeltaTime;
+
+        if (redInside > 0) RedZoneProgress = Mathf.Min(RedZoneProgress + gain, zoneProgressToWin);
+        else BlueZoneProgress = Mathf.Min(BlueZoneProgress + gain, zoneProgressToWin);
+    }
+
+    /// <summary>Đội nào chạm mốc trước thì thắng round ngay lập tức.</summary>
+    private void CheckZoneVictory()
+    {
+        if (RedZoneProgress >= zoneProgressToWin) EndRound(0);
+        else if (BlueZoneProgress >= zoneProgressToWin) EndRound(1);
+    }
+
+    /// <summary>
+    /// Hết giờ pha chiến đấu: đội nào tiến độ chiếm cao hơn thì thắng round.
+    ///
+    /// Thay cho EndRoundByCharge() cũ (so tổng điện tích). Cách cũ vốn là giải pháp
+    /// tình thế cho việc "không ai chết thì round không bao giờ kết thúc"; giờ đã có
+    /// khu chiếm đóng làm đường kết thúc tự nhiên nên bỏ đi được.
+    /// </summary>
+    private void EndRoundByProgress()
+    {
+        Debug.Log($"<color=orange><b>=== HẾT GIỜ! Tiến độ chiếm - Đỏ: {RedZoneProgress:F0} | Xanh: {BlueZoneProgress:F0} ===</b></color>");
+
+        if (Mathf.Approximately(RedZoneProgress, BlueZoneProgress))
         {
-            if (p == null) continue;
-            totalPlayers++;
-
-            // Đã rơi khỏi đảo thì coi như quá tải hoàn toàn
-            float charge = p.IsAlive ? p.CurrentCharge : p.maxCharge;
-
-            if (p.Team == 0) redCharge += charge;
-            else blueCharge += charge;
-        }
-
-        if (totalPlayers == 0) return;
-
-        Debug.Log($"<color=orange><b>=== HẾT GIỜ! Tổng điện tích - Đỏ: {redCharge:F0} | Xanh: {blueCharge:F0} ===</b></color>");
-
-        // Bằng nhau tuyệt đối thì mới xử hoà. Hiếm, nhưng phải có nhánh này.
-        if (Mathf.Approximately(redCharge, blueCharge))
-        {
-            Debug.Log("<color=grey><b>=== HOÀ! Hai đội cùng mức nhiễm điện ===</b></color>");
+            Debug.Log("<color=grey><b>=== HOÀ! Hai đội cùng tiến độ ===</b></color>");
             LastRoundWinner = -1;
             GiveRoundRewards(-1);
 
@@ -311,7 +349,44 @@ public class GameManager : NetworkBehaviour
             return;
         }
 
-        EndRound(redCharge < blueCharge ? 0 : 1);
+        EndRound(RedZoneProgress > BlueZoneProgress ? 0 : 1);
+    }
+
+    /// <summary>
+    /// PlayerHealth.Die() gọi vào đây mỗi khi có người bị hạ.
+    ///
+    /// Hai việc: hẹn giờ hồi sinh, và cộng tiến độ chiếm cho ĐỘI ĐỊCH.
+    ///
+    /// Phần cộng tiến độ là bắt buộc, không phải trang trí. Respawn() xả sạch điện tích,
+    /// nên nếu chết mà không mất gì thì người đang nhiễm 95% sẽ tự nhảy xuống vực để
+    /// được "hồi máu" miễn phí. Cho địch điểm mỗi lần mình chết là chặn đứng lối chơi đó.
+    ///
+    /// Nó còn tạo ra sự cộng hưởng: hất địch khỏi đảo TRỰC TIẾP đẩy mình tới chiến thắng,
+    /// nên knockback và mục tiêu round trở thành cùng một thứ.
+    /// </summary>
+    public void OnPlayerDied(PlayerHealth victim)
+    {
+        if (!HasStateAuthority) return;
+        if (victim == null) return;
+
+        victim.RespawnTimer = TickTimer.CreateFromSeconds(Runner, respawnDelay);
+
+        // Chỉ cộng tiến độ trong pha chiến đấu. Chết lúc đang mua đồ hoặc lúc hết round
+        // (ví dụ do phím debug) thì không được tính.
+        if (Phase != GamePhase.Combat) return;
+        if (deathZoneBonus <= 0f) return;
+
+        if (victim.Team == 0)
+        {
+            BlueZoneProgress = Mathf.Min(BlueZoneProgress + deathZoneBonus, zoneProgressToWin);
+        }
+        else
+        {
+            RedZoneProgress = Mathf.Min(RedZoneProgress + deathZoneBonus, zoneProgressToWin);
+        }
+
+        Debug.Log($"<color=#FFAA00>[TIẾN ĐỘ] Địch hạ được 1 người -> +{deathZoneBonus}. " +
+                  $"Đỏ {RedZoneProgress:F0} | Xanh {BlueZoneProgress:F0}</color>");
     }
 
     // Trả về đội vô địch, hoặc -1 nếu chưa ai đủ điều kiện.

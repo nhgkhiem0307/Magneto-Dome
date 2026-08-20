@@ -74,6 +74,34 @@ public class HUDController : MonoBehaviour
     [Tooltip("Hiện khi người chơi bị loại khỏi round.")]
     public GameObject deadPanel;
 
+    [Tooltip("Đồng hồ đếm ngược tới lúc sống lại. Chỉ hiện khi đang nằm chờ.")]
+    public TMP_Text respawnCountdownText;
+
+    [Header("Khu chiếm đóng")]
+    [Tooltip("Object chứa hai thanh tiến độ. Tự ẩn ngoài pha chiến đấu.")]
+    public GameObject zoneGroup;
+
+    [Tooltip("Image có Image Type = Filled, tiến độ chiếm của đội Đỏ.")]
+    public Image zoneRedFill;
+
+    [Tooltip("Image có Image Type = Filled, tiến độ chiếm của đội Xanh.")]
+    public Image zoneBlueFill;
+
+    [Tooltip("(Tuỳ chọn) Chữ báo ai đang giữ khu. Tự đổi màu theo đội đang chiếm.")]
+    public TMP_Text zoneStatusText;
+
+    [Tooltip("Màu chữ khi đội Đỏ đang giữ khu.")]
+    public Color zoneRedColor = new Color(1f, 0.25f, 0.25f);
+
+    [Tooltip("Màu chữ khi đội Xanh đang giữ khu.")]
+    public Color zoneBlueColor = new Color(0.3f, 0.5f, 1f);
+
+    [Tooltip("Màu chữ khi cả hai đội cùng đứng trong khu (tiến độ bị đóng băng).")]
+    public Color zoneContestedColor = new Color(1f, 0.78f, 0.23f);
+
+    [Tooltip("Màu chữ khi không ai đứng trong khu.")]
+    public Color zoneEmptyColor = new Color(0.7f, 0.7f, 0.72f);
+
     [Tooltip("Dòng chữ lớn báo kết quả round / trận đấu.")]
     public TMP_Text announcementText;
 
@@ -136,6 +164,7 @@ public class HUDController : MonoBehaviour
         UpdateEconomyAndAmmo(displayed);
         UpdateEnergyDrink(displayed);
         UpdateRoundInfo(gm);
+        UpdateZoneAndRespawn(gm, localPlayer);
         UpdateAnnouncement(gm);
     }
 
@@ -250,6 +279,81 @@ public class HUDController : MonoBehaviour
     }
 
     // --- VÒNG ĐẤU ---
+
+    /// <summary>
+    /// Hai thanh tiến độ chiếm khu, và đồng hồ đếm ngược hồi sinh.
+    ///
+    /// Đồng hồ hồi sinh xét theo NHÂN VẬT CỦA MÌNH, không theo người đang quan sát nhờ -
+    /// bạn cần biết khi nào MÌNH sống lại, không phải khi nào đồng đội sống lại.
+    /// </summary>
+    private void UpdateZoneAndRespawn(GameManager gm, FPSMovement self)
+    {
+        // --- ĐẾM NGƯỢC HỒI SINH ---
+        if (respawnCountdownText != null)
+        {
+            PlayerHealth myHealth = self.GetComponent<PlayerHealth>();
+
+            if (myHealth != null && myHealth.IsWaitingToRespawn)
+            {
+                respawnCountdownText.gameObject.SetActive(true);
+                respawnCountdownText.text = $"Sống lại sau {Mathf.CeilToInt(myHealth.RespawnSecondsLeft)}s";
+            }
+            else
+            {
+                respawnCountdownText.gameObject.SetActive(false);
+            }
+        }
+
+        // --- TIẾN ĐỘ CHIẾM KHU ---
+        bool inCombat = gm != null && gm.Phase == GameManager.GamePhase.Combat;
+        if (zoneGroup != null) zoneGroup.SetActive(inCombat);
+
+        if (gm == null || gm.zoneProgressToWin <= 0f) return;
+
+        float redRatio = Mathf.Clamp01(gm.RedZoneProgress / gm.zoneProgressToWin);
+        float blueRatio = Mathf.Clamp01(gm.BlueZoneProgress / gm.zoneProgressToWin);
+
+        if (zoneRedFill != null) zoneRedFill.fillAmount = redRatio;
+        if (zoneBlueFill != null) zoneBlueFill.fillAmount = blueRatio;
+
+        if (zoneStatusText == null) return;
+
+        // Đọc thẳng từ ControlZone chứ không qua mạng: mỗi máy tự đếm ai đang đứng trong khu
+        // từ vị trí vốn đã đồng bộ sẵn. Không tốn thêm byte nào.
+        ControlZone zone = ControlZone.Instance;
+        if (zone == null || !inCombat)
+        {
+            zoneStatusText.text = "";
+            return;
+        }
+
+        zone.CountPlayersInside(out int red, out int blue);
+
+        // Đổi cả CHỮ lẫn MÀU cùng lúc.
+        //
+        // Màu là thứ đọc được bằng thị giác ngoại vi - đang mải ngắm bắn vẫn liếc thấy
+        // dòng chữ chuyển sang màu địch, biết ngay là mất khu. Đọc chữ thì phải nhìn thẳng.
+        if (red > 0 && blue > 0)
+        {
+            zoneStatusText.text = "ĐANG TRANH CHẤP";
+            zoneStatusText.color = zoneContestedColor;
+        }
+        else if (red > 0)
+        {
+            zoneStatusText.text = "ĐỘI ĐỎ ĐANG CHIẾM";
+            zoneStatusText.color = zoneRedColor;
+        }
+        else if (blue > 0)
+        {
+            zoneStatusText.text = "ĐỘI XANH ĐANG CHIẾM";
+            zoneStatusText.color = zoneBlueColor;
+        }
+        else
+        {
+            zoneStatusText.text = "KHU ĐANG BỎ TRỐNG";
+            zoneStatusText.color = zoneEmptyColor;
+        }
+    }
 
     private void UpdateRoundInfo(GameManager gm)
     {

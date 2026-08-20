@@ -34,6 +34,18 @@ public class MagneticObject : NetworkBehaviour
     [Tooltip("Khoảng thời gian ngay sau khi phóng, chưa xét tốc độ vội. Cần vì lực đẩy phải sang bước vật lý kế tiếp mới thành vận tốc.")]
     public float bulletArmTime = 0.25f;
 
+    [Tooltip("Khi đạn NẢY LÊN từ sàn/tường, giữ lại bao nhiêu phần tốc độ đi lên. " +
+             "0.2 = nảy còn 20% độ cao, chỉ tưng nhẹ một cái rồi trượt tiếp. " +
+             "1 = không can thiệp gì, để vật lý tự nhiên hoàn toàn. " +
+             "CHỈ áp dụng đúng khoảnh khắc chạm, giữa đường bay không đụng tới.")]
+    [Range(0f, 1f)]
+    public float bounceRiseDamp = 0.2f;
+
+    [Tooltip("Nhân trọng lực RIÊNG cho lúc đang bay là đạn. Trọng lực project chỉ -3 nên đạn " +
+             "lơ lửng rất lâu; để 2-3 sẽ làm đường đạn phẳng và dứt khoát hơn mà không phải " +
+             "đụng vào trọng lực chung của cả game. 1 = không đổi gì.")]
+    public float bulletGravityMultiplier = 2f;
+
     [Header("Ngủ đông - nằm bất động khi không ai đụng tới")]
     [Tooltip("Bật thì vật tự khoá cứng tại chỗ khi đã đứng yên, và tự tỉnh khi bị tác động. " +
              "Tắt nếu muốn vật lăn tự do như vật lý bình thường.")]
@@ -153,6 +165,11 @@ public class MagneticObject : NetworkBehaviour
     private Vector3 _originalPosition;
     private Quaternion _originalRotation;
 
+    // Vừa đập vào môi trường ở khung vật lý trước -> tick tới giảm bớt cú nảy lên.
+    // Biến thường, không cần [Networked]: chỉ Host mô phỏng vật lý, và kết quả (vận tốc)
+    // đã được NetworkRigidbody3D truyền đi rồi.
+    private bool _dampRiseNextTick;
+
     public override void Spawned()
     {
         AllObjects.Add(this);
@@ -180,12 +197,23 @@ public class MagneticObject : NetworkBehaviour
         {
             CurrentDamage = baseDamage;
             CurrentType = objectType;
+
+            // NGỦ NGAY TỪ ĐẦU, đừng để rơi tự do lấy một giây nào.
+            //
+            // Không có dòng này thì từ lúc spawn tới khi round đầu tiên bắt đầu
+            // (warmupDuration, 2 giây) vật vẫn chạy vật lý tự do - đủ để mấy cái cây
+            // cao mảnh đổ rạp trước cả khi trận đấu kịp bắt đầu.
+            //
+            // Cùng lý do với ResetForNewRound(): chỗ đặt trong Editor là chỗ ĐÚNG,
+            // không cần vật lý "ổn định" lại giúp.
+            IsSleeping = enableAutoSleep;
         }
 
         // Áp màu, hào quang và trạng thái ẩn/hiện theo dữ liệu hiện tại.
         // Gọi ở đây để vật thể vào trận muộn vẫn hiển thị đúng.
         OnPolarityChanged();
         ApplyStoredState();
+        ApplySleepState();
     }
 
     // --- KÍCH THƯỚC KHI CẦM TRÊN TAY ---
@@ -443,10 +471,75 @@ public class MagneticObject : NetworkBehaviour
         BulletArmTimer = TickTimer.CreateFromSeconds(Runner, bulletArmTime);
     }
 
+    /// <summary>
+    /// Giảm biên độ cú NẢY LÊN khi đạn đập vào sàn hoặc tường.
+    ///
+    /// VẤN ĐỀ ĐANG CHỮA: collider của cây/đá là mấy khối hộp ghép thô, mặt đất cũng gồ ghề.
+    /// Vật bay ngang đập vào MÉP collider hoặc khe nối giữa hai khối thì pháp tuyến va chạm
+    /// chếch lên vài độ, PhysX phản xạ vận tốc theo pháp tuyến đó và sinh ra thành phần
+    /// thẳng đứng. Cộng thêm lực gỡ kẹt khi vật lún vào địa hình.
+    ///
+    /// ĐÂY KHÔNG PHẢI "bounciness". Physic Material mặc định đã để độ nảy bằng 0 rồi,
+    /// đi chỉnh chỗ đó không giải quyết được gì.
+    ///
+    /// Trọng lực project chỉ -3 (bằng 1/3 mặc định) nên cùng một vận tốc bay lên sẽ lơ lửng
+    /// lâu gấp 3 lần bình thường - một cú nảy nhỏ cũng thành cú bay vòng cung rất lộ.
+    ///
+    /// VÌ SAO LÀM Ở KHOẢNH KHẮC VA CHẠM CHỨ KHÔNG CẮT MỖI TICK:
+    /// Bản đầu cắt trần vận tốc mỗi tick, nhưng như vậy đạn đang bay giữa không trung
+    /// cũng bị ghìm - nhìn như có tấm khiên vô hình chặn ngang đường bay, rất phi lý.
+    /// Chỉ nhân nhỏ đúng một lần ngay sau cú chạm thì cú nảy VẪN CÒN (vẫn thấy đạn tưng lên,
+    /// đúng chất vật lý), chỉ là thấp hơn. Giữa đường bay tuyệt đối không đụng vào.
+    ///
+    /// Phải làm ở tick SAU chứ không làm thẳng trong OnCollisionEnter, vì vận tốc đọc được
+    /// bên trong callback đó có thể là giá trị TRƯỚC khi PhysX giải va chạm - lúc đó
+    /// thành phần y còn đang âm (đang lao xuống) nên nhân vào chẳng có tác dụng gì.
+    /// </summary>
+    private void DampBounceRise()
+    {
+        if (!_dampRiseNextTick) return;
+        _dampRiseNextTick = false;
+
+        if (rb.isKinematic) return;
+        if (bounceRiseDamp >= 1f) return;
+
+        Vector3 v = rb.linearVelocity;
+
+        // Chỉ đụng khi đang đi LÊN. Đang rơi xuống thì để yên.
+        if (v.y > 0f)
+        {
+            v.y *= bounceRiseDamp;
+            rb.linearVelocity = v;
+        }
+    }
+
+    /// <summary>
+    /// Trọng lực phụ chỉ dành riêng cho đạn đang bay.
+    ///
+    /// Trọng lực chung của project là -3 để đồ đạc trên map lơ lửng nhẹ nhàng, nhưng
+    /// con số đó làm đường đạn bay vòng cung quá lâu. Nhân riêng ở đây thì đường đạn
+    /// nặng và dứt khoát mà không phải đụng vào trọng lực chung của cả game.
+    /// </summary>
+    private void ApplyBulletGravity()
+    {
+        if (!isMovingAsBullet) return;
+        if (rb.isKinematic) return;
+        if (bulletGravityMultiplier <= 1f) return;
+
+        // Chỉ cộng PHẦN DƯ, vì Physics.gravity đã được áp một lần rồi.
+        // ForceMode.Acceleration để không phụ thuộc khối lượng - đúng bản chất trọng lực.
+        rb.AddForce(Physics.gravity * (bulletGravityMultiplier - 1f), ForceMode.Acceleration);
+    }
+
     public override void FixedUpdateNetwork()
     {
         if (!HasStateAuthority) return;
         if (rb == null) return;
+
+        // 0. GHÌM BỚT CÚ NẢY VỪA XẢY RA + trọng lực riêng của đạn.
+        // Phải chạy TRƯỚC bước xét tốc độ bên dưới, vì cả hai đều làm đổi vận tốc.
+        DampBounceRise();
+        ApplyBulletGravity();
 
         // 1. HẾT TƯ CÁCH ĐẠN KHI BAY CHẬM LẠI
         // Bay chậm lại rồi thì thôi không còn là đạn nữa, dù chưa va vào đâu cả.
@@ -684,6 +777,10 @@ public class MagneticObject : NetworkBehaviour
         // một lần va chạm với mặt đất -> code cũ tước tư cách đạn ngay lập tức, nên đẩy vật
         // từ môi trường không bao giờ gây được sát thương. Bắn từ tay thì không dính lỗi này
         // vì lúc đó vật đang lơ lửng giữa không trung.
+        // Vừa đập vào môi trường -> hẹn giảm bớt cú nảy ở tick sau.
+        // Xem DampBounceRise() để biết vì sao không xử lý thẳng tại đây.
+        _dampRiseNextTick = true;
+
         if (rb != null && rb.linearVelocity.magnitude >= minBulletSpeed) return;
 
         ResetBulletState();
@@ -816,15 +913,10 @@ public class MagneticObject : NetworkBehaviour
 
         transform.localScale = _originalScale;
 
-        // Xoá trạng thái ngủ của round cũ.
-        //
-        // Cố ý cho vật THỨC dậy chứ không ngủ luôn: nó cần rơi xuống và tự ổn định ở chỗ
-        // đứng mới đã, rồi UpdateSleepState() sẽ tự ru nó ngủ sau sleepDelay giây.
-        // Ép ngủ ngay tại đây thì vật nào có vị trí gốc hơi lơ lửng sẽ treo giữa không trung.
-        IsSleeping = false;
+        // Dừng hẳn rồi mới dịch chuyển, nếu không vật về tới chỗ cũ vẫn còn đà bay tiếp.
+        // Phải tạm bỏ kinematic ở đây để Teleport() bên dưới chạy đúng đường vật lý.
         SleepCheckTimer = TickTimer.None;
 
-        // Dừng hẳn rồi mới dịch chuyển, nếu không vật về tới chỗ cũ vẫn còn đà bay tiếp
         if (rb != null)
         {
             rb.isKinematic = false;
@@ -845,6 +937,26 @@ public class MagneticObject : NetworkBehaviour
         else
         {
             transform.SetPositionAndRotation(_originalPosition, _originalRotation);
+        }
+
+        // ĐÓNG BĂNG NGAY TẠI CHỖ VỪA ĐẶT - đây là chỗ đã sửa ngày 16/08.
+        //
+        // Bản cũ cố ý để vật THỨC dậy, với lý do "nó cần rơi xuống và tự ổn định".
+        // Lý do đó SAI, và nó chính là nguyên nhân vài cái cây đổ rạp ngay đầu round:
+        // cây cao và mảnh, chỉ cần collider chạm đất lệch một chút là trọng lực lật đổ.
+        // Mà muốn ngủ lại phải đứng yên liên tục sleepDelay giây, trong khi cây đang đổ
+        // thì tốc độ luôn vượt ngưỡng -> nó đổ hẳn xuống mới thôi.
+        //
+        // _originalPosition CHÍNH LÀ chỗ đã đặt tay trong Editor. Vật lý "ổn định" chỉ có
+        // thể đẩy vật RỜI KHỎI chỗ đó, không bao giờ đưa nó về đúng hơn. Nên đóng băng
+        // thẳng: mỗi round bắt đầu với bản đồ giống hệt bản đồ bạn đã dựng.
+        //
+        // Vật đặt lơ lửng sẽ treo giữa không trung - đó là ĐÚNG, không phải lỗi.
+        // Nó cho thấy bạn đặt sai chỗ trong Editor, và sửa ở Editor mới là cách chữa đúng.
+        if (enableAutoSleep)
+        {
+            IsSleeping = true;
+            ApplySleepState();
         }
     }
 }

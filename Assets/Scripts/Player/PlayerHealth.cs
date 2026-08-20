@@ -86,6 +86,18 @@ public class PlayerHealth : NetworkBehaviour
     [Networked, OnChangedRender(nameof(OnRespawned))]
     public int RespawnCount { get; set; }
 
+    // Đếm ngược tới lúc được sống lại. Chỉ chạy khi đã bị loại giữa pha chiến đấu.
+    //
+    // Từ 16/08 chết KHÔNG còn là bị loại hết round nữa - chỉ mất vị trí và mất thời gian.
+    // GameManager đặt đồng hồ này và cũng là nơi kiểm nó hết hạn để hồi sinh.
+    [Networked] public TickTimer RespawnTimer { get; set; }
+
+    /// <summary>Đang nằm chờ hồi sinh hay không. HUD dùng để hiện đồng hồ đếm ngược.</summary>
+    public bool IsWaitingToRespawn => !IsAlive && RespawnTimer.IsRunning;
+
+    /// <summary>Số giây còn lại trước khi sống lại, 0 nếu không trong trạng thái chờ.</summary>
+    public float RespawnSecondsLeft => RespawnTimer.RemainingTime(Runner) ?? 0f;
+
     private CharacterController controller;
     private Renderer[] cachedRenderers;
 
@@ -185,6 +197,13 @@ public class PlayerHealth : NetworkBehaviour
 
         string teamName = Team == 0 ? "Đỏ" : "Xanh";
         Debug.Log($"<color=red><b>[LOẠI]</b> Player {Object.InputAuthority} (đội {teamName}) đã bị hạ gục</color>");
+
+        // Báo cho GameManager để nó hẹn giờ hồi sinh VÀ cộng tiến độ chiếm cho đội địch.
+        //
+        // Gọi từ đây chứ không gọi ở chỗ CheckKillZone, vì cái chết còn đến từ đường khác
+        // (phím tự sát lúc test, và sau này có thể thêm nguồn mới). Đặt ở Die() thì mọi
+        // đường chết đều đi qua đúng một chỗ xử lý.
+        if (GameManager.Instance != null) GameManager.Instance.OnPlayerDied(this);
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement; // tu doi nhac theo scene
 
 /// <summary>
 /// Quản lý toàn bộ âm thanh: nhạc nền và hiệu ứng.
@@ -18,6 +19,9 @@ public class AudioManager : MonoBehaviour
     public static AudioManager Instance { get; private set; }
 
     [Header("Nhạc nền")]
+    [Tooltip("Tên scene menu. Vào scene này thì phát menuMusic, mọi scene khác phát gameMusic.")]
+    public string menuSceneName = "MenuScene";
+
     public AudioClip menuMusic;
     public AudioClip gameMusic;
 
@@ -83,6 +87,41 @@ public class AudioManager : MonoBehaviour
         _uiSource.spatialBlend = 0f;
 
         LoadVolumes();
+
+        // TỰ ĐỔI NHẠC THEO SCENE (thêm 16/08).
+        //
+        // Trước đây PlayMenuMusic() và PlayGameMusic() có tồn tại nhưng KHÔNG AI GỌI,
+        // nên game im lặng hoàn toàn dù clip đã gán đầy đủ.
+        //
+        // Móc vào sự kiện đổi scene thay vì đi rải lời gọi ở từng nơi: chỉ có một chỗ
+        // quyết định nhạc nào chạy, và thêm scene mới sau này cũng không phải nhớ gì.
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+
+        // Sự kiện trên KHÔNG bắn cho scene đang mở sẵn lúc này, nên phải tự gọi một lần.
+        ApplyMusicForScene(SceneManager.GetActiveScene().name);
+    }
+
+    private void OnDestroy()
+    {
+        // Chỉ bản chính mới từng đăng ký. Bản trùng bị Destroy ngay trong Awake
+        // thì chưa kịp đăng ký gì, gỡ ở đây sẽ gỡ nhầm của bản chính.
+        if (Instance == this) SceneManager.sceneLoaded -= HandleSceneLoaded;
+    }
+
+    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        ApplyMusicForScene(scene.name);
+    }
+
+    /// <summary>
+    /// Vào scene menu thì phát nhạc menu, mọi scene khác phát nhạc trong trận.
+    ///
+    /// PlayMusic() tự bỏ qua nếu đang phát đúng bản đó rồi, nên gọi lại nhiều lần
+    /// cũng không làm nhạc bị cắt và chạy lại từ đầu.
+    /// </summary>
+    private void ApplyMusicForScene(string sceneName)
+    {
+        PlayMusic(sceneName == menuSceneName ? menuMusic : gameMusic);
     }
 
     // ==================== ÂM LƯỢNG ====================

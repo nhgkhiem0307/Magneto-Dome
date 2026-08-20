@@ -101,9 +101,28 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
 
     // Đang đi nhanh cỡ nào, thang 0..1, dùng cho nhịp nhấp nhô đầu.
     //
-    // Cố ý là biến thường chứ KHÔNG [Networked]: nhấp nhô chỉ là hiệu ứng hình ảnh
-    // trên màn hình của chính mình, người khác không nhìn thấy nên không cần gửi đi.
-    private float walkSpeed01;
+    // ĐÃ ĐỔI THÀNH [Networked] NGÀY 16/08 - trước đây là biến thường.
+    //
+    // Lúc đầu để biến thường vì nó chỉ dùng cho nhấp nhô camera của chính mình.
+    // Nhưng PlayerAnimatorDriver cũng cần con số này để chạy animation, mà animation
+    // thì AI CŨNG PHẢI NHÌN THẤY của người khác.
+    //
+    // Không thể để mỗi máy tự đo từ transform: trên Host, BeforeAllTicks() tắt/bật
+    // CharacterController cho MỌI nhân vật (vì Host có StateAuthority với tất cả),
+    // làm transform của nhân vật client nhảy thô từng tick thay vì được nội suy.
+    // Đo quãng đường giữa hai khung hình khi đó ra toàn giá trị giả.
+    //
+    // Đồng bộ thẳng con số đã tính đúng ở nơi có mô phỏng thật thì máy nào cũng đúng.
+    [Networked] public float WalkSpeed01 { get; set; }
+
+    // Có đang đứng trên mặt đất không. Cùng lý do như trên: controller.isGrounded chỉ
+    // đúng ở máy đang mô phỏng nhân vật đó, nhìn sang nhân vật người khác thì vô nghĩa.
+    [Networked] public NetworkBool IsGrounded { get; set; }
+
+    // Đang bấm phím lùi (S) hay không, để phát animation chạy ngược.
+    // Đọc thẳng từ PHÍM BẤM chứ không suy từ hướng dịch chuyển - chính xác hơn hẳn,
+    // và không bị nhiễu khi nhân vật đang bị đẩy văng.
+    [Networked] public NetworkBool MovingBackward { get; set; }
 
     public override void Spawned()
     {
@@ -213,7 +232,7 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         // Cố ý đặt SAU phần xoay ở trên, để người chết vẫn ngó nghiêng xem trận đấu tiếp diễn.
         if (health != null && !health.IsAlive)
         {
-            walkSpeed01 = 0f; // xác đứng im thì đầu không nhấp nhô nữa
+            WalkSpeed01 = 0f; // xác đứng im thì đầu không nhấp nhô nữa
             return;
         }
 
@@ -291,7 +310,10 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         Vector3 flatVelocity = controller.velocity;
         flatVelocity.y = 0f;
 
-        walkSpeed01 = controller.isGrounded
+        IsGrounded = controller.isGrounded;
+        MovingBackward = inputDir.z < -0.3f;
+
+        WalkSpeed01 = controller.isGrounded
             ? Mathf.Clamp01(flatVelocity.magnitude / moveSpeed) * inputDir.magnitude
             : 0f;
     }
@@ -313,7 +335,7 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         // là phí công. Ngoài ra rung camera thuần cục bộ nên cũng không cần khớp giữa các máy.
         if (cameraShake != null && HasInputAuthority)
         {
-            cameraShake.Tick(walkSpeed01);
+            cameraShake.Tick(WalkSpeed01);
 
             // CỘNG độ lệch vào góc nhìn thay vì gán đè.
             // Góc ngẩng/cúi theo chuột vẫn phải là thành phần chính, rung chỉ là gia vị

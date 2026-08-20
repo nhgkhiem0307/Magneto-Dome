@@ -159,6 +159,7 @@ public class PlayerMagnetController : NetworkBehaviour
 
     private FPSMovement movement;
     private PlayerHealth health;
+    private PlayerAnimatorDriver animatorDriver;
 
     // Vật đang bị THU NHỎ ở máy này. Khác với grabbedObject ở chỗ nó là trạng thái
     // hình ảnh cục bộ, dùng để biết lúc nào cần trả lại kích thước gốc.
@@ -168,6 +169,7 @@ public class PlayerMagnetController : NetworkBehaviour
     {
         movement = GetComponent<FPSMovement>();
         health = GetComponent<PlayerHealth>();
+        animatorDriver = GetComponent<PlayerAnimatorDriver>();
 
         // Chỉ Host đặt giá trị khởi đầu, Client nhận về qua mạng
         if (HasStateAuthority)
@@ -675,6 +677,11 @@ public class PlayerMagnetController : NetworkBehaviour
     private void OnMeleePerformed()
     {
         AudioManager.MeleePunch(transform.position);
+
+        // Chạy luôn animation đấm. Dùng chung chỗ móc với tiếng đấm vì cả hai đều cần
+        // "đúng một lần mỗi cú, trên mọi máy" - điều kiện mà MeleeCount + OnChangedRender
+        // đã bảo đảm sẵn. Để trống ô Punch Trigger Param bên kia thì nó tự bỏ qua.
+        if (animatorDriver != null) animatorDriver.TriggerPunch();
     }
 
     // Chạy trên MỌI máy, đúng một lần cho mỗi phát bắn.
