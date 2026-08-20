@@ -17,6 +17,11 @@ Game **chạy được trọn vẹn**: vào phòng → chia đội → đánh nh
 > 🎬 **16/08: thêm rung camera + cơ chế ngủ đông cho vật thể.** Cả hai đều sinh ra từ việc bắt đầu
 > dựng map thật (địa hình gồ ghề). Biên dịch sạch 0 error, **chưa test lần nào.** Chi tiết ở mục 2b.
 
+> 👁️ **16/08 (buổi 2): ánh sáng + nhãn quan.** Bật post-processing (game đang để `Tonemapping = None`),
+> tăng chất lượng bóng đổ, và thêm `PlayerVisuals` — outline phân biệt địch/bạn + quả cầu năng lượng
+> ở tay thay cho model găng chưa có. Sửa xong 2 lỗi animation nháy "falling idle".
+> **Aura sét và marker đồng đội CHƯA TẠO.** Xem mục 2b và danh sách việc nợ ở mục 3.
+
 ---
 
 ## 2b. Việc làm ngày 16/08 — CHƯA TEST
@@ -81,6 +86,136 @@ RỜI KHỎI chỗ đó, không bao giờ đưa nó về đúng hơn.
 
 ⚠️ **Phải BỎ tick `Is Kinematic` thủ công trên prefab.** Để nguyên thì vật **bất tử**: nó đứng yên,
 nhưng cờ `IsSleeping` vẫn `false` nên `OnCollisionEnter` không đánh thức, bắn gì vào cũng trơ ra.
+
+### 🐛 Animation nháy "falling idle" — HAI lỗi chồng nhau, đã sửa cả hai
+
+Triệu chứng: đang chạy thì nhân vật vừa khựng về đứng yên vừa nháy sang rơi tự do, lúc bị lúc không.
+Và khi test 2 máy, **chỉ nhân vật Host là bình thường khi nhìn từ máy Client**.
+
+**Lỗi 1 — `AC_Player.controller`: transition `Fall → Locomotion` để điều kiện `Grounded = false`**
+(đáng lẽ `true`). Thành vòng lặp vô hạn: Grounded false → vào Fall → Fall thấy false → nhảy ngược
+về Locomotion → lại vào Fall. Hai transition đều có duration 0.15s nên Animator kẹt vĩnh viễn giữa
+hai animation đang trộn dở — đó chính là cái "falling idle" nhìn thấy. ✅ Đã sửa.
+
+**Lỗi 2 — Client ghi vào `[Networked]` mà nó không sở hữu.** `FPSMovement.FixedUpdateNetwork()`
+chỉ chặn bằng `GetInput()`, mà hàm đó trả `true` ở **hai** nơi: trên Host với mọi nhân vật, VÀ trên
+máy Client với nhân vật của chính họ. Nên Client cũng ghi `WalkSpeed01` / `IsGrounded` /
+`MovingBackward`. Fusion coi đó là giá trị dự đoán, mỗi lần nhận gói tin từ Host lại huỷ đi và
+chạy lại các tick → con số dao động → animation nhấp nháy.
+
+Và dự đoán ở đây **không thể đúng được**, vì nó dựa trên `controller.velocity` — giá trị nội bộ của
+CharacterController, mà `BeforeAllTicks()` lại tắt/bật component đó liên tục. Không tất định thì
+hai máy không bao giờ tính ra cùng kết quả.
+
+→ Đó là lý do chỉ nhân vật **Host** hiện đúng khi nhìn từ Client: nó là proxy nên Client không
+đụng vào, cứ nhận sao dùng vậy.
+
+✅ Đã sửa: bọc `if (!HasStateAuthority) return;` trước khi ghi. Đánh đổi là animation của chính mình
+trễ ~nửa vòng ping — không ai nhận ra, còn nhấp nháy thì ai cũng thấy.
+
+⚠️ Nhưng **nhấp nhô camera vẫn tính tại chỗ** qua biến mới `LocalWalkSpeed01` (không networked).
+Camera chỉ mình mình nhìn nên không cần khớp với ai; bắt nó chờ Host thì head bob lag theo ping.
+
+**Kèm theo — coyote time cho `isGrounded`:** `controller.isGrounded` chỉ nói được về lần `Move()`
+gần nhất, nên trên địa hình gồ ghề nó tắt đúng một tick rồi bật lại (đi qua khe giữa hai collider,
+leo gờ nhỏ, bước xuống dốc thoải). Giờ phải rời đất **liên tục** `groundedGraceTime` (0.15s) mới
+báo là đang bay. Cố ý KHÔNG lọc phần trọng lực — trọng lực phải phản ứng theo va chạm thật từng tick.
+
+### 💡 Ánh sáng & post-processing *(16/08)*
+
+Game trông nhạt vì ba thứ đều là mặc định chưa ai động vào: **`Tonemapping = None`** (thủ phạm lớn
+nhất — vùng sáng bị cắt phẳng thành trắng bệch), mọi hiệu ứng `intensity = 0`, và
+**Color Grading = LDR**.
+
+May là camera **đã bật** Post Processing sẵn và `DefaultVolumeProfile` **đã được gán làm profile
+toàn cục** (đối chiếu GUID với `UniversalRenderPipelineGlobalSettings`) — nên chỉ cần đổ nội dung
+vào, không phải tạo GameObject Volume nào trong scene.
+
+```
+Assets/Settings/DefaultVolumeProfile.asset
+  Tonemapping   None -> Neutral      ← nền tảng cho mọi thứ còn lại
+  Saturation    0    -> +22
+  Contrast      0    -> +12
+  PostExposure  0    -> +0.2
+  Bloom         0    -> 0.7   threshold 1   ← làm găng đỏ/xanh và quả cầu năng lượng loé sáng
+  Vignette      0    -> 0.28
+
+Assets/Settings/PC_RPAsset.asset          (quality level "PC" đang dùng, m_CurrentQuality = 1)
+  ShadowDistance              50   -> 85    ← map ~56m, để 50 thì bóng biến mất giữa sân
+  MainLightShadowmapResolution 2048 -> 4096
+  ShadowAtlasResolution        256 -> 2048  ← 256 là đèn phụ đổ bóng VỠ NÁT
+  ColorGradingMode             LDR -> HDR   ← bắt buộc để bloom/tonemapping đúng
+```
+
+⬜ **Còn phải làm trong Unity:** hạ **Ambient Intensity** `1` → `0.6`
+(Window → Rendering → Lighting → Environment). Đây là thứ làm bóng đậm nhất — ambient đang để 1
+nghĩa là vùng trong bóng vẫn được chiếu sáng đầy đủ nên bóng nhìn nhạt như vệt xám.
+Không sửa hộ vì giá trị này nằm trong `TestScene.unity` đang mở.
+
+> Tụt FPS thì trả lại theo thứ tự: `Shadow Res 4096 → 2048`, rồi `Shadow Distance 85 → 65`.
+
+### 👁️ Nhãn quan nhân vật *(file mới: `Scripts/Player/PlayerVisuals.cs`)*
+
+**Vấn đề:** nhân vật rất khó nhìn thấy giữa map nhiều cây cối, nhất là trên màn hình nhỏ.
+Và chưa có cách nào phân biệt địch với đồng đội.
+
+⚠️ **Cái bẫy suýt mắc: màu ĐỘI và màu CỰC GĂNG trùng nhau hoàn toàn.**
+`Team` 0 = Đỏ / 1 = Xanh, mà cực găng cũng Dương = Đỏ / Âm = Xanh dương. Nếu cho outline
+toàn thân mang màu điện tích thì nhìn một người viền đỏ sẽ không biết đó là *"địch đội Đỏ"*
+hay *"đồng đội đang mang cực Dương"* — aura không những không giúp mà còn phá luôn.
+
+**Nguyên tắc đã chốt: mỗi loại tin một kênh riêng, không kênh nào mang hai nghĩa.**
+
+| Thông tin | Kênh | Màu |
+|---|---|---|
+| Cực găng của **địch** | Outline toàn thân + quả cầu ở tay | Đỏ / Xanh dương |
+| **Đồng đội** | Outline + marker trên đầu | Xanh **lá** |
+| **Địch** | *(không gán màu riêng)* | — nhận ra bằng LOẠI TRỪ |
+| Mức nhiễm điện | Aura sét quanh người | Vàng |
+
+**Vì sao địch KHÔNG được gán màu riêng:** cho địch viền cam hay đỏ thì nó cạnh tranh thị giác
+với chính màu cực găng — thứ quan trọng nhất cần đọc. Để địch "sạch màu" thì thứ duy nhất rực rỡ
+trên người họ là cực găng, mắt bị hút thẳng vào đó.
+
+**Che khuất — khác nhau có chủ đích:**
+
+| | Chế độ | Vì sao |
+|---|---|---|
+| Đồng đội | `Outline.Mode.OutlineAll` — **xuyên tường** | Vị trí đồng đội là thông tin cho không |
+| Địch | `Outline.Mode.OutlineVisible` — **có che khuất** | Núp sau tường là mất viền, thò nửa người thì chỉ nửa đó hiện. Cho xuyên tường thành gian lận nhìn xuyên vách |
+
+Cả hai chế độ đều có sẵn trong **QuickOutline** (`Resources/Environment/QuickOutline/`), không phải viết shader.
+
+💡 **KHÔNG CẦN ASSET GĂNG TAY.** `character.fbx` là **Humanoid rig**, nên lấy được xương bàn tay
+bằng `animator.GetBoneTransform(HumanBodyBones.LeftHand)`. Script tự tạo quả cầu phát sáng gắn vào đó.
+Quả cầu còn **đọc tốt hơn** model găng thật: găng chỉ vài pixel ở 30m và hay bị thân che, còn quả cầu
+là nguồn sáng nên Bloom kéo hào quang loang ra. Việc này gỡ nút thắt "chưa có asset găng + FPS view".
+
+> ⚠️ `CreatePrimitive` luôn kèm Collider — script xoá ngay khi tạo. Sót một cái là đủ phá hệ vật lý.
+
+**Trạng thái:**
+
+| Phần | Xong? |
+|---|---|
+| Outline địch (màu cực găng, có che khuất) | ✅ code xong |
+| Outline đồng đội (xanh lá, xuyên tường) | ✅ code xong |
+| Quả cầu năng lượng ở hai tay | ✅ code xong |
+| Gắn `PlayerVisuals` lên `Player.prefab` | ⬜ **cần làm trong Unity** |
+| **Aura sét vàng** (ParticleSystem) | ⬜ **CHƯA TẠO** — material `M_LightningAura` đã có, thiếu ParticleSystem |
+| **Marker trên đầu đồng đội** | ⬜ **CHƯA TẠO** |
+
+Hai ô cuối để trống thì script vẫn chạy bình thường, chỉ là không có hiệu ứng đó.
+
+**Cách tạo aura sét (không cần texture):** ParticleSystem con của Player, Scale `(0.7, 1.8, 0.7)`,
+Shape `Box` + Emit from `Shell`, bật **Noise** (Strength 1.5) và **Trails** (Lifetime 0.3) —
+hai module này biến chấm sáng thành tia điện ngoằn ngoèo. Material dùng
+`URP/Particles/Unlit` + Surface `Transparent` + Blending **`Additive`**, để **trắng nguyên bản**;
+màu vàng và HDR Intensity `+2` đặt ở **Start Color** của Particle System.
+`Emission → Rate over Time` để **0**, script tự ghi đè theo mức nhiễm.
+
+> ⚠️ Nhớ gán cả **Trail Material** trong Renderer, quên là vệt trail ra màu hồng cánh sen.
+> ⚠️ `_BaseColor` của shader Particles **không có tag `[HDR]`** nên không kéo Intensity được —
+> đó là lý do phải đặt màu ở Start Color chứ không phải ở material.
 
 ### 🔧 Sửa: nhiều collider trên một vật *(`PlayerMagnetController`)*
 
@@ -242,10 +377,23 @@ một Rigidbody thì PhysX không bao giờ cho chúng va chạm với nhau, nê
 > cao, đặt trên dốc thì nó *phải* ngã. Câu hỏi thật là cây đó có cần là vật thể vật lý không —
 > với phần lớn cây trong map thì không.
 
+### ⬜ Việc trong Unity còn nợ *(tính tới 16/08)*
+
+| Việc | Ở đâu | Thiếu thì sao |
+|---|---|---|
+| Gắn `CameraShake` lên **GameObject Camera** | `Player.prefab` | Không có gì rung |
+| Gắn `PlayerVisuals` lên **object gốc Player** | `Player.prefab` | Không có outline / quả cầu tay |
+| Tạo **ParticleSystem aura sét** rồi kéo vào ô `Lightning Aura` | `Player.prefab` | Không hiện mức nhiễm điện |
+| Tạo **marker trên đầu** rồi kéo vào ô `Ally Marker` | `Player.prefab` | Không đánh dấu đồng đội |
+| Hạ **Ambient Intensity** `1` → `0.6` | Lighting → Environment | Bóng nhạt như vệt xám |
+| Bỏ tick **`Is Kinematic`** thủ công trên prefab vật thể | `Items/*.prefab` | Vật **bất tử** — bắn gì vào cũng trơ |
+| Đặt **`Tag = Magnetic` trên prefab** cây/đá | `Resources/Tree9/*`, `Rock*` | Bấm chuột vào không ăn gì |
+
 ### 🟡 Dựng UI còn thiếu
 
 | Việc | Ghi chú |
 |---|---|
+| ~~Nhãn pha "CHIẾN ĐẤU" chiếm chỗ giữa màn hình~~ | ✅ **Đã sửa 16/08** — `HUDController` tắt hẳn `phaseText` (SetActive false) khi vào pha Combat, bật lại ở các pha khác. Đang đánh nhau thì ai cũng biết là đang đánh nhau, dòng chữ đó chỉ tranh chú ý với thứ cần nhìn thật |
 | **Sửa nhãn HUD "MÁU" → "ĐIỆN TÍCH"** | Chỉ đổi chữ. Ô `Health Fill`/`Health Text` giữ nguyên reference, KHÔNG phải gán lại |
 | *(tuỳ chọn)* Thêm TMP text cho ô `Knockback Text` | Hiện `x2.4` — cho người chơi biết đang nguy hiểm cỡ nào |
 | Gắn `SpectatorController` lên Canvas TestScene | + 1 panel + 1 TMP text. Rất nhẹ |
@@ -378,6 +526,8 @@ Assets/
     │                         InventorySystem · PlayerHotbarController · PlayerInteract
     │                         RadialMenuController · NetworkInputData · PlayerEconomy
     │                         CameraShake  ← MonoBehaviour thuần, đặt trên Camera
+    │                         PlayerVisuals ← outline địch/bạn, quả cầu tay, aura sét
+    │                         PlayerAnimatorDriver · GlovePolarityColor
     ├── Item/                 MagneticObject · MagneticAura · ItemData · EMBarrier
     └── MenuUI/               HUDController · ShopUI · ShopItemButton
                               SettingsUI · SpectatorController · RoomItemUI

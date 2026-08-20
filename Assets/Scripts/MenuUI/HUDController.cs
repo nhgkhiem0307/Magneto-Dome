@@ -363,7 +363,27 @@ public class HUDController : MonoBehaviour
         if (blueScoreText != null) blueScoreText.text = gm.BlueScore.ToString();
         if (roundNumberText != null) roundNumberText.text = $"ROUND {gm.CurrentRound}";
 
-        if (phaseText != null) phaseText.text = GetPhaseName(gm.Phase);
+        // TẮT HẲN NHÃN PHA KHI ĐANG CHIẾN ĐẤU.
+        //
+        // Lúc đánh nhau thì người chơi biết thừa là đang đánh nhau - dòng chữ "CHIẾN ĐẤU"
+        // không thêm thông tin gì, chỉ chiếm chỗ giữa màn hình và cạnh tranh sự chú ý với
+        // những thứ thật sự cần nhìn (mức nhiễm điện, cực găng, vị trí địch).
+        //
+        // Tắt bằng SetActive chứ không phải gán chuỗi rỗng: chuỗi rỗng vẫn để lại một ô
+        // trong suốt, nếu nhãn có nền hay viền thì cái nền đó vẫn hiện.
+        //
+        // Các pha khác vẫn hiện bình thường - lúc đó nhãn mới có việc để làm.
+        if (phaseText != null)
+        {
+            bool showPhase = gm.Phase != GameManager.GamePhase.Combat;
+
+            if (phaseText.gameObject.activeSelf != showPhase)
+            {
+                phaseText.gameObject.SetActive(showPhase);
+            }
+
+            if (showPhase) phaseText.text = GetPhaseName(gm.Phase);
+        }
 
         if (timerText != null)
         {

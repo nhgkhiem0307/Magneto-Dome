@@ -26,6 +26,15 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     [Tooltip("Độ mạnh cú rung khi Dash, thang 0..1. Đặt 0 để tắt.")]
     public float dashShakeTrauma = 0.35f;
 
+    [Header("Animation")]
+    [Tooltip("Phải rời mặt đất LIÊN TỤC bấy nhiêu giây mới báo cho Animator là đang bay.\n\n" +
+             "BẮT BUỘC PHẢI CÓ trên địa hình gồ ghề. CharacterController.isGrounded chỉ đúng " +
+             "cho lần Move() gần nhất, nên đi qua khe hở giữa hai collider hay leo gờ nhỏ là nó " +
+             "tắt đúng một tick rồi bật lại. Lấy thô thì animation nháy sang 'rơi tự do' liên tục.\n\n" +
+             "0.15 chặn được gần hết. Tăng lên nếu vẫn nháy, nhưng đừng quá 0.3 - nhảy khỏi vách " +
+             "sẽ chậm chuyển sang animation rơi.")]
+    public float groundedGraceTime = 0.15f;
+
     [Header("Nước Tăng Lực")]
     [Tooltip("Hiệu lực kéo dài bao nhiêu giây sau khi uống.")]
     public float energyDrinkDuration = 15f;
@@ -117,7 +126,21 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
 
     // Có đang đứng trên mặt đất không. Cùng lý do như trên: controller.isGrounded chỉ
     // đúng ở máy đang mô phỏng nhân vật đó, nhìn sang nhân vật người khác thì vô nghĩa.
+    //
+    // ⚠️ ĐÂY LÀ GIÁ TRỊ ĐÃ LỌC, không phải controller.isGrounded thô. Xem groundedGraceTime.
     [Networked] public NetworkBool IsGrounded { get; set; }
+
+    // Còn bao lâu nữa mới thật sự coi là rời mặt đất. Xem groundedGraceTime.
+    [Networked] private TickTimer GroundedGraceTimer { get; set; }
+
+    /// <summary>
+    /// Tốc độ đi bộ đo TẠI MÁY NÀY, không qua mạng. Chỉ dùng cho nhấp nhô camera của
+    /// chính mình — thứ không ai khác nhìn thấy nên không cần khớp với máy khác.
+    ///
+    /// Tách khỏi WalkSpeed01 vì ô đó chỉ Host được ghi (xem ghi chú ở FixedUpdateNetwork).
+    /// Nếu camera cũng đọc ô đó thì nhấp nhô đầu sẽ trễ mất một vòng gửi/nhận mạng.
+    /// </summary>
+    public float LocalWalkSpeed01 { get; private set; }
 
     // Đang bấm phím lùi (S) hay không, để phát animation chạy ngược.
     // Đọc thẳng từ PHÍM BẤM chứ không suy từ hướng dịch chuyển - chính xác hơn hẳn,
@@ -232,7 +255,10 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         // Cố ý đặt SAU phần xoay ở trên, để người chết vẫn ngó nghiêng xem trận đấu tiếp diễn.
         if (health != null && !health.IsAlive)
         {
-            WalkSpeed01 = 0f; // xác đứng im thì đầu không nhấp nhô nữa
+            // Xác đứng im: dừng cả nhấp nhô camera lẫn animation chạy.
+            // Ô [Networked] vẫn chỉ Host được ghi, cùng lý do ở cuối hàm này.
+            LocalWalkSpeed01 = 0f;
+            if (HasStateAuthority) WalkSpeed01 = 0f;
             return;
         }
 
@@ -310,10 +336,66 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         Vector3 flatVelocity = controller.velocity;
         flatVelocity.y = 0f;
 
-        IsGrounded = controller.isGrounded;
+        // LỌC NHIỄU CHO "ĐANG CHẠM ĐẤT" — coyote time.
+        //
+        // controller.isGrounded CHỈ nói được về lần Move() gần nhất: tick đó có đụng gì
+        // bên dưới hay không. Trên địa hình gồ ghề, nhân vật đi qua khe hở giữa hai
+        // collider, leo một gờ nhỏ, hay bước xuống dốc thoải là nó tắt đúng một tick
+        // rồi bật lại ngay. Mắt không thấy nhân vật nhấc chân, nhưng Animator thì thấy
+        // và nháy sang trạng thái rơi tự do.
+        //
+        // Cách chữa: mỗi lần chạm đất thì nạp lại đồng hồ. Chỉ khi RỜI ĐẤT LIÊN TỤC hết
+        // khoảng đó mới thật sự báo là đang bay. Vài tick mất tiếp đất lẻ tẻ bị nuốt hết.
+        //
+        // Cố ý KHÔNG dùng giá trị lọc này cho phần trọng lực ở trên: trọng lực phải
+        // phản ứng theo va chạm thật của từng tick, lọc vào đó sẽ làm nhân vật lửng lơ.
+        bool touchingGround = controller.isGrounded;
+
+        // BẢN CỤC BỘ, KHÔNG QUA MẠNG — chỉ dùng cho nhấp nhô camera của chính mình.
+        // Tính ở mọi máy chạy được hàm này, nên head bob phản ứng tức thì, không phải
+        // chờ Host xác nhận. Camera là thứ chỉ mình mình nhìn nên không cần khớp với ai.
+        LocalWalkSpeed01 = touchingGround
+            ? Mathf.Clamp01(flatVelocity.magnitude / moveSpeed) * inputDir.magnitude
+            : 0f;
+
+        // ⚠️ CHỈ HOST ĐƯỢC GHI BỐN GIÁ TRỊ [Networked] BÊN DƯỚI. Sửa 16/08.
+        //
+        // Hàm này chỉ chặn bằng GetInput(), mà GetInput() trả về true ở HAI nơi: trên Host
+        // với mọi nhân vật, VÀ trên máy Client với nhân vật của chính họ. Nên trước đây
+        // Client cũng ghi vào WalkSpeed01 / IsGrounded / MovingBackward — những ô nó
+        // KHÔNG có quyền sở hữu.
+        //
+        // Hậu quả: Fusion coi đó là giá trị dự đoán. Mỗi lần nhận gói tin từ Host, nó
+        // huỷ giá trị Client vừa ghi, trả về giá trị Host xác nhận, rồi chạy lại các tick
+        // -> con số dao động liên tục -> animation nhấp nháy.
+        //
+        // Và dự đoán ở đây KHÔNG THỂ đúng được, vì nó dựa trên controller.velocity —
+        // giá trị nội bộ của CharacterController, mà BeforeAllTicks() lại tắt/bật
+        // component đó liên tục. Nó không phải con số tất định nên hai máy không bao giờ
+        // tính ra cùng kết quả.
+        //
+        // Đây là lý do chỉ nhân vật HOST hiện animation đúng khi nhìn từ máy Client:
+        // nhân vật Host là proxy nên Client không đụng vào, cứ nhận sao dùng vậy.
+        //
+        // Bỏ dự đoán đi thì animation của chính mình trễ vài chục mili giây. Không ai
+        // nhận ra điều đó, nhưng nhấp nháy thì ai cũng thấy.
+        if (!HasStateAuthority) return;
+
+        if (touchingGround)
+        {
+            GroundedGraceTimer = TickTimer.CreateFromSeconds(Runner, groundedGraceTime);
+        }
+
+        IsGrounded = touchingGround || !GroundedGraceTimer.ExpiredOrNotRunning(Runner);
+
         MovingBackward = inputDir.z < -0.3f;
 
-        WalkSpeed01 = controller.isGrounded
+        // Dùng IsGrounded ĐÃ LỌC, không dùng touchingGround thô.
+        //
+        // Đây là nửa còn lại của lỗi nháy animation: mỗi tick mất tiếp đất làm WalkSpeed01
+        // rơi thẳng về 0, nên đang chạy mà animation khựng về đứng yên một nhịp.
+        // Người chơi thấy nhân vật vừa giật về idle vừa nháy sang rơi tự do cùng lúc.
+        WalkSpeed01 = IsGrounded
             ? Mathf.Clamp01(flatVelocity.magnitude / moveSpeed) * inputDir.magnitude
             : 0f;
     }
@@ -335,7 +417,7 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         // là phí công. Ngoài ra rung camera thuần cục bộ nên cũng không cần khớp giữa các máy.
         if (cameraShake != null && HasInputAuthority)
         {
-            cameraShake.Tick(WalkSpeed01);
+            cameraShake.Tick(LocalWalkSpeed01);
 
             // CỘNG độ lệch vào góc nhìn thay vì gán đè.
             // Góc ngẩng/cúi theo chuột vẫn phải là thành phần chính, rung chỉ là gia vị
