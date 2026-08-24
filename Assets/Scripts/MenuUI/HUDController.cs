@@ -90,11 +90,22 @@ public class HUDController : MonoBehaviour
     [Tooltip("(Tuỳ chọn) Chữ báo ai đang giữ khu. Tự đổi màu theo đội đang chiếm.")]
     public TMP_Text zoneStatusText;
 
-    [Tooltip("Màu chữ khi đội Đỏ đang giữ khu.")]
-    public Color zoneRedColor = new Color(1f, 0.25f, 0.25f);
+    [Tooltip("Màu chữ khi ĐỘI MÌNH đang chiếm khu. Xanh lá - cùng màu với viền đồng đội, " +
+             "để bộ não học được một quy ước duy nhất: xanh lá = phe mình.")]
+    public Color zoneCapturingColor = new Color(0.35f, 1f, 0.25f);
 
-    [Tooltip("Màu chữ khi đội Xanh đang giữ khu.")]
-    public Color zoneBlueColor = new Color(0.3f, 0.5f, 1f);
+    [Tooltip("Màu chữ khi ĐỊCH đang chiếm khu.")]
+    public Color zoneLosingColor = new Color(1f, 0.2f, 0.15f);
+
+    [Header("Báo động khi mất khu")]
+    [Tooltip("Phóng to thêm bao nhiêu phần ở đỉnh nhịp. 0.25 = to thêm 25%.")]
+    public float zoneAlarmScaleAmount = 0.25f;
+
+    [Tooltip("Biên độ rung, tính bằng pixel giao diện.")]
+    public float zoneAlarmShakePixels = 6f;
+
+    [Tooltip("Số nhịp mỗi giây. 2 nhịp/giây gần với nhịp tim lúc căng thẳng.")]
+    public float zoneAlarmSpeed = 2f;
 
     [Tooltip("Màu chữ khi cả hai đội cùng đứng trong khu (tiến độ bị đóng băng).")]
     public Color zoneContestedColor = new Color(1f, 0.78f, 0.23f);
@@ -113,6 +124,12 @@ public class HUDController : MonoBehaviour
     // Nhớ pha ở khung hình trước, để biết lúc nào vừa chuyển pha mà hiện thông báo
     private GameManager.GamePhase _lastPhase = GameManager.GamePhase.WaitingToStart;
     private bool _hasSeenPhase;
+
+    // Vị trí và cỡ gốc của dòng chữ trạng thái khu, để trả về sau khi rung xong.
+    // Đo một lần lúc chạy chứ không lưu ở Inspector, vì nó phụ thuộc layout thật.
+    private Vector2 _zoneAlarmBasePos;
+    private Vector3 _zoneAlarmBaseScale;
+    private bool _zoneAlarmBaseCaptured;
 
     void Awake()
     {
@@ -288,10 +305,13 @@ public class HUDController : MonoBehaviour
     /// </summary>
     private void UpdateZoneAndRespawn(GameManager gm, FPSMovement self)
     {
+        // Đọc một lần, dùng cho cả đồng hồ hồi sinh lẫn việc xác định đội mình bên dưới
+        PlayerHealth selfHealth = self.GetComponent<PlayerHealth>();
+
         // --- ĐẾM NGƯỢC HỒI SINH ---
         if (respawnCountdownText != null)
         {
-            PlayerHealth myHealth = self.GetComponent<PlayerHealth>();
+            PlayerHealth myHealth = selfHealth;
 
             if (myHealth != null && myHealth.IsWaitingToRespawn)
             {
@@ -329,30 +349,85 @@ public class HUDController : MonoBehaviour
 
         zone.CountPlayersInside(out int red, out int blue);
 
-        // Đổi cả CHỮ lẫn MÀU cùng lúc.
+        // NÓI THEO GÓC NHÌN CỦA NGƯỜI ĐANG CHƠI, không nói theo tên đội.
         //
-        // Màu là thứ đọc được bằng thị giác ngoại vi - đang mải ngắm bắn vẫn liếc thấy
-        // dòng chữ chuyển sang màu địch, biết ngay là mất khu. Đọc chữ thì phải nhìn thẳng.
-        if (red > 0 && blue > 0)
+        // "ĐỘI ĐỎ ĐANG CHIẾM" bắt người chơi phải nhớ mình thuộc đội nào rồi mới suy ra
+        // là tin tốt hay tin xấu - mất một nhịp suy nghĩ giữa lúc đang đánh nhau.
+        // "BỊ ĐỊCH CHIẾM" thì hiểu ngay lập tức, không cần nghĩ.
+        int myTeam = selfHealth != null ? selfHealth.Team : 0;
+
+        int myCount = myTeam == 0 ? red : blue;
+        int enemyCount = myTeam == 0 ? blue : red;
+
+        bool alarming = false;
+
+        if (myCount > 0 && enemyCount > 0)
         {
             zoneStatusText.text = "ĐANG TRANH CHẤP";
             zoneStatusText.color = zoneContestedColor;
         }
-        else if (red > 0)
+        else if (myCount > 0)
         {
-            zoneStatusText.text = "ĐỘI ĐỎ ĐANG CHIẾM";
-            zoneStatusText.color = zoneRedColor;
+            zoneStatusText.text = "ĐANG CHIẾM";
+            zoneStatusText.color = zoneCapturingColor;
         }
-        else if (blue > 0)
+        else if (enemyCount > 0)
         {
-            zoneStatusText.text = "ĐỘI XANH ĐANG CHIẾM";
-            zoneStatusText.color = zoneBlueColor;
+            zoneStatusText.text = "BỊ ĐỊCH CHIẾM";
+            zoneStatusText.color = zoneLosingColor;
+            alarming = true; // chỉ tin XẤU mới được rung, nếu không cảnh báo mất giá trị
         }
         else
         {
             zoneStatusText.text = "KHU ĐANG BỎ TRỐNG";
             zoneStatusText.color = zoneEmptyColor;
         }
+
+        ApplyZoneAlarm(alarming);
+    }
+
+    /// <summary>
+    /// Phóng to và rung dòng chữ khi địch đang chiếm khu.
+    ///
+    /// CHỈ dùng cho tin xấu. Nếu cái gì cũng rung thì người chơi quen mắt và bỏ qua -
+    /// cảnh báo chỉ có giá trị khi nó hiếm.
+    ///
+    /// Nhịp phóng to dùng hàm sin nên nó thở đều đặn; phần rung dùng số ngẫu nhiên nên
+    /// nó giật thật. Hai loại chuyển động khác nhau chồng lên nhau mới ra cảm giác
+    /// "báo động" chứ không phải "hiệu ứng trang trí".
+    /// </summary>
+    private void ApplyZoneAlarm(bool alarming)
+    {
+        if (zoneStatusText == null) return;
+
+        RectTransform rt = zoneStatusText.rectTransform;
+
+        // Ghi lại vị trí và cỡ gốc đúng một lần, để còn đường trả về
+        if (!_zoneAlarmBaseCaptured)
+        {
+            _zoneAlarmBasePos = rt.anchoredPosition;
+            _zoneAlarmBaseScale = rt.localScale;
+            _zoneAlarmBaseCaptured = true;
+        }
+
+        if (!alarming)
+        {
+            rt.anchoredPosition = _zoneAlarmBasePos;
+            rt.localScale = _zoneAlarmBaseScale;
+            return;
+        }
+
+        float t = Time.unscaledTime * zoneAlarmSpeed * Mathf.PI * 2f;
+
+        // Nhịp thở: 0 -> 1 -> 0. Dùng Abs(Sin) để nhịp nào cũng nảy lên, không có nhịp lép
+        float beat = Mathf.Abs(Mathf.Sin(t));
+        rt.localScale = _zoneAlarmBaseScale * (1f + beat * zoneAlarmScaleAmount);
+
+        // Rung: chỉ rung mạnh ở đỉnh nhịp, để nó khớp với cú phóng to
+        float shake = zoneAlarmShakePixels * beat;
+        rt.anchoredPosition = _zoneAlarmBasePos + new Vector2(
+            Random.Range(-shake, shake),
+            Random.Range(-shake, shake));
     }
 
     private void UpdateRoundInfo(GameManager gm)
@@ -431,6 +506,15 @@ public class HUDController : MonoBehaviour
 
         switch (gm.Phase)
         {
+            case GameManager.GamePhase.BuyPhase:
+                // ROUND QUYẾT ĐỊNH: báo cho người chơi biết round này khác mọi round trước.
+                //
+                // Không có nó thì round 9 y hệt round 1 về mặt cảm giác, dù một bên chỉ
+                // còn cách chức vô địch đúng một round. Toàn bộ độ căng của thể thức
+                // "đấu tới 5 thắng" nằm ở chỗ người chơi BIẾT mình đang ở đâu trong đó.
+                SetAnnouncement(GetMatchPointText(gm));
+                break;
+
             case GameManager.GamePhase.RoundEnd:
                 SetAnnouncement(GetRoundResultText(gm));
                 break;
@@ -460,6 +544,36 @@ public class HUDController : MonoBehaviour
 
         if (announcementText != null) announcementText.text = message;
         if (announcementGroup != null) announcementGroup.SetActive(hasMessage);
+    }
+
+    /// <summary>
+    /// Chữ hiện đầu round khi tỉ số đã tới mức quyết định. Trả về chuỗi rỗng ở round thường.
+    ///
+    /// Xét theo ĐỘI CỦA MÌNH chứ không nói chung chung, vì cùng một tỉ số 4-2 thì với
+    /// một bên là "sắp vô địch" còn bên kia là "thua là hết" - hai cảm xúc trái ngược,
+    /// không nên gộp thành một câu.
+    /// </summary>
+    private string GetMatchPointText(GameManager gm)
+    {
+        PlayerHealth myHealth = FPSMovement.Local != null
+            ? FPSMovement.Local.GetComponent<PlayerHealth>()
+            : null;
+
+        if (myHealth == null) return "";
+
+        int myScore = myHealth.Team == 0 ? gm.RedScore : gm.BlueScore;
+        int enemyScore = myHealth.Team == 0 ? gm.BlueScore : gm.RedScore;
+
+        // Thắng round này là đủ điều kiện vô địch chưa? Phải xét CẢ hai luật:
+        // đủ số điểm quy định VÀ hơn đối thủ đủ cách biệt (Overtime dùng chung luật này).
+        bool iCanWin = (myScore + 1) >= gm.pointsToWin && (myScore + 1 - enemyScore) >= gm.requiredLead;
+        bool enemyCanWin = (enemyScore + 1) >= gm.pointsToWin && (enemyScore + 1 - myScore) >= gm.requiredLead;
+
+        if (iCanWin && enemyCanWin) return "ROUND QUYẾT ĐỊNH";
+        if (iCanWin) return "THẮNG ROUND NÀY LÀ VÔ ĐỊCH!";
+        if (enemyCanWin) return "THUA ROUND NÀY LÀ HẾT!";
+
+        return "";
     }
 
     private string GetRoundResultText(GameManager gm)

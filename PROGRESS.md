@@ -388,6 +388,31 @@ một Rigidbody thì PhysX không bao giờ cho chúng va chạm với nhau, nê
 | Hạ **Ambient Intensity** `1` → `0.6` | Lighting → Environment | Bóng nhạt như vệt xám |
 | Bỏ tick **`Is Kinematic`** thủ công trên prefab vật thể | `Items/*.prefab` | Vật **bất tử** — bắn gì vào cũng trơ |
 | Đặt **`Tag = Magnetic` trên prefab** cây/đá | `Resources/Tree9/*`, `Rock*` | Bấm chuột vào không ăn gì |
+### 🟡 Trang trí đảo — CHƯA LÀM (dự kiến ~1 tiếng)
+
+
+Đã có công cụ sẵn: `Assets/Scripts/EnvironmentScatter.cs`. Gắn lên Empty GameObject,
+kéo prefab vào danh sách, chuột phải component → **"Rải trang trí"**. Không ưng thì
+**"Xoá hết"** rồi rải lại, mỗi lần ra một bố cục khác.
+
+Cần tải thêm **cỏ / bụi / hoa** — project chưa có cái nào. Nguồn khuyên dùng:
+**Quaternius Ultimate Nature Pack** (CC0, cùng phong cách lowpoly với đá đang có).
+Đá thì đã có sẵn bộ *Rocks and Boulders 2*, dùng luôn.
+
+Rải thành **nhiều lớp thưa** thay vì một lớp dày:
+
+| Object | Prefab | Count | Align To Slope |
+|---|---|---|---|
+| `Scatter_Grass` | cỏ | 500 | tắt |
+| `Scatter_Bushes` | bụi | 80 | tắt |
+| `Scatter_Rocks` | đá *(đã có)* | 60 | **bật** |
+| `Scatter_Flowers` | hoa, nấm | 40 | tắt |
+
+⚠️ **`Strip Colliders` PHẢI BẬT.** Cỏ có collider sẽ chặn đường đạn và làm nó lệch hướng —
+đúng cái lỗi đã mất cả buổi 16/08 để sửa. Trang trí chỉ cần nhìn thấy, không cần chạm được.
+
+⚠️ **Chừa trống lối đi giữa sân.** Đặt vùng rải ở rìa đảo. Cỏ um tùm giữa đấu trường vừa
+che tầm nhìn vừa làm khó nhìn vật thể và đối thủ.
 
 ### 🟡 Dựng UI còn thiếu
 
