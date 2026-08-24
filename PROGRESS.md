@@ -1,9 +1,61 @@
 # TIẾN ĐỘ — Magneto-Dome
 
 > Ghi cho session sau. Đọc file này trước, rồi đọc [CLAUDE.md](CLAUDE.md) để nắm đặc tả và quy tắc.
-> **Cập nhật:** 16/08/2026 · **Deadline:** ~16/09/2026 (còn ~4 tuần)
+> **Cập nhật:** 24/08/2026 · **Deadline:** ~16/09/2026 (còn ~3 tuần)
 
 ---
+
+## ⭐ VIỆC CẦN LÀM — chốt ngày 24/08 (còn 23 ngày)
+
+Đã build `.exe` thành công và test sơ bộ. Art ổn. Dưới đây là việc còn lại,
+xếp theo mức độ chặn đường.
+
+### 🔴 Phải làm
+
+| # | Việc | Ở đâu | Thiếu thì sao |
+|---|---|---|---|
+| 1 | **Gắn `SettingsUI`** | MenuScene *(chưa gắn ở CẢ HAI scene)* | Không chỉnh được âm lượng, độ nhạy chuột, độ phân giải |
+| 2 | **Chơi trọn một trận, 2 máy** | — | Toàn bộ hệ thống mới chưa từng chạy đủ một vòng |
+| 3 | Gán 2 ô âm thanh: `sfxRoundWin`, `sfxRoundLose` | AudioManager (MenuScene) | Thắng/thua round im lặng |
+| 4 | Icon cho **Shop** và **Radial Menu** | TestScene | Menu trống trơn, khó đọc |
+
+### 🟡 Nên làm
+
+| # | Việc | Ghi chú |
+|---|---|---|
+| 5 | Cắt bớt `Resources/Environment/Nature/Textures` | **194MB**, 5 file PNG 21–23MB. CHƯA commit. Xoá texture không dùng TRƯỚC khi đưa vào git — sau này xoá cũng không lấy lại được dung lượng |
+| 6 | `knockbackText` trên HUDController | Hiện hệ số `x2.4`, đang bỏ trống |
+| 7 | Trang trí nốt: bụi, hoa, đá bay lơ lửng dưới đảo | Công cụ `EnvironmentScatter` đã sẵn |
+
+### ⚫ Tuần cuối, đừng làm sớm
+
+| # | Việc | Vì sao đợi |
+|---|---|---|
+| 8 | **Xoá phím debug `K`** — 3 chỗ: `NetworkInputData.cs`, `NetworkRunnerHandler.OnInput()`, `PlayerMagnetController.FixedUpdateNetwork()` | Còn cần để test vòng round một mình |
+| 9 | Đặt lại `Points To Win = 5` nếu có hạ để test | |
+| 10 | Build cuối, **bỏ tick** `Development Build` | |
+
+### ✂️ ĐÃ QUYẾT ĐỊNH BỎ
+
+**Room list / danh sách phòng.** `OnSessionListUpdated()` đang rỗng, `RoomItemUI.cs`
+là file mẫu 16 dòng, và không chỗ nào gọi `JoinSessionLobby()` — tức là chưa làm gì cả,
+tốn ~2 tiếng để hoàn thành.
+
+Bỏ vì **vào phòng bằng mã code đã chạy tốt**. Room list chỉ là tiện lợi, không phải yêu cầu.
+Hai tiếng đó đổi lấy việc người chơi khỏi gõ 4 ký tự, mà lại là code MẠNG chưa từng test —
+đúng loại dễ đẻ bug ở tuần cuối. Với hội đồng, "vào phòng bằng mã như Among Us" nghe hoàn chỉnh.
+
+*(Nếu muốn lấp chỗ trống: đổi `roomListPanel` thành một dòng chữ hướng dẫn nhập mã.)*
+
+### ✅ Kiểm tra lại — tưởng thiếu nhưng ĐÃ CÓ
+
+- **Tên người chơi**: chuỗi hoàn chỉnh `nameInput` → `LocalPlayerName` →
+  `RoomPlayer.Spawned()` → `RPC_SetPlayerInfo` → `NickName` *(networked)* → `UpdateLobbyUI()`.
+  Nếu thấy hiện "Player" là do **không gõ tên trước khi vào phòng** — code có nhánh
+  `if (!string.IsNullOrEmpty(nameInput.text))`.
+- `ButtonClickSound` đã gắn ở **cả hai** scene.
+- `SpectatorController` đã gắn (việc nợ từ 05/08).
+
 
 ## 1. Tóm tắt một dòng
 
