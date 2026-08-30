@@ -187,8 +187,9 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
             // về góc 0 độ, và công xoay hướng lúc spawn thành vô nghĩa.
             NetworkRunnerHandler.SetLookAngles(SpawnYaw, 0f);
 
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            // Vừa vào trận: để CursorLock tính lại thay vì tự khoá.
+            // Nó sẽ khoá chuột nếu không có bảng giao diện nào đang mở.
+            CursorLock.Refresh();
         }
 
         // Chỉ bật Camera và AudioListener của nhân vật mình.

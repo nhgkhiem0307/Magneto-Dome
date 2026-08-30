@@ -99,8 +99,7 @@ public class RadialMenuController : MonoBehaviour
 
         // Thả chuột ra để rê chọn. Việc này cũng tự động khoá xoay camera và chặn
         // hai nút chuột không cho thành lệnh bắn - xem NetworkRunnerHandler.IsCursorFree().
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        CursorLock.Request(this);
     }
 
     private void CloseMenu(InventorySystem inventory)
@@ -108,8 +107,7 @@ public class RadialMenuController : MonoBehaviour
         _isMenuOpen = false;
         if (radialMenuUI != null) radialMenuUI.SetActive(false);
 
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        CursorLock.Release(this);
 
         if (inventory == null) return;
         if (_selectedIndex < 0 || _selectedIndex >= slots.Count) return;

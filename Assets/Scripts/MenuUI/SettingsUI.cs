@@ -44,6 +44,11 @@ public class SettingsUI : MonoBehaviour
     // và tệ hơn là đổi độ phân giải ngay khi vừa mở bảng.
     private bool _isInitializing;
 
+    // Nhớ độ phân giải người chơi đã chọn. Không thể chỉ dựa vào Screen.width - xem
+    // ghi chú ở OnResolutionChanged().
+    private const string KeyResWidth = "res_width";
+    private const string KeyResHeight = "res_height";
+
     void Start()
     {
         BuildResolutionList();
@@ -78,8 +83,7 @@ public class SettingsUI : MonoBehaviour
         LoadCurrentValues();
         settingsPanel.SetActive(true);
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        CursorLock.Request(this);
     }
 
     public void Close()
@@ -88,12 +92,12 @@ public class SettingsUI : MonoBehaviour
 
         settingsPanel.SetActive(false);
 
-        // Đang trong trận thì khoá chuột lại để chơi tiếp.
-        // Ở menu thì giữ chuột tự do để còn bấm nút.
-        bool inMatch = FPSMovement.Local != null;
-
-        Cursor.lockState = inMatch ? CursorLockMode.Locked : CursorLockMode.None;
-        Cursor.visible = !inMatch;
+        // Trả chuột lại. CursorLock tự lo phần còn lại: chỉ khoá khi KHÔNG còn bảng nào
+        // đang mở, và luôn thả tự do khi đang ở menu (chưa có nhân vật).
+        //
+        // Trước đây chỗ này tự khoá chuột, nên đóng Settings trong lúc Radial Menu
+        // vẫn mở sẽ làm người chơi không rê chọn được nữa.
+        CursorLock.Release(this);
     }
 
     // --- KHỞI TẠO ---
@@ -148,12 +152,18 @@ public class SettingsUI : MonoBehaviour
 
         if (fullscreenToggle != null) fullscreenToggle.isOn = Screen.fullScreen;
 
-        // Chọn sẵn mục khớp với độ phân giải đang dùng
+        // Chọn sẵn mục khớp với độ phân giải NGƯỜI CHƠI ĐÃ CHỌN.
+        //
+        // Ưu tiên giá trị đã lưu, chỉ dùng Screen.width/height khi chưa từng chọn lần nào.
+        // Xem OnResolutionChanged() để biết vì sao không tin được Screen.width.
         if (resolutionDropdown != null)
         {
+            int wantWidth = PlayerPrefs.GetInt(KeyResWidth, Screen.width);
+            int wantHeight = PlayerPrefs.GetInt(KeyResHeight, Screen.height);
+
             for (int i = 0; i < _resolutions.Count; i++)
             {
-                if (_resolutions[i].width == Screen.width && _resolutions[i].height == Screen.height)
+                if (_resolutions[i].width == wantWidth && _resolutions[i].height == wantHeight)
                 {
                     resolutionDropdown.value = i;
                     break;
@@ -232,6 +242,17 @@ public class SettingsUI : MonoBehaviour
 
         Resolution res = _resolutions[index];
         Screen.SetResolution(res.width, res.height, Screen.fullScreen);
+
+        // GHI NHỚ LỰA CHỌN, đừng chỉ dựa vào Screen.width để đọc lại sau này.
+        //
+        // Hai lý do:
+        //   1. Screen.SetResolution() KHÔNG có hiệu lực ngay - nó áp vào cuối khung hình,
+        //      nên đọc Screen.width ngay sau đó vẫn ra số cũ.
+        //   2. Trong Unity Editor nó KHÔNG LÀM GÌ CẢ - cỡ Game view do dropdown của
+        //      Game view quyết định. Nên Screen.width vĩnh viễn không đổi, và mở lại
+        //      bảng cài đặt sẽ luôn thấy mục cũ.
+        PlayerPrefs.SetInt(KeyResWidth, res.width);
+        PlayerPrefs.SetInt(KeyResHeight, res.height);
     }
 
     // --- NHÃN SỐ ---

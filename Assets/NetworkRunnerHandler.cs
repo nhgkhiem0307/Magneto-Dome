@@ -13,6 +13,9 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     public static NetworkRunnerHandler Instance { get; private set; }
     public static string LocalPlayerName = "Player";
 
+    // Nhớ tên giữa các lần chơi, giống cách âm lượng và độ nhạy chuột đang làm.
+    private const string KeyPlayerName = "player_name";
+
     [Header("Room Player Prefab")]
     public RoomPlayer roomPlayerPrefab;
 
@@ -32,6 +35,10 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     public TMP_Text teamRedText;
     public TMP_Text teamBlueText;
     public TMP_Text statusErrorText;
+
+    [Tooltip("(Tuỳ chọn) Hiện tên người chơi đang dùng. " +
+             "Cập nhật mỗi khi xác nhận tên và tự nạp lại tên đã lưu lần trước.")]
+    public TMP_Text currentNameText;
 
     [Header("Lobby Buttons")]
     public Button startMatchButton;
@@ -88,7 +95,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     /// </summary>
     public static bool IsCursorFree()
     {
-        return Cursor.lockState != CursorLockMode.Locked;
+        return CursorLock.IsFree;
     }
 
     // Đặt lại góc nhìn, dùng lúc nhân vật vừa xuất hiện để khớp với hướng Host đã xoay sẵn.
@@ -144,6 +151,17 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
     private void Start()
     {
+        // Nạp lại tên đã lưu từ lần chơi trước và điền sẵn vào ô nhập,
+        // để người chơi quen chỉ cần bấm xác nhận là xong.
+        string savedName = PlayerPrefs.GetString(KeyPlayerName, "");
+        if (!string.IsNullOrEmpty(savedName))
+        {
+            LocalPlayerName = savedName;
+            if (nameInput != null) nameInput.text = savedName;
+        }
+
+        RefreshCurrentNameText();
+
         ShowPanel(namePanel);
         if (statusErrorText != null) statusErrorText.text = "";
     }
@@ -192,8 +210,26 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         if (!string.IsNullOrEmpty(nameInput.text))
         {
             LocalPlayerName = nameInput.text;
+
+            // Nhớ tên cho lần chơi sau, khỏi phải gõ lại mỗi lần mở game
+            PlayerPrefs.SetString(KeyPlayerName, LocalPlayerName);
         }
+
+        RefreshCurrentNameText();
         ShowPanel(mainButtonsPanel);
+    }
+
+    /// <summary>
+    /// Hiện tên đang dùng lên giao diện.
+    ///
+    /// Trước đây LocalPlayerName chỉ được gán rồi gửi qua RPC, không hiển thị ở đâu cả -
+    /// nên người chơi gõ tên xong không có gì xác nhận là nó đã được ghi nhận.
+    /// </summary>
+    private void RefreshCurrentNameText()
+    {
+        if (currentNameText == null) return;
+
+        currentNameText.text = LocalPlayerName;
     }
 
     private void EnsureRunnerExists()
@@ -325,9 +361,12 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         RoomPlayer.AllPlayers.Clear();
         PlayerHealth.AllPlayers.Clear();
 
-        // Trả chuột lại cho menu
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        // Trả chuột lại cho menu.
+        //
+        // Dùng ReleaseAll() vì mọi bảng giao diện của scene cũ (Shop, Radial Menu,
+        // Settings) sắp bị huỷ theo scene mà không kịp gọi Release. Để sót đăng ký
+        // của chúng thì trận sau chuột sẽ không bao giờ khoá lại được.
+        CursorLock.ReleaseAll();
 
         // QUAN TRỌNG: phải bỏ Instance TRƯỚC khi load scene.
         //

@@ -1,39 +1,41 @@
 # TIẾN ĐỘ — Magneto-Dome
 
 > Ghi cho session sau. Đọc file này trước, rồi đọc [CLAUDE.md](CLAUDE.md) để nắm đặc tả và quy tắc.
-> **Cập nhật:** 24/08/2026 · **Deadline:** ~16/09/2026 (còn ~3 tuần)
+> **Cập nhật:** 30/08/2026 · **Deadline:** ~16/09/2026 (còn ~17 ngày)
 
 ---
 
-## ⭐ VIỆC CẦN LÀM — chốt ngày 24/08 (còn 23 ngày)
+## ⭐ VIỆC CẦN LÀM — chốt ngày 30/08 (còn 17 ngày)
 
-Đã build `.exe` thành công và test sơ bộ. Art ổn. Dưới đây là việc còn lại,
-xếp theo mức độ chặn đường.
+Đã build `.exe` thành công và test sơ bộ. Art ổn. **Toàn bộ code đã xong** —
+việc còn lại gần như chỉ là kéo thả trong Unity và test.
 
 ### 🔴 Phải làm
 
 | # | Việc | Ở đâu | Thiếu thì sao |
 |---|---|---|---|
-| 1 | **Gắn `SettingsUI`** | MenuScene *(chưa gắn ở CẢ HAI scene)* | Không chỉnh được âm lượng, độ nhạy chuột, độ phân giải |
-| 2 | **Chơi trọn một trận, 2 máy** | — | Toàn bộ hệ thống mới chưa từng chạy đủ một vòng |
-| 3 | Gán 2 ô âm thanh: `sfxRoundWin`, `sfxRoundLose` | AudioManager (MenuScene) | Thắng/thua round im lặng |
-| 4 | Icon cho **Shop** và **Radial Menu** | TestScene | Menu trống trơn, khó đọc |
+| 1 | **Chơi trọn một trận, 2 máy** | — | Rủi ro số 1. Khu chiếm đóng + hồi sinh + Quá Tải chưa từng chạy đủ một vòng có người thật |
+| 2 | **Bắt đầu viết báo cáo** | — | Rủi ro số 2. Chưa viết chữ nào. Chương "Khó khăn & giải pháp" chép thẳng được từ 11 cái bẫy trong CLAUDE.md mục 5 |
+| 3 | **Gán 5 icon vào 5 file `ItemData`** | `Assets/Items/Type/*.asset` | Shop + Radial Menu trống trơn. **~5 phút** — xem mục "Gán icon" bên dưới |
+| 4 | **Dựng Shop UI + Radial Menu** | TestScene | Chưa có object nào. Cấu trúc đầy đủ ở mục bên dưới |
+| 5 | Thêm **nút mở Settings** ở MenuScene | MenuScene | Hiện chỉ mở được bằng `Esc`, người chơi không đoán ra |
+| 6 | Gán 2 ô âm thanh: `sfxRoundWin`, `sfxRoundLose` | AudioManager (MenuScene) | Thắng/thua round im lặng |
 
 ### 🟡 Nên làm
 
 | # | Việc | Ghi chú |
 |---|---|---|
-| 5 | Cắt bớt `Resources/Environment/Nature/Textures` | **194MB**, 5 file PNG 21–23MB. CHƯA commit. Xoá texture không dùng TRƯỚC khi đưa vào git — sau này xoá cũng không lấy lại được dung lượng |
-| 6 | `knockbackText` trên HUDController | Hiện hệ số `x2.4`, đang bỏ trống |
-| 7 | Trang trí nốt: bụi, hoa, đá bay lơ lửng dưới đảo | Công cụ `EnvironmentScatter` đã sẵn |
+| 7 | Cắt bớt `Resources/Environment/Nature/Textures` | **194MB**, 5 file PNG 21–23MB. CHƯA commit. Xoá texture không dùng TRƯỚC khi đưa vào git — sau này xoá cũng không lấy lại được dung lượng |
+| 8 | `knockbackText` trên HUDController | Hiện hệ số `x2.4`, đang bỏ trống |
+| 9 | Trang trí nốt: bụi, hoa, đá bay lơ lửng dưới đảo | Công cụ `EnvironmentScatter` đã sẵn |
 
 ### ⚫ Tuần cuối, đừng làm sớm
 
 | # | Việc | Vì sao đợi |
 |---|---|---|
-| 8 | **Xoá phím debug `K`** — 3 chỗ: `NetworkInputData.cs`, `NetworkRunnerHandler.OnInput()`, `PlayerMagnetController.FixedUpdateNetwork()` | Còn cần để test vòng round một mình |
-| 9 | Đặt lại `Points To Win = 5` nếu có hạ để test | |
-| 10 | Build cuối, **bỏ tick** `Development Build` | |
+| 10 | **Xoá phím debug `K`** — 3 chỗ: `NetworkInputData.cs`, `NetworkRunnerHandler.OnInput()`, `PlayerMagnetController.FixedUpdateNetwork()` | Còn cần để test vòng round một mình |
+| 11 | Đặt lại `Points To Win = 5` nếu có hạ để test | |
+| 12 | Build cuối, **bỏ tick** `Development Build` | |
 
 ### ✂️ ĐÃ QUYẾT ĐỊNH BỎ
 
@@ -49,6 +51,9 @@ Hai tiếng đó đổi lấy việc người chơi khỏi gõ 4 ký tự, mà l
 
 ### ✅ Kiểm tra lại — tưởng thiếu nhưng ĐÃ CÓ
 
+- **`SettingsUI` đã gắn ở CẢ HAI scene** *(xác nhận 30/08)* — việc nợ từ 24/08 đã xong.
+  Nhưng **chưa có nút nào gọi `Toggle()`/`Open()`**, chỉ mở được bằng `Esc`. Xem việc #5.
+- **5 icon Shop ĐÃ CÓ SẴN** ở `Assets/Resources/UI kit/Icons/`, chỉ là chưa gán. Xem việc #3.
 - **Tên người chơi**: chuỗi hoàn chỉnh `nameInput` → `LocalPlayerName` →
   `RoomPlayer.Spawned()` → `RPC_SetPlayerInfo` → `NickName` *(networked)* → `UpdateLobbyUI()`.
   Nếu thấy hiện "Player" là do **không gõ tên trước khi vào phòng** — code có nhánh
@@ -56,7 +61,103 @@ Hai tiếng đó đổi lấy việc người chơi khỏi gõ 4 ký tự, mà l
 - `ButtonClickSound` đã gắn ở **cả hai** scene.
 - `SpectatorController` đã gắn (việc nợ từ 05/08).
 
+---
 
+## 📐 DỰNG UI CÒN THIẾU — hướng dẫn đầy đủ *(soạn 30/08)*
+
+### Bước 0 — Gán icon (làm TRƯỚC, ~5 phút)
+
+Icon đã tồn tại sẵn, chỉ chưa ai kéo vào. **Gán một lần là cả Shop lẫn Radial Menu
+đều có icon**, vì cả hai script đều đọc `ItemData.icon` chứ không kéo `Image` bằng tay.
+
+| File `ItemData` *(`Assets/Items/Type/`)* | Kéo icon *(`Assets/Resources/UI kit/Icons/`)* |
+|---|---|
+| `Shield Armor.asset` | `Icon_ShieldArmor` |
+| `Energy Drink.asset` | `Icon_EnergyDrink` |
+| `Bandage.asset` | `Icon_Bandage` |
+| `Gasoline Canister.asset` | `Icon_GasolineCanister` |
+| `EM Barrier Core.asset` | `Icon_EMBarrior` |
+
+⚠️ Ảnh phải để **Texture Type = Sprite (2D and UI)** mới kéo vào ô `Sprite` được.
+
+### 🛒 Shop UI
+
+```
+Canvas                          ← gắn script ShopUI VÀO ĐÂY
+└── ShopPanel                   ← ô "Shop Panel"
+    ├── Text_Money              ← ô "Money Text"    ($500)
+    ├── Text_Timer              ← ô "Timer Text"    (còn 12s)
+    └── ItemContainer           ← thêm Horizontal Layout Group
+        ├── ShopButton_0 … ShopButton_4
+```
+
+Mỗi `ShopButton_x` = **Button** + component **`ShopItemButton`**, có 3 object con:
+
+```
+ShopButton_0  (Button + ShopItemButton)
+├── Icon      (Image)     ← ô "Icon Image"
+├── Name      (TMP_Text)  ← ô "Name Text"
+└── Price     (TMP_Text)  ← ô "Price Text"
+```
+
+Không cần gõ tên/giá bằng tay — `ShopItemButton.Setup()` tự lấy từ `ItemData`.
+
+Ô Inspector của `ShopUI`: `Shop Panel`, `Money Text`, `Timer Text`,
+`Item Buttons` *(Size = 5)*, `Shop Key = B`.
+
+**⚠️ THỨ TỰ 5 NÚT PHẢI ĐÚNG.** Nút thứ `i` mua món thứ `i` trong
+`ShopManager.catalogue` *(trên `Player.prefab`)*. Thứ tự thật đã kiểm tra 30/08:
+
+| Index | Món |
+|---|---|
+| 0 | Shield Armor |
+| 1 | Energy Drink |
+| 2 | Bandage |
+| 3 | Gasoline Canister |
+| 4 | EM Barrier Core |
+
+Kéo sai thứ tự = bấm mua giáp lại ra nước tăng lực.
+
+### ⭕ Radial Menu
+
+```
+Canvas                          ← gắn script RadialMenuController VÀO ĐÂY
+└── RadialMenuUI                ← ô "Radial Menu UI"
+    ├── Slot_EnergyDrink        ← đặt 4 ô quanh tâm màn hình:
+    ├── Slot_Bandage               trên, phải, dưới, trái
+    ├── Slot_Gasoline
+    └── Slot_EMBarrier
+```
+
+Mỗi `Slot_x` cần **Image + CanvasGroup** trên chính nó, và 2 object con:
+
+```
+Slot_EnergyDrink   (Image + CanvasGroup)
+├── Icon           (Image)     ← ô "Icon Image"
+└── Count          (TMP_Text)  ← ô "Count Text"   (x2)
+```
+
+`RadialMenuController` → `Slots` **Size = 4**, mỗi phần tử điền 5 ô:
+`Consumable Type` *(chọn đúng loại)*, `Slot Rect` *(chính `Slot_x`)*,
+`Canvas Group`, `Slot Image` *(Image nền)*, `Icon Image`, `Count Text`.
+
+Ngoài ra: `Item Data Source` **Size = 4** *(kéo 4 ItemData tiêu hao, thứ tự không quan trọng)*,
+`Menu Key = Tab`, `Dead Zone Radius = 40`.
+
+⚠️ **Bắt buộc có `CanvasGroup`** trên mỗi slot — script làm mờ ô hết hàng bằng
+alpha `0.85` → `0.4`. Thiếu nó thì không phân biệt được còn hàng hay hết.
+
+### ⚠️ Bẫy chung cho CẢ BA bảng UI (Shop, Radial, Settings)
+
+**Script phải đặt trên CANVAS, KHÔNG đặt trên panel con.**
+
+Cả ba script đều tự `SetActive(false)` panel của mình. Nếu script nằm *trên* panel đó
+thì tắt panel = tắt luôn script → `Update()` ngừng chạy → bấm `B`/`Tab`/`Esc`
+không mở lại được nữa. Đây là lỗi im lặng, không hiện gì ở Console.
+
+Kéo reference cũng vậy: ô `On Click ()` của nút phải kéo **Canvas** vào, không kéo panel.
+
+---
 ## 1. Tóm tắt một dòng
 
 Game **chạy được trọn vẹn**: vào phòng → chia đội → đánh nhau → tính điểm → mua đồ → dùng đồ

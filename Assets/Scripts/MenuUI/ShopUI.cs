@@ -71,9 +71,9 @@ public class ShopUI : MonoBehaviour
         _isOpen = true;
         if (shopPanel != null) shopPanel.SetActive(true);
 
-        // Phải thả chuột ra mới bấm nút được
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        // Xin thả chuột ra mới bấm nút được. Đăng ký qua CursorLock thay vì tự ghi,
+        // để đóng bảng khác không cướp mất chuột của mình.
+        CursorLock.Request(this);
 
         SetupButtons(shop);
     }
@@ -83,8 +83,7 @@ public class ShopUI : MonoBehaviour
         _isOpen = false;
         if (shopPanel != null) shopPanel.SetActive(false);
 
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        CursorLock.Release(this);
     }
 
     // Điền tên, giá, icon lên từng nút. Chỉ chạy lúc mở cửa hàng, không phải mỗi khung hình.
