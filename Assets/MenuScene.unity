@@ -5743,8 +5743,9 @@ MonoBehaviour:
   sfxArmorHit: {fileID: 8300000, guid: 68c001d00b6271a49ad5d232a383e820, type: 3}
   sfxDeath: {fileID: 8300000, guid: 9d12dcadb99258a4a903473eb71c383c, type: 3}
   sfxMeleePunch: {fileID: 8300000, guid: db82fb713a17ca942a1f4eae2b98e0d5, type: 3}
+  sfxLaser: {fileID: 8300000, guid: b7560333e0f70ce4ab6d5e7951c1dcd0, type: 3}
   sfxCharge: {fileID: 8300000, guid: 310ab96704d0c694eb60b9d25526ed01, type: 3}
-  sfxLaunch: {fileID: 8300000, guid: 02ace8bc09f05cc4b8c16c86271db290, type: 3}
+  sfxLaunch: {fileID: 8300000, guid: debe8777f1de25b40a2630445743cf6e, type: 3}
   sfxExplosion: {fileID: 8300000, guid: aad96877995d1dc468c5c41acf9e8510, type: 3}
   sfxConvertTNT: {fileID: 8300000, guid: 950505f3f552f874d982ad003142a1c7, type: 3}
   sfxBuyPhase: {fileID: 8300000, guid: b58ab2a808dfee942a7d4aa58bae8ba0, type: 3}

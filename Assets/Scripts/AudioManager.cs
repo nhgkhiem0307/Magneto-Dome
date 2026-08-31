@@ -33,6 +33,7 @@ public class AudioManager : MonoBehaviour
     public AudioClip sfxMeleePunch;   // đấm cận chiến
 
     [Header("Vật thể từ tính")]
+    public AudioClip sfxLaser;        // tia laze bắn ra từ găng, nhắm vào vật chưa có điện
     public AudioClip sfxCharge;       // nạp điện cho vật trung tính
     public AudioClip sfxLaunch;       // đẩy hoặc bắn vật đi
     public AudioClip sfxExplosion;    // TNT nổ
@@ -209,6 +210,7 @@ public class AudioManager : MonoBehaviour
     public static void Death(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxDeath, pos); }
     public static void MeleePunch(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxMeleePunch, pos); }
 
+    public static void Laser(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxLaser, pos); }
     public static void Charge(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxCharge, pos); }
     public static void Launch(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxLaunch, pos); }
     public static void Explosion(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxExplosion, pos, 1.2f); }

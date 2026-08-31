@@ -153,6 +153,19 @@ public class PlayerMagnetController : NetworkBehaviour
     [Networked, OnChangedRender(nameof(OnObjectFired))]
     private int FireCount { get; set; }
 
+    // Đếm số lần bắn tia laze vào một vật CHƯA CÓ ĐIỆN, để mọi máy phát tiếng laze.
+    //
+    // Cùng lý do với FireCount: HandleLeftClickMagnet() nằm sau dòng
+    // "if (!HasStateAuthority) return;" nên chỉ chạy trên Host. Gọi AudioManager thẳng
+    // trong đó thì chỉ mình Host nghe thấy, người chơi ở máy Client bắn mà im lặng.
+    //
+    // Tiếng này KHÁC với sfxCharge của MagneticObject, cố ý để cả hai cùng kêu:
+    //   - sfxLaser  : phát ra ở TAY người bắn, là tiếng cây súng
+    //   - sfxCharge : phát ra ở CHỖ VẬT THỂ, là tiếng vật nhiễm điện
+    // Hai nguồn ở hai vị trí khác nhau nên tai nghe ra được khoảng cách tới mục tiêu.
+    [Networked, OnChangedRender(nameof(OnLaserFired))]
+    private int LaserCount { get; set; }
+
     // Đang cầm sẵn Chai Xăng Tẩy Chế trên tay hay không.
     // Dùng xong một lần là hết, phải rút chai khác từ túi.
     [Networked] public NetworkBool HasGasolineEquipped { get; set; }
@@ -327,7 +340,14 @@ public class PlayerMagnetController : NetworkBehaviour
         // VẬT TRUNG TÍNH -> nạp điện cho nó
         if (magObj.currentPolarity == MagneticObject.Polarity.None)
         {
-            if (justPressed) magObj.SetPolarity(currentGlovePolarity);
+            if (justPressed)
+            {
+                magObj.SetPolarity(currentGlovePolarity);
+
+                // Tiếng tia laze bắn ra từ găng. Đặt TRONG nhánh justPressed nên chỉ kêu
+                // đúng một lần lúc bấm xuống, không kêu liên tục khi giữ chuột.
+                LaserCount++;
+            }
             return;
         }
 
@@ -785,6 +805,15 @@ public class PlayerMagnetController : NetworkBehaviour
 
         movement.ShakeCamera(fireShakeTrauma);
         movement.KickCamera(fireKickStrength);
+    }
+
+    // Chạy trên MỌI máy, đúng một lần cho mỗi phát laze vào vật chưa có điện.
+    //
+    // Phát ở vị trí NGƯỜI BẮN chứ không phải vị trí vật trúng: đây là tiếng của cây súng,
+    // không phải tiếng vật bị bắn. Tiếng ở phía vật đã có sfxCharge lo rồi.
+    private void OnLaserFired()
+    {
+        AudioManager.Laser(transform.position);
     }
 
     /// <summary>
