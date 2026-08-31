@@ -128,6 +128,7 @@ GDD sẽ được sửa lại cho khớp code sau, không phải ngược lại.
 | Phím | Chức năng |
 |---|---|
 | `WASD` + chuột | Di chuyển, xoay góc nhìn FPS (dùng `CharacterController`) |
+| `Space` | Nhảy. **Lái được khi đang ở trên không** (`FPSMovement.airControl`) |
 | `Q` | Dash / Lướt (có cooldown) |
 | `1` / `2` | Đổi điện tích găng tay: Dương (Đỏ) / Âm (Xanh) |
 | Chuột trái | Vật trung tính → nạp điện. Vật đã có điện → **cùng dấu = ĐẨY**, **trái dấu = HÚT về tay** |

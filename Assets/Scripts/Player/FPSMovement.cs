@@ -9,6 +9,7 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
 
     [Header("Keybinds")]
     public KeyCode dashKey = KeyCode.Q; // Dễ dàng đổi phím Dash trên Inspector (Q, LeftShift, E, Mouse0, v.v.)
+    public KeyCode jumpKey = KeyCode.Space;
 
     [Header("Movement Settings")]
     public float moveSpeed = 13f;
@@ -21,6 +22,22 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     [Header("Dash Settings")]
     public float dashForce = 100f;      // Độ mạnh cú lướt
     public float dashCooldown = 1f;    // Thời gian hồi chiêu Dash (giây)
+
+    [Header("Nhảy")]
+    [Tooltip("Nhảy cao bao nhiêu MÉT khi bấm phím nhảy trên mặt phẳng.\n\n" +
+             "Cố ý điền bằng mét chứ không phải bằng vận tốc: vận tốc cần thiết còn phụ " +
+             "thuộc ô Gravity bên dưới, nên sửa trọng lực là phải tính lại vận tốc bằng tay. " +
+             "Điền chiều cao thì code tự quy đổi, chỉnh trọng lực xong nhảy vẫn cao đúng bấy nhiêu.")]
+    public float jumpHeight = 2f;
+
+    [Tooltip("Lái được bao nhiêu phần khi ĐANG Ở TRÊN KHÔNG. 1 = lái thoải mái y như " +
+             "chạy dưới đất, 0 = mất lái hoàn toàn, bay theo đúng quán tính.\n\n" +
+             "⚠️ Ô NÀY ẢNH HƯỞNG TRỰC TIẾP TỚI CÂN BẰNG CHẾ ĐỘ QUÁ TẢI. Cái chết duy nhất " +
+             "trong game là rơi khỏi đảo, nên lái trên không càng dễ thì bị hất văng càng " +
+             "ít đáng sợ: cứ giữ phím hướng về đảo là bay ngược lại được. Để 1 thì gần như " +
+             "không ai chết vì bị đấm nữa. Chỉnh ô này SAU KHI test cảm giác thật.")]
+    [Range(0f, 1f)]
+    public float airControl = 0.8f;
 
     [Header("Rung camera")]
     [Tooltip("Độ mạnh cú rung khi Dash, thang 0..1. Đặt 0 để tắt.")]
@@ -277,6 +294,13 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         // tương đương Input.GetKeyDown của bản singleplayer cũ.
         bool dashPressed = input.Buttons.WasPressed(PreviousButtons, (int)InputButton.Dash);
 
+        // Phím nhảy PHẢI đọc ở đây, dù mãi tới mục 4 mới dùng tới.
+        //
+        // Vì cuối mục 3 có dòng "PreviousButtons = input.Buttons". Sau dòng đó thì
+        // "tick trước" và "tick này" thành ra giống hệt nhau, nên WasPressed() luôn trả về
+        // false — nhảy sẽ không bao giờ chạy mà cũng không báo lỗi gì.
+        bool jumpPressed = input.Buttons.WasPressed(PreviousButtons, (int)InputButton.Jump);
+
         if (dashPressed && dashTimer <= 0f)
         {
             Vector3 dashDirection = moveDirection.normalized;
@@ -299,12 +323,37 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         NetDashTimer = dashTimer;
         PreviousButtons = input.Buttons;
 
-        // 4. TRỌNG LỰC
+        // 4. TRỌNG LỰC & NHẢY
+        //
+        // Đọc isGrounded MỘT LẦN vào biến rồi dùng lại, thay vì gọi lại ở mục 6.
+        // CharacterController cập nhật cờ này sau mỗi lệnh Move(), nên gọi trước và sau
+        // Move sẽ ra hai kết quả khác nhau. Nhảy và lái-trên-không bắt buộc phải cùng
+        // nhìn vào MỘT trạng thái, nếu không sẽ có tick vừa được coi là đang bay
+        // (mất lái) vừa được coi là chạm đất (cho nhảy tiếp).
+        bool groundedNow = controller.isGrounded;
+
         Vector3 velocity = NetVelocity;
-        if (controller.isGrounded && velocity.y < 0f)
+        if (groundedNow && velocity.y < 0f)
         {
+            // Ghì nhẹ xuống đất. Không để bằng 0 vì CharacterController cần một chút
+            // vận tốc hướng xuống mới giữ được cờ isGrounded trên dốc và bậc thang.
             velocity.y = -2f;
         }
+
+        // NHẢY. Đặt SAU đoạn ghì xuống đất ở trên, nếu không thì vận tốc nhảy vừa gán
+        // sẽ bị chính đoạn đó xoá mất ngay trong cùng một tick.
+        //
+        // Điều kiện velocity.y <= 0 chặn nhảy chồng: có những tick nhân vật đã bật lên
+        // rồi mà CharacterController vẫn còn báo chạm đất (chưa kịp rời hẳn collider).
+        // Thiếu nó thì giữ phím nhảy sẽ leo lên trời từng nấc.
+        if (jumpPressed && groundedNow && velocity.y <= 0f)
+        {
+            // Quy đổi chiều cao mong muốn ra vận tốc bật: v = căn(2 * g * h).
+            // Đây là công thức rơi tự do của vật lý phổ thông, đảo ngược lại.
+            // Mathf.Abs vì ô gravity điền số âm, còn căn bậc hai thì không nhận số âm.
+            velocity.y = Mathf.Sqrt(2f * Mathf.Abs(gravity) * Mathf.Max(0f, jumpHeight));
+        }
+
         velocity.y += gravity * Runner.DeltaTime;
         NetVelocity = velocity;
 
@@ -321,7 +370,25 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         NetImpact = impact;
 
         // 6. GỘP LỰC VÀ DI CHUYỂN (1 LẦN MOVE/TICK)
-        Vector3 finalMovement = (moveDirection * moveSpeed) + velocity + impact;
+        //
+        // LÁI TRÊN KHÔNG.
+        //
+        // Game này KHÔNG lưu quán tính ngang: phần "moveDirection * moveSpeed" được tính
+        // lại từ đầu mỗi tick theo phím đang bấm, chứ không phải cộng dồn vào một vận tốc.
+        // Nghĩa là bỏ phím ra là dừng ngay, và bấm hướng khác là đổi hướng ngay — kể cả
+        // đang lơ lửng giữa trời. Đó chính là kiểu lái tự do của Minecraft.
+        //
+        // Nhân thêm airControl khi đang bay để giảm bớt quyền lực đó. Đây KHÔNG phải
+        // trang trí, mà là một nút vặn cân bằng: cái chết duy nhất trong chế độ Quá Tải là
+        // rơi khỏi đảo, nên lái trên không càng mạnh thì cú hất văng càng mất ý nghĩa.
+        //
+        // Lưu ý phần "velocity" và "impact" KHÔNG bị nhân — người chơi vẫn giữ nguyên
+        // quán tính của cú đấm và của trọng lực. airControl chỉ hạn chế phần người chơi
+        // TỰ SINH RA, không đụng tới lực từ bên ngoài. Nhân cả cụm sẽ thành ra bị đấm
+        // giữa không trung lại bay chậm hơn bị đấm dưới đất, hoàn toàn vô lý.
+        float controlFactor = groundedNow ? 1f : airControl;
+
+        Vector3 finalMovement = (moveDirection * moveSpeed * controlFactor) + velocity + impact;
         controller.Move(finalMovement * Runner.DeltaTime);
 
         // 7. ĐO TỐC ĐỘ ĐI BỘ CHO NHỊP NHẤP NHÔ ĐẦU
@@ -495,6 +562,36 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         if (cameraShake == null || trauma <= 0f) return;
 
         cameraShake.AddTrauma(trauma);
+    }
+
+    /// <summary>
+    /// Cú GIẬT dứt khoát khi người chơi này ĐÁNH RA: bắn vật đang cầm, đấm cận chiến.
+    ///
+    /// Tách khỏi ShakeCamera vì hai cảm giác khác hẳn nhau — xem phần đầu CameraShake.cs.
+    /// Thường gọi cả hai cùng lúc: ShakeCamera cho phần xóc, KickCamera cho phần giật.
+    /// </summary>
+    /// <param name="strength">Cường độ, 1 = đúng bằng Kick Angles đặt trong Inspector.</param>
+    public void KickCamera(float strength)
+    {
+        if (!HasInputAuthority) return;
+        if (cameraShake == null || strength <= 0f) return;
+
+        cameraShake.AddKick(strength);
+    }
+
+    /// <summary>
+    /// VÁNG ĐẦU khi người chơi này ĂN ĐÒN: trúng đạn, bị đấm, dính nổ.
+    /// Lảo đảo chậm + FOV phập phồng + mờ màn hình một khoảng ngắn.
+    ///
+    /// PlayerHealth gọi vào đây mỗi khi điện tích tăng hoặc giáp vơi đi.
+    /// </summary>
+    /// <param name="strength">Độ nặng của đòn, thang 0..1.</param>
+    public void HitCamera(float strength)
+    {
+        if (!HasInputAuthority) return;
+        if (cameraShake == null || strength <= 0f) return;
+
+        cameraShake.AddDisorient(strength);
     }
 
     /// <summary>Xoá sạch dư chấn camera. Gọi khi hồi sinh / sang round mới nếu cần.</summary>

@@ -106,6 +106,19 @@ public class PlayerMagnetController : NetworkBehaviour
     [Tooltip("Độ mạnh cú rung khi bắn vật đang cầm đi, thang 0..1. Đặt 0 để tắt.")]
     public float fireShakeTrauma = 0.4f;
 
+    [Tooltip("Cú GIẬT khi bắn vật. 1 = đúng bằng Kick Angles trên CameraShake.\n\n" +
+             "Đây mới là thứ tạo cảm giác dứt khoát; ô Fire Shake Trauma ở trên chỉ là " +
+             "phần xóc nền. Đặt 0 để tắt riêng phần giật.")]
+    public float fireKickStrength = 1f;
+
+    [Tooltip("Độ mạnh cú rung khi đấm cận chiến, thang 0..1.")]
+    public float meleeShakeTrauma = 0.45f;
+
+    [Tooltip("Cú GIẬT khi đấm cận chiến.\n\n" +
+             "Để mạnh hơn lúc bắn vì đấm là dồn cả người vào cú đánh, còn bắn thì chỉ có " +
+             "vật thể rời khỏi tay. Chênh lệch này là thứ giúp phân biệt hai đòn qua cảm giác.")]
+    public float meleeKickStrength = 1.3f;
+
     // --- TRẠNG THÁI ĐỒNG BỘ QUA MẠNG ---
 
     // Cố ý giữ nguyên tên viết thường 'currentGlovePolarity' dù giờ nó là property,
@@ -750,6 +763,17 @@ public class PlayerMagnetController : NetworkBehaviour
         // "đúng một lần mỗi cú, trên mọi máy" - điều kiện mà MeleeCount + OnChangedRender
         // đã bảo đảm sẵn. Để trống ô Punch Trigger Param bên kia thì nó tự bỏ qua.
         if (animatorDriver != null) animatorDriver.TriggerPunch();
+
+        // Rung + giật camera của NGƯỜI ĐẤM.
+        //
+        // Hàm này chạy trên mọi máy (vì MeleeCount là [Networked]), nhưng ShakeCamera và
+        // KickCamera đều tự lọc bằng HasInputAuthority nên chỉ màn hình của chính người
+        // vừa đấm mới rung. Không phải thêm điều kiện gì ở đây.
+        if (movement != null)
+        {
+            movement.ShakeCamera(meleeShakeTrauma);
+            movement.KickCamera(meleeKickStrength);
+        }
     }
 
     // Chạy trên MỌI máy, đúng một lần cho mỗi phát bắn.
@@ -757,7 +781,10 @@ public class PlayerMagnetController : NetworkBehaviour
     // nên gọi thẳng ở đây không sợ rung nhầm màn hình người khác.
     private void OnObjectFired()
     {
-        if (movement != null) movement.ShakeCamera(fireShakeTrauma);
+        if (movement == null) return;
+
+        movement.ShakeCamera(fireShakeTrauma);
+        movement.KickCamera(fireKickStrength);
     }
 
     /// <summary>

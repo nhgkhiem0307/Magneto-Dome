@@ -49,4 +49,6 @@ public enum InputButton
     // CHỈ ĐỂ TEST - XOÁ TRƯỚC KHI NỘP BÀI.
     // Phím K tự sát, để thử vòng lặp round một mình mà không cần rủ người thứ hai.
     DebugSuicide = 10,
+
+    Jump = 11,              // phím Space - nhảy
 }

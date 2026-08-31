@@ -33,6 +33,24 @@ public class PlayerHealth : NetworkBehaviour
              "nổ TNT, và mọi nguồn sát thương thêm vào sau này.")]
     public float chargeGainMultiplier = 1.5f;
 
+    [Header("Cảm giác khi ăn đòn")]
+    [Tooltip("Ăn một đòn nặng bấy nhiêu điểm điện thì choáng ở mức tối đa.\n\n" +
+             "Đòn nhẹ hơn thì choáng ít hơn theo tỉ lệ. Con số này tính SAU khi đã nhân " +
+             "Charge Gain Multiplier, nên đối chiếu: đạn thường ~15, Heavy ~30, TNT ~52. " +
+             "Để 35 nghĩa là trúng TNT choáng kịch khung, trúng đạn thường choáng nhẹ.")]
+    public float hitChargeForFullEffect = 35f;
+
+    [Tooltip("Mức choáng tối thiểu của MỘT đòn bất kỳ, thang 0..1.\n\n" +
+             "Cần sàn này vì đòn sượt qua chỉ nạp vài điểm điện, tính theo tỉ lệ thì ra " +
+             "gần như bằng 0 và người chơi không nhận được phản hồi gì cả — trúng đòn mà " +
+             "màn hình im lìm thì tưởng là lỗi.")]
+    public float hitMinStrength = 0.3f;
+
+    [Tooltip("Phần XÓC sắc nét đi kèm lúc vừa trúng, thang 0..1. Nhân với độ nặng của đòn.\n\n" +
+             "Váng đầu một mình thì khởi đầu quá êm, không ra được khoảnh khắc 'bị nện'. " +
+             "Xóc lo phần đầu, váng đầu lo phần dư âm.")]
+    public float hitShakeTrauma = 0.55f;
+
     [Header("Giáp Cách Điện")]
     [Tooltip("Lượng giáp cộng thêm mỗi lần mua Shield Armor.")]
     public float armorPerPurchase = 10f;
@@ -101,6 +119,9 @@ public class PlayerHealth : NetworkBehaviour
     private CharacterController controller;
     private Renderer[] cachedRenderers;
 
+    // Lấy sẵn để khỏi GetComponent mỗi lần trúng đòn. Dùng để rung camera khi ăn đòn.
+    private FPSMovement movement;
+
     // Giá trị ở lần đổi trước, để biết điện tích/giáp vừa TĂNG hay GIẢM.
     // OnChangedRender chỉ báo "có thay đổi", không cho biết đổi theo chiều nào,
     // mà tiếng trúng đòn thì chỉ được kêu khi NHIỄM THÊM điện, không phải lúc xả điện.
@@ -112,6 +133,7 @@ public class PlayerHealth : NetworkBehaviour
         AllPlayers.Add(this);
 
         controller = GetComponent<CharacterController>();
+        movement = GetComponent<FPSMovement>();
 
         // Lấy sẵn danh sách renderer một lần, khỏi phải đi tìm mỗi lần chết đi sống lại
         cachedRenderers = GetComponentsInChildren<Renderer>();
@@ -298,8 +320,40 @@ public class PlayerHealth : NetworkBehaviour
         if (CurrentCharge > _lastKnownCharge)
         {
             AudioManager.Hit(transform.position);
+
+            // Choáng theo đúng lượng điện vừa nạp vào, không phải một mức cố định.
+            PlayHitFeedback(CurrentCharge - _lastKnownCharge);
         }
         _lastKnownCharge = CurrentCharge;
+    }
+
+    /// <summary>
+    /// Làm người chơi này choáng: xóc một cái rồi lảo đảo, kèm mờ màn hình.
+    ///
+    /// Gọi từ HAI chỗ — điện tích tăng, và giáp vơi đi. Phải có cả hai vì khi còn giáp
+    /// thì đòn đánh KHÔNG làm điện tích tăng chút nào; chỉ móc vào điện tích thì mặc giáp
+    /// vào là mọi cú trúng đòn trở nên im lìm, người chơi tưởng mình chưa bị bắn trúng.
+    ///
+    /// Hàm này chạy trên MỌI máy (vì OnChangedRender là vậy), nhưng FPSMovement.HitCamera
+    /// và ShakeCamera đều lọc bằng HasInputAuthority, nên chỉ màn hình của chính người
+    /// trúng đòn mới choáng. Không cần thêm điều kiện ở đây.
+    /// </summary>
+    /// <param name="amount">Lượng điện vừa nạp, hoặc lượng giáp vừa mất.</param>
+    private void PlayHitFeedback(float amount)
+    {
+        if (movement == null || amount <= 0f) return;
+
+        // Quy độ nặng của đòn về thang 0..1, có sàn để đòn sượt vẫn có phản hồi.
+        float strength = hitChargeForFullEffect > 0f
+            ? Mathf.Clamp01(amount / hitChargeForFullEffect)
+            : 1f;
+        strength = Mathf.Max(strength, hitMinStrength);
+
+        // Xóc trước (khoảnh khắc va chạm), váng đầu sau (dư âm). Hai lời gọi này cố ý
+        // tách rời chứ không gộp - xem phần đầu CameraShake.cs về lý do ba hệ thống rung
+        // phải độc lập với nhau.
+        movement.ShakeCamera(hitShakeTrauma * strength);
+        movement.HitCamera(strength);
     }
 
     private void OnArmorChanged()
@@ -314,6 +368,9 @@ public class PlayerHealth : NetworkBehaviour
         if (CurrentArmor < _lastKnownArmor)
         {
             AudioManager.ArmorHit(transform.position);
+
+            // Giáp chặn được điện tích, KHÔNG chặn được cú va đập. Vẫn phải choáng.
+            PlayHitFeedback(_lastKnownArmor - CurrentArmor);
         }
         _lastKnownArmor = CurrentArmor;
     }

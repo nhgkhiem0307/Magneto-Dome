@@ -18,7 +18,7 @@ việc còn lại gần như chỉ là kéo thả trong Unity và test.
 | 2 | **Bắt đầu viết báo cáo** | — | Rủi ro số 2. Chưa viết chữ nào. Chương "Khó khăn & giải pháp" chép thẳng được từ 11 cái bẫy trong CLAUDE.md mục 5 |
 | 3 | **Gán 5 icon vào 5 file `ItemData`** | `Assets/Items/Type/*.asset` | Shop + Radial Menu trống trơn. **~5 phút** — xem mục "Gán icon" bên dưới |
 | 4 | **Dựng Shop UI + Radial Menu** | TestScene | Chưa có object nào. Cấu trúc đầy đủ ở mục bên dưới |
-| 5 | Thêm **nút mở Settings** ở MenuScene | MenuScene | Hiện chỉ mở được bằng `Esc`, người chơi không đoán ra |
+| ~~5~~ | ~~Thêm **nút mở Settings** ở MenuScene~~ | — | ✅ **XONG** *(kiểm 31/08)* — xem bên dưới |
 | 6 | Gán 2 ô âm thanh: `sfxRoundWin`, `sfxRoundLose` | AudioManager (MenuScene) | Thắng/thua round im lặng |
 
 ### 🟡 Nên làm
@@ -50,6 +50,22 @@ Hai tiếng đó đổi lấy việc người chơi khỏi gõ 4 ký tự, mà l
 *(Nếu muốn lấp chỗ trống: đổi `roomListPanel` thành một dòng chữ hướng dẫn nhập mã.)*
 
 ### ✅ Kiểm tra lại — tưởng thiếu nhưng ĐÃ CÓ
+
+- **Nút Settings ở MenuScene ĐÃ XONG** *(đối chiếu file scene 31/08)*. Chuỗi đầy đủ:
+  `SettingButton` *(active, trong `MainButtonsPanel` → `Canvas`)* → `SettingsUI.Open()`.
+  Đóng bằng `CloseButton` trong panel → `Close()`, hoặc `Esc`.
+  Script nằm **trên Canvas**, không dính bẫy "đặt script trên panel nó tự tắt".
+
+  ⚠️ Trong **file prefab gốc** `SettingsPanel.prefab`, `CloseButton` có `m_Target` **rỗng**.
+  Chạy được là nhờ **cả hai scene đều override** trỏ vào `SettingsUI` của scene mình — bắt buộc
+  phải vậy, vì nút nằm TRONG prefab còn `SettingsUI` nằm NGOÀI (trên Canvas), prefab không tự
+  tham chiếu ra ngoài được. **Kéo prefab này vào scene mới thì nút Đóng sẽ chết**, phải gán lại tay.
+
+- **`ItemData` icon: đã gán đủ 5** *(31/08)* — field tên là `itemIcon`, cả 5 file đều trỏ sprite thật.
+- **Shop UI + Radial Menu: đã dựng xong trong TestScene** *(31/08)* — `ShopUI` + 5 `ShopItemButton`,
+  `RadialMenuController` 4 slot điền kín, 4 `itemDataSource`.
+  Còn đúng **một ô trống: `ShopUI.timerText`** → Buy Phase không hiện đồng hồ đếm ngược.
+- `pointsToWin: 5` và `requiredLead: 2` trên `GameManager.prefab` đã đúng, không phải chỉnh lại.
 
 - **`SettingsUI` đã gắn ở CẢ HAI scene** *(xác nhận 30/08)* — việc nợ từ 24/08 đã xong.
   Nhưng **chưa có nút nào gọi `Toggle()`/`Open()`**, chỉ mở được bằng `Esc`. Xem việc #5.
@@ -196,8 +212,93 @@ Unity gọi hàm thì không đoán được.
 | Dao động bằng **Perlin noise**, không phải `Random.Range` | Random cho camera giật xành xạch như hỏng; Perlin liền mạch mới ra cảm giác chấn động |
 | Trauma **bình phương** trước khi dùng | Mắt người cảm nhận phi tuyến. Lấy thẳng thì cái đuôi lắc lay mãi như camera bị lỏng |
 
-**Bước Unity còn thiếu:** Add Component `Camera Shake` lên **GameObject Camera** trong `Player.prefab`
-(không phải lên Player). Chưa gắn thì không có gì rung, code vẫn chạy bình thường.
+~~**Bước Unity còn thiếu:** Add Component `Camera Shake` lên GameObject Camera~~
+✅ **Đã gắn rồi** *(đối chiếu `Player.prefab` ngày 30/08)*.
+
+### 💥 Cảm giác đánh & ăn đòn *(30/08 — CHƯA TEST)*
+
+`CameraShake` từ một hệ thống rung tách thành **ba hệ thống độc lập**. Lý do phải tách chứ không
+chỉ vặn to nhỏ: đánh ra và ăn đòn **ngược nhau về bản chất**, cùng một bộ tham số không ra được cả hai.
+
+| # | Hệ thống | Cảm giác | Tần số | Đuôi tắt |
+|---|---|---|---|---|
+| 1 | `AddTrauma` *(cũ)* | Bị xóc | Cao (25) | Nhanh — bình phương |
+| 2 | `AddKick` **mới** | **Đánh ra, dứt khoát** | Lò xo cứng 280 | Nảy đúng một nhịp |
+| 3 | `AddDisorient` **mới** | **Ăn đòn, váng đầu** | Thấp (2.6) | Chậm — căn bậc hai |
+
+**Cú giật (bắn / đấm):** lệch **tức thì** rồi lò xo kéo về, kèm camera thụt về sau.
+Cộng thẳng vào độ lệch chứ không cộng vào vận tốc — cộng vào vận tốc thì mất vài khung hình mới
+tới đỉnh, cú đánh thành "nhão". Trục ngang đảo dấu ngẫu nhiên mỗi cú nên bắn liên tiếp không lặp lại.
+
+⚠️ Lò xo cứng + Euler = **nổ tung** nếu `dt` lớn (máy khựng vì nạp texture hoặc Fusion tua lại).
+Đã chia nhỏ thành các bước ≤ 1/120 giây. Đừng gỡ vòng `for` đó ra.
+
+**Váng đầu (ăn đòn):** ba thứ cùng lúc — lảo đảo chậm, **FOV phập phồng**, **mờ màn hình** 0.45s.
+Thứ thật sự gây buồn nôn là **trục nghiêng đầu (Z)**, nhân `disorientRollBias` 2.2 lần và chạy chậm
+hơn nữa: não quen với đường chân trời nằm ngang, nghiêng nó đi mới phá được tiền đình.
+Lắc trái phải chỉ gây khó ngắm. **Muốn choáng hơn thì tăng `Disorient Roll Bias`, đừng tăng biên độ.**
+
+**Mờ màn hình dựng BẰNG CODE** — `VolumeProfile` + `DepthOfField` (Gaussian) tạo lúc chạy, gắn
+`Volume` priority 100 đè lên profile toàn cục. Không phải tạo asset hay GameObject nào trong Editor.
+Tạo **muộn** ở cú ăn đòn đầu tiên, không tạo trong `Awake` — `Awake` chạy trên cả nhân vật người khác,
+tạo ở đó thì phòng 4 người sinh 4 bộ mờ thừa.
+
+| Móc vào đâu | Chỗ |
+|---|---|
+| Bắn vật | `PlayerMagnetController.OnObjectFired()` — bộ đếm `FireCount` có sẵn |
+| Đấm | `PlayerMagnetController.OnMeleePerformed()` — dùng chung `MeleeCount` với tiếng đấm |
+| Trúng đòn | `PlayerHealth.OnChargeChanged()` |
+| **Trúng đòn khi CÒN GIÁP** | `PlayerHealth.OnArmorChanged()` |
+
+⚠️ Ô cuối bắt buộc phải có: còn giáp thì điện tích **không tăng chút nào**, chỉ móc vào điện tích
+thì mặc giáp vào là mọi cú trúng đòn im lìm, người chơi tưởng chưa bị bắn trúng.
+
+Độ choáng tỉ lệ với **lượng điện thật sự nạp vào**, có sàn `hitMinStrength` 0.3 để đòn sượt vẫn có
+phản hồi. Đối chiếu: đạn thường ~15 điểm → choáng 0.43 · Heavy ~30 → 0.86 · TNT ~52 → kịch khung.
+
+> ⚠️ Nếu **mờ màn hình không chạy** mà phần lảo đảo vẫn chạy: kiểm tra **Volume Mask** của Camera
+> trong `Player.prefab` có bao gồm layer của nhân vật không. Mặc định là Everything nên thường không
+> phải đụng tới. Không sửa được thì bỏ tick `Enable Hit Blur`, hai phần kia vẫn nguyên.
+
+### 🦘 Nhảy + lái trên không *(30/08 — CHƯA TEST)*
+
+Thiếu sót lớn: game **chưa từng có phím nhảy**. Đã thêm `Space` (đổi được ở `FPSMovement.jumpKey`).
+
+| Chỗ sửa | Nội dung |
+|---|---|
+| `NetworkInputData.cs` | `InputButton.Jump = 11` |
+| `NetworkRunnerHandler.OnInput()` | Đọc `localPlayer.jumpKey` |
+| `FPSMovement` mục 4 | Quy đổi `jumpHeight` (mét) → vận tốc bật |
+| `FPSMovement` mục 6 | Nhân `airControl` vào phần di chuyển khi đang bay |
+
+⚠️ **`jumpPressed` phải đọc ở MỤC 3, không phải mục 4** dù mãi mục 4 mới dùng. Cuối mục 3 có dòng
+`PreviousButtons = input.Buttons` — sau dòng đó thì "tick trước" và "tick này" giống hệt nhau nên
+`WasPressed()` luôn trả `false`. Nhảy sẽ không chạy mà Console **không báo lỗi gì cả**.
+
+⚠️ **Hai biến chạm đất, đừng nhầm.** `controller.isGrounded` đổi giá trị sau mỗi lệnh `Move()`:
+- `groundedNow` (mục 4, **trước** Move) — cho nhảy và lái trên không
+- `touchingGround` (mục 7, **sau** Move) — cho animation và coyote time *(vốn đã có)*
+
+Dùng lẫn hai cái sẽ ra tick vừa được coi là đang bay (mất lái) vừa được coi là chạm đất (cho nhảy tiếp).
+
+**Điền chiều cao bằng MÉT** (`jumpHeight = 2`), code tự quy đổi `v = √(2·g·h)`. Vì vận tốc bật phụ
+thuộc ô `gravity`; điền thẳng vận tốc thì mỗi lần chỉnh trọng lực lại phải tính tay.
+
+**Lái trên không đã có sẵn từ trước mà không ai để ý:** phần `moveDirection * moveSpeed` được tính
+lại từ đầu mỗi tick theo phím đang bấm, **không cộng dồn vào vận tốc** — nên game vốn đã cho lái
+100% giữa không trung. Việc thêm vào chỉ là cái **nút vặn để GIẢM bớt**.
+
+> 🔴 **`airControl` là nút vặn cân bằng, không phải trang trí.** Cái chết duy nhất của chế độ Quá Tải
+> là rơi khỏi đảo. Lái trên không càng mạnh thì cú hất văng càng vô nghĩa — cứ giữ phím hướng về đảo
+> là bay ngược lại được. Đang để **0.8**, tức là vẫn lái rất thoải mái. **Nếu test thấy bị đấm bay
+> mà vẫn tự bơi về được thì hạ ô này xuống**, đừng đi tăng lực đấm.
+
+`airControl` **chỉ nhân vào phần người chơi tự sinh ra**, không nhân vào `velocity` và `impact` —
+người chơi giữ nguyên quán tính của cú đấm. Nhân cả cụm thì bị đấm giữa trời lại bay chậm hơn
+bị đấm dưới đất.
+
+**Không cần dựng animation mới:** `PlayerAnimatorDriver` đã có tham số `Grounded`, nên nhảy tự
+chuyển sang animation bay/rơi có sẵn.
 
 ### 😴 Ngủ đông vật thể *(`MagneticObject`)*
 

@@ -641,6 +641,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         // Gửi trạng thái ĐANG GIỮ của phím (GetKey chứ không phải GetKeyDown).
         // Việc phát hiện "vừa bấm xuống" do bên nhận lo, bằng cách so với tick trước.
         data.Buttons.Set((int)InputButton.Dash, Input.GetKey(localPlayer.dashKey));
+        data.Buttons.Set((int)InputButton.Jump, Input.GetKey(localPlayer.jumpKey));
         data.Buttons.Set((int)InputButton.PolarityPositive, Input.GetKey(KeyCode.Alpha1));
         data.Buttons.Set((int)InputButton.PolarityNegative, Input.GetKey(KeyCode.Alpha2));
 
