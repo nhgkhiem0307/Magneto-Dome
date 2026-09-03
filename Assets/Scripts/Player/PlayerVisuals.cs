@@ -156,9 +156,15 @@ public class PlayerVisuals : MonoBehaviour
 
         // NHÂN VẬT CỦA CHÍNH MÌNH: không viền, không quả cầu.
         //
-        // Thân mình đã bị PlayerAnimatorDriver chuyển sang ShadowsOnly (chỉ đổ bóng,
-        // không hiện hình). Thêm viền vào đây thì sẽ thấy một đường viền rỗng ruột
-        // lơ lửng quanh chỗ mình đứng - rất kỳ.
+        // ⚠️ Chú thích cũ ở đây nói "thân mình đã bị chuyển sang ShadowsOnly" - KHÔNG CÒN
+        // ĐÚNG từ 31/08. Giờ thân mình HIỆN BÌNH THƯỜNG, chỉ giấu riêng xương đầu
+        // (xem PlayerAnimatorDriver.TryHideHeadBone).
+        //
+        // Nhưng kết luận thì vẫn y nguyên, chỉ là vì lý do khác:
+        //   - Viền: QuickOutline vẽ viền bằng cách phình tấm da ra rồi tô mặt trong.
+        //     Camera nằm NGAY TRONG lớp phình đó nên nhìn ra chỉ thấy một màn màu đặc.
+        //   - Quả cầu: mình không cần tự nhắc mình đang mang cực gì, HUD đã ghi rõ rồi.
+        //     Treo hai đốm sáng ngay trước mắt chỉ tổ che tầm nhìn.
         if (_relation == Relation.Self) return;
 
         SetupOutline();

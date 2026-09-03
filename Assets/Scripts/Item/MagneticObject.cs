@@ -74,6 +74,23 @@ public class MagneticObject : NetworkBehaviour
     [Header("Explosion Settings (chỉ dùng cho TNT)")]
     public float explosionRadius = 6f;
     public float explosionForce = 15f;
+
+    [Tooltip("Nhân riêng lực thổi VẬT THỂ xung quanh, không đụng tới lực hất người chơi.\n\n" +
+             "Phải tách ra vì hai bên đi qua hai đường vật lý khác hẳn nhau: người chơi dùng " +
+             "AddImpact (đặt thẳng vận tốc), còn vật thể dùng AddExplosionForce với " +
+             "ForceMode.Impulse - mà Impulse thì CHIA CHO KHỐI LƯỢNG và còn giảm dần theo " +
+             "khoảng cách. Với explosionForce 15 và mass 3 thì vật ở tâm vụ nổ chỉ nhận " +
+             "được 5 m/s, chưa đủ để nhìn ra là có nổ.")]
+    public float debrisForceMultiplier = 4f;
+
+    [Tooltip("Mảnh văng do vụ nổ cũng tính là ĐẠN, đâm trúng người là trừ điện.\n\n" +
+             "Chủ nhân của mảnh văng kế thừa từ chính thùng TNT, nên người ném TNT không bị " +
+             "chính mảnh văng của mình đánh. Sóng nổ thì vẫn trúng họ như thường.\n\n" +
+             "⚠️ SINH RA PHẢN ỨNG DÂY CHUYỀN. Một thùng TNT khác nằm trong bán kính cũng " +
+             "thành đạn, mà TNT đang là đạn thì NỔ khi va vào bất cứ thứ gì. Hai thùng đặt " +
+             "gần nhau sẽ nổ dây chuyền. Đây là hệ quả thật chứ không phải lỗi - nhưng nếu " +
+             "thấy mất kiểm soát thì tắt ô này.")]
+    public bool debrisBecomesBullet = true;
     public float tntDamage = 35f;
 
     [Header("Inventory Settings")]
@@ -485,6 +502,39 @@ public class MagneticObject : NetworkBehaviour
         // Khoá một khoảng ngắn không cho tự tắt tư cách đạn.
         // Cần vì lực đẩy chỉ thật sự biến thành vận tốc ở bước vật lý kế tiếp,
         // nên ngay lúc vừa phóng thì tốc độ vẫn đang bằng 0.
+        BulletArmTimer = TickTimer.CreateFromSeconds(Runner, bulletArmTime);
+    }
+
+    /// <summary>
+    /// Đánh dấu vật là đạn mà KHÔNG phát tiếng bắn và KHÔNG động tới cơ chế can thiệp.
+    ///
+    /// Dùng cho những đường không phải "phóng đi" theo nghĩa thông thường:
+    ///   - Vật đang bị HÚT về tay (PlayerMagnetController)
+    ///   - Mảnh văng do TNT nổ (Explode)
+    ///
+    /// ⚠️ KHÔNG DÙNG LaunchAsBullet() CHO NHỮNG ĐƯỜNG ĐÓ. Nhánh hút chạy LẠI MỖI TICK
+    /// suốt thời gian giữ chuột, còn vụ nổ thì quét hàng chục vật cùng lúc. Gọi
+    /// LaunchAsBullet ở đó sẽ hỏng ba thứ:
+    ///
+    ///   1. LaunchCount++ mỗi lần  -> tiếng bắn kêu liên tục như súng máy
+    ///   2. WasCounteredInFlight về false -> mất cơ chế "chỉ can thiệp 1 lần mỗi cú bay",
+    ///      tức là hỏng luôn cả luật Heavy lẫn luật Spike
+    ///   3. BulletArmTimer nạp lại liên tục -> vật không bao giờ tự hết tư cách đạn
+    ///
+    /// Hàm này làm đúng phần tối thiểu và TỰ BỎ QUA nếu đã đánh dấu cho cùng chủ nhân,
+    /// nên gọi bao nhiêu lần cũng như một lần.
+    /// </summary>
+    public void MarkAsBullet(PlayerMagnetController owner)
+    {
+        if (!HasStateAuthority) return;
+
+        // Đã đánh dấu cho đúng người này rồi thì thôi, đây là lần gọi thứ hai trở đi
+        if (isMovingAsBullet && shooterOwner == owner) return;
+
+        isMovingAsBullet = true;
+        shooterOwner = owner;
+
+        // Cố ý KHÔNG đụng tới WasCounteredInFlight và KHÔNG tăng LaunchCount.
         BulletArmTimer = TickTimer.CreateFromSeconds(Runner, bulletArmTime);
     }
 
@@ -925,7 +975,26 @@ public class MagneticObject : NetworkBehaviour
                 MagneticObject targetMag = hit.GetComponent<MagneticObject>();
                 if (targetMag != null) targetMag.WakeUp();
 
-                targetRb.AddExplosionForce(explosionForce, transform.position, explosionRadius, 1f, ForceMode.Impulse);
+                targetRb.AddExplosionForce(explosionForce * debrisForceMultiplier,
+                                           transform.position, explosionRadius, 1f, ForceMode.Impulse);
+
+                // MẢNH VĂNG CŨNG LÀ ĐẠN.
+                //
+                // Chủ nhân kế thừa từ chính thùng TNT này. Nhờ vậy người ném TNT không bị
+                // mảnh văng của chính mình đánh - dòng "bỏ qua va chạm với người bắn" trong
+                // OnCollisionEnter lo phần đó. Sóng nổ thì vẫn trúng họ như thường, vì vòng
+                // lặp tính sát thương người chơi bên dưới không xét chủ nhân.
+                //
+                // Vì sao miễn nhiễm với mảnh văng của mình: một vụ nổ thổi cả chục vật cùng
+                // lúc, mà người ném thường đứng gần. Không miễn thì ném TNT gần như luôn
+                // đồng nghĩa tự sát - không phải mạo hiểm nữa mà là vô dụng.
+                //
+                // TNT nằm trong bán kính cũng bị đánh dấu -> nó thành đạn -> va vào bất cứ
+                // thứ gì là nổ tiếp. Đó chính là phản ứng dây chuyền, cố ý để vậy.
+                if (debrisBecomesBullet && targetMag != null)
+                {
+                    targetMag.MarkAsBullet(shooterOwner);
+                }
             }
 
             // 2. Sát thương và Lực văng cho Player / Dummy (CharacterController)

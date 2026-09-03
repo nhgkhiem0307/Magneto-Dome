@@ -160,6 +160,16 @@ public class HUDController : MonoBehaviour
         FPSMovement localPlayer = FPSMovement.Local;
         GameManager gm = GameManager.Instance;
 
+        // HOST THOÁT GIỮA TRẬN -> coi như không có GameManager. Thêm 01/09.
+        //
+        // Khi Host rời đi, mạng sập trước còn object thì còn nằm đó thêm vài khung hình.
+        // Trong khoảng đó gm khác null nhưng Runner bên trong đã chết, và dòng
+        // "gm.PhaseTimer.RemainingTime(gm.Runner)" bên dưới sẽ ném lỗi MỖI KHUNG HÌNH.
+        // Console ngập lỗi, khung hình tụt về gần 0 - nhìn từ ngoài đúng là "crash".
+        //
+        // Object.IsValid là cách Fusion tự nhận biết object đã rời khỏi mạng hay chưa.
+        if (gm != null && (gm.Object == null || !gm.Object.IsValid)) gm = null;
+
         // Chưa vào trận thì ẩn hết đi
         if (localPlayer == null)
         {
@@ -353,7 +363,7 @@ public class HUDController : MonoBehaviour
         //
         // "ĐỘI ĐỎ ĐANG CHIẾM" bắt người chơi phải nhớ mình thuộc đội nào rồi mới suy ra
         // là tin tốt hay tin xấu - mất một nhịp suy nghĩ giữa lúc đang đánh nhau.
-        // "BỊ ĐỊCH CHIẾM" thì hiểu ngay lập tức, không cần nghĩ.
+        // "LOSING ZONE" thì hiểu ngay lập tức, không cần nghĩ.
         int myTeam = selfHealth != null ? selfHealth.Team : 0;
 
         int myCount = myTeam == 0 ? red : blue;
@@ -363,23 +373,23 @@ public class HUDController : MonoBehaviour
 
         if (myCount > 0 && enemyCount > 0)
         {
-            zoneStatusText.text = "ĐANG TRANH CHẤP";
+            zoneStatusText.text = "CONTESTED";
             zoneStatusText.color = zoneContestedColor;
         }
         else if (myCount > 0)
         {
-            zoneStatusText.text = "ĐANG CHIẾM";
+            zoneStatusText.text = "CAPTURING";
             zoneStatusText.color = zoneCapturingColor;
         }
         else if (enemyCount > 0)
         {
-            zoneStatusText.text = "BỊ ĐỊCH CHIẾM";
+            zoneStatusText.text = "LOSING ZONE";
             zoneStatusText.color = zoneLosingColor;
             alarming = true; // chỉ tin XẤU mới được rung, nếu không cảnh báo mất giá trị
         }
         else
         {
-            zoneStatusText.text = "KHU ĐANG BỎ TRỐNG";
+            zoneStatusText.text = "ZONE NEUTRAL";
             zoneStatusText.color = zoneEmptyColor;
         }
 
@@ -440,7 +450,7 @@ public class HUDController : MonoBehaviour
 
         // TẮT HẲN NHÃN PHA KHI ĐANG CHIẾN ĐẤU.
         //
-        // Lúc đánh nhau thì người chơi biết thừa là đang đánh nhau - dòng chữ "CHIẾN ĐẤU"
+        // Lúc đánh nhau thì người chơi biết thừa là đang đánh nhau - dòng chữ "COMBAT"
         // không thêm thông tin gì, chỉ chiếm chỗ giữa màn hình và cạnh tranh sự chú ý với
         // những thứ thật sự cần nhìn (mức nhiễm điện, cực găng, vị trí địch).
         //
@@ -473,11 +483,11 @@ public class HUDController : MonoBehaviour
     {
         switch (phase)
         {
-            case GameManager.GamePhase.WaitingToStart: return "CHUẨN BỊ VÀO TRẬN";
-            case GameManager.GamePhase.BuyPhase: return "PHA MUA SẮM";
-            case GameManager.GamePhase.Combat: return "CHIẾN ĐẤU";
-            case GameManager.GamePhase.RoundEnd: return "KẾT THÚC ROUND";
-            case GameManager.GamePhase.MatchEnd: return "KẾT THÚC TRẬN";
+            case GameManager.GamePhase.WaitingToStart: return "GET READY";
+            case GameManager.GamePhase.BuyPhase: return "BUY PHASE";
+            case GameManager.GamePhase.Combat: return "COMBAT";
+            case GameManager.GamePhase.RoundEnd: return "ROUND OVER";
+            case GameManager.GamePhase.MatchEnd: return "MATCH OVER";
             default: return "";
         }
     }
@@ -521,8 +531,8 @@ public class HUDController : MonoBehaviour
 
             case GameManager.GamePhase.MatchEnd:
                 SetAnnouncement(gm.MatchWinner == 0
-                    ? "ĐỘI ĐỎ VÔ ĐỊCH!"
-                    : "ĐỘI XANH VÔ ĐỊCH!");
+                    ? "RED TEAM WINS!"
+                    : "BLUE TEAM WINS!");
                 break;
 
             default:
@@ -569,16 +579,16 @@ public class HUDController : MonoBehaviour
         bool iCanWin = (myScore + 1) >= gm.pointsToWin && (myScore + 1 - enemyScore) >= gm.requiredLead;
         bool enemyCanWin = (enemyScore + 1) >= gm.pointsToWin && (enemyScore + 1 - myScore) >= gm.requiredLead;
 
-        if (iCanWin && enemyCanWin) return "ROUND QUYẾT ĐỊNH";
-        if (iCanWin) return "THẮNG ROUND NÀY LÀ VÔ ĐỊCH!";
-        if (enemyCanWin) return "THUA ROUND NÀY LÀ HẾT!";
+        if (iCanWin && enemyCanWin) return "MATCH POINT - BOTH TEAMS";
+        if (iCanWin) return "MATCH POINT - WIN TO TAKE IT ALL";
+        if (enemyCanWin) return "ELIMINATION - LOSE AND IT IS OVER";
 
         return "";
     }
 
     private string GetRoundResultText(GameManager gm)
     {
-        if (gm.LastRoundWinner == -1) return "HOÀ! Không đội nào ghi điểm";
+        if (gm.LastRoundWinner == -1) return "DRAW - NO TEAM SCORED";
 
         // So đội thắng với đội của chính mình, để báo "THẮNG" hay "THUA"
         PlayerHealth myHealth = FPSMovement.Local != null
@@ -587,9 +597,9 @@ public class HUDController : MonoBehaviour
 
         if (myHealth == null)
         {
-            return gm.LastRoundWinner == 0 ? "ĐỘI ĐỎ THẮNG ROUND" : "ĐỘI XANH THẮNG ROUND";
+            return gm.LastRoundWinner == 0 ? "RED TEAM WINS THE ROUND" : "BLUE TEAM WINS THE ROUND";
         }
 
-        return gm.LastRoundWinner == myHealth.Team ? "THẮNG ROUND!" : "THUA ROUND";
+        return gm.LastRoundWinner == myHealth.Team ? "ROUND WON!" : "ROUND LOST";
     }
 }

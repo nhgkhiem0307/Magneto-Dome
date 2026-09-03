@@ -124,6 +124,10 @@ MonoBehaviour:
   negativeColor: {r: 0.3, g: 1, b: 3, a: 1}
   outlineWidth: 8
   auraPointLight: {fileID: 0}
+  inspectNeutralColor: {r: 2.2, g: 2.2, b: 2.2, a: 1}
+  inspectChargedBoost: 2
+  inspectWidthBonus: 4
+  inspectBrightness: 1.6
 --- !u!114 &7782509603254082126
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -151,6 +155,8 @@ MonoBehaviour:
   wakeImpulseTransfer: 1
   explosionRadius: 6
   explosionForce: 15
+  debrisForceMultiplier: 4
+  debrisBecomesBullet: 1
   tntDamage: 35
   itemData: {fileID: 11400000, guid: 7d2ce507a3b0d1a429d6d3891f6d2711, type: 2}
   _currentPolarity: 0

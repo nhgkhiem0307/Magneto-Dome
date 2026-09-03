@@ -98,9 +98,31 @@ public class PlayerMagnetController : NetworkBehaviour
     [Tooltip("Hút nhầm bóng gai: lực kéo nó lao về phía mình, nhân với pullForce.")]
     public float spikePullBoost = 1.5f;
 
+    [Tooltip("Vật đang bị HÚT về tay cũng tính là đạn, gây sát thương cho ai đứng chắn " +
+             "giữa bạn và nó.\n\n" +
+             "Không hại chính mình: MagneticObject đã có sẵn dòng bỏ qua va chạm với người " +
+             "bắn ra nó, nên vật về tới tay là lọt vào tay chứ không đập vào mặt.\n\n" +
+             "⚠️ ẢNH HƯỞNG TỚI THÙNG TNT: TNT nổ khi va vào BẤT CỨ THỨ GÌ. Hút một thùng TNT " +
+             "về mà nó quệt phải gốc cây giữa đường thì nó nổ ngay cạnh bạn. Đây là hệ quả " +
+             "thật, không phải lỗi - nhưng nếu thấy quá khắc nghiệt thì tắt ô này.")]
+    public bool pullDealsDamage = true;
+
     [Header("Grapple - Kéo áp sát")]
     [Tooltip("Lực kéo bản thân bay về phía đối thủ khi cận chiến ở tầm 3-8m và trái dấu điện tích.")]
     public float grapplePullForce = 100f;
+
+    [Header("Hỗ trợ ngắm cận chiến")]
+    [Tooltip("Bán kính vùng ngắm rộng, tính bằng mét. Tia thẳng trượt thì mới quét tới vùng này.\n\n" +
+             "Đặt 0 để tắt hẳn, quay lại kiểu bắt buộc ngắm chính xác từng pixel.\n\n" +
+             "1.2 ≈ rộng bằng một thân người. Đừng để quá 2 - rộng hơn thế thì grapple " +
+             "trúng cả người đứng lệch hẳn sang bên, cảm giác như game tự chơi hộ.")]
+    public float aimAssistRadius = 1.2f;
+
+    [Tooltip("Mục tiêu được phép lệch khỏi tâm ngắm tối đa bao nhiêu ĐỘ.\n\n" +
+             "Đây là cái hãm quan trọng nhất. Bán kính ở trên là con số cố định theo mét, " +
+             "nên ở khoảng cách gần nó ứng với một góc rất rộng - địch đứng ngay bên hông " +
+             "cũng lọt vào. Giới hạn theo góc chặn đúng chỗ đó lại.")]
+    public float aimAssistAngle = 12f;
 
     [Header("Rung camera")]
     [Tooltip("Độ mạnh cú rung khi bắn vật đang cầm đi, thang 0..1. Đặt 0 để tắt.")]
@@ -392,7 +414,16 @@ public class PlayerMagnetController : NetworkBehaviour
 
         // BÓNG NẶNG ĐANG BAY: không hút về tay được, nhưng CẢN lại được.
         // Đây là nước phòng thủ: bạn không cướp được vật, nhưng làm nó chậm và yếu đi.
-        if (magObj.CurrentType == MagneticObject.ObjectType.Heavy && magObj.isMovingAsBullet)
+        // ⚠️ Điều kiện "shooterOwner != this" LÀ BẮT BUỘC từ khi bật pullDealsDamage.
+        //
+        // Vì hút cũng đánh dấu vật là đạn, nên nếu không loại trừ vật của CHÍNH MÌNH thì:
+        // tick đầu bạn bắt đầu hút Heavy -> nó thành đạn -> tick thứ hai rơi vào đúng
+        // nhánh này -> "không hút về tay được" -> bạn không bao giờ hút nổi Heavy nữa.
+        //
+        // Về mặt luật chơi thì đây cũng là điều đúng: không ai đi cản đạn của chính mình.
+        if (magObj.CurrentType == MagneticObject.ObjectType.Heavy
+            && magObj.isMovingAsBullet
+            && magObj.shooterOwner != this)
         {
             if (justPressed && magObj.TryCounterInFlight())
             {
@@ -407,7 +438,12 @@ public class PlayerMagnetController : NetworkBehaviour
         // BÓNG GAI ĐANG BAY: hút nhầm là tự rước hoạ.
         // Vật lao nhanh hơn về phía bạn VÀ gây gấp đôi sát thương.
         // Đây là cái bẫy phản xạ - thấy vật bay tới mà theo bản năng hút lại thì thiệt nặng.
-        if (magObj.CurrentType == MagneticObject.ObjectType.Spike && magObj.isMovingAsBullet)
+        // Cũng phải loại trừ vật của chính mình, cùng lý do với nhánh Heavy ở trên -
+        // mà ở đây hậu quả còn nặng hơn: không có dòng này thì hút Spike một cái là
+        // TỰ PHẠT CHÍNH MÌNH x2 sát thương ngay tick thứ hai, dù chẳng hút nhầm gì cả.
+        if (magObj.CurrentType == MagneticObject.ObjectType.Spike
+            && magObj.isMovingAsBullet
+            && magObj.shooterOwner != this)
         {
             if (justPressed && magObj.TryCounterInFlight())
             {
@@ -427,6 +463,13 @@ public class PlayerMagnetController : NetworkBehaviour
         Vector3 pullDirection = (holdPoint.position - magObj.transform.position).normalized;
         targetRb.linearVelocity = pullDirection * pullForce;
 
+        // VẬT ĐANG HÚT CŨNG LÀ ĐẠN: ai đứng chắn giữa bạn và nó thì lãnh đủ.
+        //
+        // An toàn cho chính người hút nhờ dòng chặn sẵn có trong MagneticObject:
+        // "bỏ qua va chạm với chính người bắn ra nó" - mà MarkAsPulledBullet đặt
+        // shooterOwner = mình, nên vật về tới tay không hề trừ điện của mình.
+        if (pullDealsDamage) magObj.MarkAsBullet(this);
+
         // NGƯỠNG BẮT VÀO TAY PHẢI CỘNG THÊM BÁN KÍNH VẬT.
         //
         // Trước đây là con số cứng 0.7m đo từ TÂM vật tới holdPoint - và đó là lỗi khiến
@@ -443,27 +486,98 @@ public class PlayerMagnetController : NetworkBehaviour
         }
     }
 
+    /// <summary>
+    /// Tìm mục tiêu cho chuột phải (đấm hoặc Grapple), có hỗ trợ ngắm.
+    ///
+    /// HAI BƯỚC, thứ tự quan trọng:
+    ///   1. Tia thẳng đúng tâm ngắm. Ngắm chuẩn thì LUÔN thắng, không bị hỗ trợ ngắm
+    ///      cướp mất mục tiêu và kéo sang một người khác đứng gần đó.
+    ///   2. Trượt rồi mới quét vùng rộng hơn, chọn người LỆCH TÂM NGẮM ÍT NHẤT.
+    ///
+    /// Vì sao dùng SphereCast chứ không duyệt PlayerHealth.AllPlayers: bù nhìn tập bắn
+    /// (DummyMagnetTarget) không nằm trong danh sách đó. Quét theo hình học thì người thật
+    /// và bù nhìn đều bắt được, không phải viết hai đường riêng.
+    /// </summary>
+    Transform FindMeleeTarget(Vector3 aimOrigin, Vector3 aimDirection)
+    {
+        // BƯỚC 1 - tia thẳng, ưu tiên tuyệt đối
+        if (Physics.Raycast(aimOrigin, aimDirection, out RaycastHit precise, dashLockRange)
+            && precise.collider.CompareTag("Player"))
+        {
+            return precise.transform;
+        }
+
+        if (aimAssistRadius <= 0f) return null;
+
+        // BƯỚC 2 - quét hình trụ rộng hơn
+        //
+        // Dùng SphereCastAll chứ không SphereCast: SphereCast chỉ trả về vật CHẠM ĐẦU TIÊN,
+        // mà thứ chạm đầu tiên thường là mặt đất hay thân cây nằm chệch sang bên. Lấy hết
+        // rồi tự lọc thì mới tìm được người đứng sau mấy thứ vụn vặt đó.
+        RaycastHit[] candidates = Physics.SphereCastAll(aimOrigin, aimAssistRadius, aimDirection, dashLockRange);
+
+        Transform best = null;
+        float bestAngle = float.MaxValue;
+
+        foreach (RaycastHit candidate in candidates)
+        {
+            if (!candidate.collider.CompareTag("Player")) continue;
+
+            // Không tự ngắm chính mình. Quả cầu quét bắt đầu ngay trong người nên
+            // collider của bản thân gần như chắc chắn nằm trong danh sách trả về.
+            if (candidate.transform == transform) continue;
+
+            Vector3 toTarget = candidate.transform.position - aimOrigin;
+
+            float angle = Vector3.Angle(aimDirection, toTarget);
+            if (angle > aimAssistAngle) continue;
+
+            // Có tường chắn giữa không? Không cho grapple xuyên vách.
+            //
+            // Chấp nhận hai trường hợp: tia thông suốt tới đúng mục tiêu, hoặc nó chạm
+            // vào chính mình trước (hay xảy ra vì tia xuất phát từ camera, nằm trong người).
+            Vector3 targetCenter = candidate.collider.bounds.center;
+            if (Physics.Linecast(aimOrigin, targetCenter, out RaycastHit blocker)
+                && blocker.transform != candidate.transform
+                && blocker.transform != transform)
+            {
+                continue;
+            }
+
+            // Chọn theo GÓC LỆCH, không chọn theo khoảng cách gần nhất.
+            // Chọn theo khoảng cách thì người đứng sát bên hông sẽ luôn thắng người đang
+            // nằm đúng giữa tâm ngắm ở xa hơn - trái hẳn ý định người chơi.
+            if (angle < bestAngle)
+            {
+                bestAngle = angle;
+                best = candidate.transform;
+            }
+        }
+
+        return best;
+    }
+
     void HandleRightClickMelee(Vector3 aimOrigin, Vector3 aimDirection)
     {
-        if (!Physics.Raycast(aimOrigin, aimDirection, out RaycastHit hit, dashLockRange)) return;
-        if (!hit.collider.CompareTag("Player")) return;
+        Transform target = FindMeleeTarget(aimOrigin, aimDirection);
+        if (target == null) return;
 
         // Đọc điện tích găng tay của mục tiêu
         MagneticObject.Polarity targetPolarity;
 
-        PlayerMagnetController enemyGlove = hit.collider.GetComponent<PlayerMagnetController>();
-        DummyMagnetTarget dummyTarget = hit.collider.GetComponent<DummyMagnetTarget>();
+        PlayerMagnetController enemyGlove = target.GetComponent<PlayerMagnetController>();
+        DummyMagnetTarget dummyTarget = target.GetComponent<DummyMagnetTarget>();
 
         if (enemyGlove != null) targetPolarity = enemyGlove.currentGlovePolarity;
         else if (dummyTarget != null) targetPolarity = dummyTarget.currentGlovePolarity;
         else return;
 
-        float distance = Vector3.Distance(transform.position, hit.transform.position);
+        float distance = Vector3.Distance(transform.position, target.position);
 
         // TẦM 3-8m + TRÁI DẤU -> KÉO ÁP SÁT (Grapple)
         if (distance > meleeRange && currentGlovePolarity != targetPolarity)
         {
-            Vector3 grappleDirection = (hit.transform.position - transform.position).normalized;
+            Vector3 grappleDirection = (target.position - transform.position).normalized;
 
             // scaleByCharge = false: mình tự kéo mình về phía địch, không phải bị đẩy.
             // Nếu nhân theo điện tích thì người sắp thua sẽ lao vọt qua đầu đối thủ.
@@ -478,11 +592,11 @@ public class PlayerMagnetController : NetworkBehaviour
         if (distance > meleeRange) return;
 
         // TẦM < 3m
-        Vector3 pushDirection = (hit.transform.position - transform.position).normalized;
+        Vector3 pushDirection = (target.position - transform.position).normalized;
         pushDirection.y = 0.3f; // Hất tung nhẹ
 
-        FPSMovement enemyMove = hit.collider.GetComponent<FPSMovement>();
-        DummyGravity dummyGrav = hit.collider.GetComponent<DummyGravity>();
+        FPSMovement enemyMove = target.GetComponent<FPSMovement>();
+        DummyGravity dummyGrav = target.GetComponent<DummyGravity>();
 
         if (currentGlovePolarity == targetPolarity)
         {

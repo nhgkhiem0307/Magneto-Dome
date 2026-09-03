@@ -1,7 +1,7 @@
 # TIẾN ĐỘ — Magneto-Dome
 
 > Ghi cho session sau. Đọc file này trước, rồi đọc [CLAUDE.md](CLAUDE.md) để nắm đặc tả và quy tắc.
-> **Cập nhật:** 30/08/2026 · **Deadline:** ~16/09/2026 (còn ~17 ngày)
+> **Cập nhật:** 01/09/2026 · **Deadline:** ~16/09/2026 (còn ~15 ngày)
 
 ---
 
@@ -16,8 +16,8 @@ việc còn lại gần như chỉ là kéo thả trong Unity và test.
 |---|---|---|---|
 | 1 | **Chơi trọn một trận, 2 máy** | — | Rủi ro số 1. Khu chiếm đóng + hồi sinh + Quá Tải chưa từng chạy đủ một vòng có người thật |
 | 2 | **Bắt đầu viết báo cáo** | — | Rủi ro số 2. Chưa viết chữ nào. Chương "Khó khăn & giải pháp" chép thẳng được từ 11 cái bẫy trong CLAUDE.md mục 5 |
-| 3 | **Gán 5 icon vào 5 file `ItemData`** | `Assets/Items/Type/*.asset` | Shop + Radial Menu trống trơn. **~5 phút** — xem mục "Gán icon" bên dưới |
-| 4 | **Dựng Shop UI + Radial Menu** | TestScene | Chưa có object nào. Cấu trúc đầy đủ ở mục bên dưới |
+| ~~3~~ | ~~Gán 5 icon vào `ItemData`~~ | — | ✅ **XONG** — cả 5 file đều đã có `itemIcon` |
+| ~~4~~ | ~~Dựng Shop UI + Radial Menu~~ | — | ✅ **XONG** — còn mỗi ô  bỏ trống |
 | ~~5~~ | ~~Thêm **nút mở Settings** ở MenuScene~~ | — | ✅ **XONG** *(kiểm 31/08)* — xem bên dưới |
 | 6 | Gán 2 ô âm thanh: `sfxRoundWin`, `sfxRoundLose` | AudioManager (MenuScene) | Thắng/thua round im lặng |
 
@@ -25,9 +25,39 @@ việc còn lại gần như chỉ là kéo thả trong Unity và test.
 
 | # | Việc | Ghi chú |
 |---|---|---|
-| 7 | Cắt bớt `Resources/Environment/Nature/Textures` | **194MB**, 5 file PNG 21–23MB. CHƯA commit. Xoá texture không dùng TRƯỚC khi đưa vào git — sau này xoá cũng không lấy lại được dung lượng |
+| ~~7~~ | ~~Cắt `Nature/Textures` 194MB~~ | ✅ **XONG** — thư mục đã xoá và chưa từng vào git |
 | 8 | `knockbackText` trên HUDController | Hiện hệ số `x2.4`, đang bỏ trống |
 | 9 | Trang trí nốt: bụi, hoa, đá bay lơ lửng dưới đảo | Công cụ `EnvironmentScatter` đã sẵn |
+| 13 | **Bảng chữ soi vật đặt sai chỗ với vật quá to / quá nhỏ** | Xem mục riêng ngay dưới |
+
+#### 🔍 Việc 13 — bảng chữ soi vật bố trí chưa ổn *(ghi nhận 01/09, chưa sửa)*
+
+Triệu chứng: `MagneticObjectInspector` đặt bảng chữ nổi trên đầu vật, nhưng vật to và vật nhỏ
+cho ra kết quả lệch hẳn nhau — cái thì chữ lửng lơ cách vật cả mét, cái thì chữ dính vào vật.
+
+**Nguyên nhân đã biết.** Code đang tính:
+
+```csharp
+labelRoot.position = Current.transform.position + Vector3.up * (radius + labelHeightOffset);
+```
+
+mà `GetBoundingRadius()` trả về **nửa ĐƯỜNG CHÉO** của hộp bao (`worldSize.magnitude * 0.5f`),
+không phải nửa chiều cao. Với vật **bẹt và rộng** — cái bàn 3m × 3m × 0.1m — đường chéo dài
+tới 4.2m nên nửa của nó là 2.1m, trong khi vật chỉ cao 5cm. Bảng chữ bay lơ lửng cách mặt bàn
+hơn 2 mét. Ngược lại vật nhỏ tròn thì đường chéo xấp xỉ chiều cao nên lại vừa đúng — đó là lý do
+lúc đúng lúc sai chứ không sai đều.
+
+**Hai hướng chữa, chưa chọn:**
+
+| Cách | Được | Mất |
+|---|---|---|
+| Dùng `localBounds.extents.y × lossyScale.y` | Đúng chiều cao thật | Sai khi vật bị xoay nghiêng 90° |
+| Dùng `renderer.bounds.max.y` (hộp bao thế giới) | Luôn đúng đỉnh thật | Phình/co khi vật xoay → chữ nhấp nhô lúc vật đang bay |
+
+Hướng thứ hai kèm làm mượt (`Lerp` vị trí) có lẽ là đúng nhất, nhưng phải test mới biết.
+
+⚠️ Đừng quay lại dùng `renderer.bounds` cho việc ĐO KÍCH THƯỚC — bẫy số 9 ở CLAUDE.md vẫn
+đúng nguyên. Ở đây là bài toán khác: **định vị theo đỉnh**, không phải đo cỡ.
 
 ### ⚫ Tuần cuối, đừng làm sớm
 
@@ -36,6 +66,136 @@ việc còn lại gần như chỉ là kéo thả trong Unity và test.
 | 10 | **Xoá phím debug `K`** — 3 chỗ: `NetworkInputData.cs`, `NetworkRunnerHandler.OnInput()`, `PlayerMagnetController.FixedUpdateNetwork()` | Còn cần để test vòng round một mình |
 | 11 | Đặt lại `Points To Win = 5` nếu có hạ để test | |
 | 12 | Build cuối, **bỏ tick** `Development Build` | |
+
+---
+
+## 🚀 Ngày 01/09 — TỐI ƯU HIỆU NĂNG (chương hay nhất cho báo cáo)
+
+**Kết quả: 20 FPS → 56 FPS, 7 triệu tam giác → 1 triệu.** Đây là câu chuyện có số liệu
+trước/sau rõ ràng nhất của cả project — nên đưa thẳng vào báo cáo.
+
+### Cách tìm ra, theo đúng thứ tự
+
+Quan trọng không kém kết quả: **loại trừ bằng số đo, không đoán.**
+
+| Bước | Đo được | Loại trừ được gì |
+|---|---|---|
+| 1 | Batches 100–300 | Không phải nghẽn lệnh vẽ. Static batching + SRP Batcher đang chạy tốt |
+| 2 | Chỉ **1 đèn** thời gian thực | Không phải ánh sáng |
+| 3 | Vật lý 50Hz, `AutoSyncTransforms` tắt | Không phải vật lý |
+| 4 | Texture giới hạn 2048, đã nén | Không phải VRAM |
+| 5 | **Tris 7 triệu** | 👉 Thủ phạm: hình học |
+
+### Thủ phạm: hòn đảo Meshy AI
+
+File FBX **52.7 MB**, khoảng 2 triệu tam giác, **không có LODGroup nào** trong scene.
+Model do AI sinh ra không hề được giản lược — nó làm ra để nhìn ngắm, không phải chạy game.
+
+Tệ hơn: `m_ShadowCascadeCount: 4` khiến hòn đảo được vẽ lại **5 lần mỗi khung hình**
+(1 lần hiển thị + 4 lần cho bốn tầng bóng đổ).
+
+**Chữa:** Blender → Decimate → xuất đè. **52.7 MB → 2.56 MB**, giữ nguyên file `.meta`
+nên GUID không đổi, mọi tham chiếu trong scene và prefab vẫn nguyên.
+
+### Đã hạ 4 ô trong `PC_RPAsset.asset`
+
+```
+m_ShadowCascadeCount          4    -> 2     ← lớn nhất, bớt 2 lượt vẽ toàn hình học
+m_ShadowDistance              85   -> 55
+m_MSAA                        4    -> 2
+m_MainLightShadowmapResolution 4096 -> 2048
+```
+
+### Ba lỗi hiệu năng trong CODE, đã sửa
+
+**1. Game KHÔNG hề giới hạn khung hình** *(nguyên nhân nóng máy)*
+`vSyncCount = 0` và không chỗ nào đặt `Application.targetFrameRate`. GPU đẩy 600–1500
+khung hình mỗi giây mà màn 60Hz chỉ lấy được 60 — phần còn lại vẽ xong rồi vứt.
+→ Thêm `GameSettings.ApplyFrameCap()`, mặc định **120 FPS, KHÔNG VSync**.
+
+> ⚠️ **ĐÃ THỬ VSYNC VÀ PHẢI BỎ.** VSync *giữ khung hình lại* chờ màn hình quét, xếp hàng
+> 1–2 khung → trễ chuột 16–33ms, game ngắm bắn cảm nhận được ngay. `targetFrameRate` thì
+> chỉ *cho CPU ngủ*, không giữ gì cả. Cả hai chặn GPU chạy hoang như nhau, nhưng chỉ một
+> cách giữ được cảm giác chuột.
+
+**2. `ButtonClickSound` quét toàn scene 4 lần/giây**
+`FindObjectsByType` với `FindObjectsInactive.Include` phải duyệt **hơn 4000 vật**, mà
+TestScene có **TỚI HAI** component này. → Giờ chỉ lần quét ĐẦU mới duyệt toàn scene,
+các lần sau chỉ quét cây con dưới Canvas. Danh sách phòng ở MenuScene vẫn bắt được
+vì nó cũng sinh ra dưới Canvas.
+
+**3. `Assets/Resources` nặng 528 MB** — *chưa sửa, cố ý*
+Unity nhồi **mọi thứ** trong thư mục tên `Resources` vào build, kể cả file không dùng.
+Ảnh hưởng dung lượng và thời gian khởi động, **không** ảnh hưởng FPS.
+→ Để nguyên tới sau deadline. Di chuyển thư mục là thao tác dễ vỡ nhất trong Unity.
+Nêu ở mục "hướng phát triển" trong báo cáo là đủ.
+
+### ⚠️ Bài học lớn nhất, đừng quên
+
+**Đo trong Unity Editor KHÔNG phải đo hiệu năng thật.** Editor cõng thêm Scene view vẽ
+song song, móc profiler, kiểm tra an toàn mọi lời gọi API, và chạy mono thay vì IL2CPP.
+Chênh 2–3 lần là bình thường. **Phải đo trên bản `.exe`.**
+Mẹo: đóng tab Scene view khi đo trong Editor, thường lấy lại 20–40%.
+
+---
+
+## 🌐 Ngày 01/09 — HOST THOÁT GIỮA TRẬN LÀM MỌI NGƯỜI ĐỨNG HÌNH
+
+Ba lỗi riêng biệt chồng lên nhau, không phải một.
+
+**1. `OnDisconnectedFromServer` bỏ trống.** Đây là nguyên nhân chính.
+Đừng tưởng `OnShutdown` lo hộ — hai callback báo hai chuyện khác nhau:
+
+| Callback | Nghĩa |
+|---|---|
+| `OnDisconnectedFromServer` | "Đường truyền tới Host đứt" |
+| `OnShutdown` | "Runner ở MÁY NÀY đã dừng hẳn" |
+
+Mất Host **không** làm Runner client tự dừng — nó ngồi chờ kết nối lại. Scene vẫn chạy
+nhưng không còn ai mô phỏng: nhân vật đứng im, bấm gì cũng không phản hồi.
+
+**2. Treo cứng do gọi `Shutdown()` hai lần** *(nguy hiểm nhất)*
+
+```
+Host thoát → Fusion tắt Runner ở Client → gọi OnShutdown
+  → OnShutdown gọi ReturnToMenu
+    → ReturnToMenu chạy "await Shutdown()" trên Runner ĐANG TẮT DỞ
+      → lệnh chờ KHÔNG BAO GIỜ hoàn thành → kẹt vĩnh viễn
+```
+
+→ Chữa bằng cờ `_runnerIsDown`, đặt trong `OnShutdown` **trước** khi gọi `ReturnToMenu`.
+Kèm `try/catch` vì `ReturnToMenu` là `async void` — lỗi ném ra không ai bắt được và nó
+giết luôn phần còn lại của hàm.
+
+**3. Nguồn "crash":** `HUDController` chạy `gm.PhaseTimer.RemainingTime(gm.Runner)` mỗi
+khung hình. Khi Host rời đi, **mạng sập trước còn object thì còn nằm đó thêm vài khung** —
+`gm` khác null nhưng Runner đã chết → ném lỗi mỗi khung hình, FPS về gần 0.
+→ Chữa bằng `gm.Object.IsValid`.
+
+**Test phải đủ BA cách**, vì mỗi cách đi qua đường code khác nhau:
+bấm nút thoát *(OnShutdown)* · Alt+F4 *(OnDisconnectedFromServer)* · ngắt Wi-Fi *(cùng callback, lý do khác)*.
+
+---
+
+## 🇬🇧 Ngày 01/09 — ĐỔI CHỮ NGƯỜI CHƠI SANG TIẾNG ANH
+
+Phạm vi đã chốt: **chỉ chữ người chơi nhìn thấy**. `Debug.Log` (53), `[Tooltip]` (240)
+và toàn bộ comment **giữ tiếng Việt** — chúng chỉ hiện trong Console và Inspector,
+người chấm không thấy khi chơi, mà chủ project thì cần đọc được.
+
+~28 chuỗi ở 5 file: `HUDController` (tên pha, kết quả round, trạng thái khu),
+`NetworkRunnerHandler` (mã phòng + 5 thông báo lỗi), `SpectatorController`,
+`MagneticObjectInspector`, `GameSettings`. Menu và Shop vốn đã tiếng Anh sẵn.
+
+> 💡 Dịch theo **thuật ngữ thể loại**, không dịch sát nghĩa: "ROUND QUYẾT ĐỊNH" →
+> `MATCH POINT` (không phải "Decisive Round"), "THUA ROUND NÀY LÀ HẾT" → `ELIMINATION`.
+> Đây là từ vựng ai chơi Valorant/CS đều hiểu ngay.
+
+⬜ **Cần kiểm khi test:** vài chuỗi tiếng Anh **dài hơn** bản tiếng Việt
+(`MATCH POINT - WIN TO TAKE IT ALL`). Ngó xem ô chữ thông báo có tràn không —
+nếu tràn thì bật `Auto Size` trên TMP_Text.
+
+---
 
 ### ✂️ ĐÃ QUYẾT ĐỊNH BỎ
 

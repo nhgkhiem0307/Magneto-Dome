@@ -43,6 +43,28 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     [Tooltip("Độ mạnh cú rung khi Dash, thang 0..1. Đặt 0 để tắt.")]
     public float dashShakeTrauma = 0.35f;
 
+    [Header("Góc nhìn thứ nhất - vị trí camera")]
+    [Tooltip("Tự đặt camera vào đúng TẦM MẮT bằng cách đo từ xương đầu lúc spawn.\n\n" +
+             "Vì sao cần: ô Local Position của camera trên prefab là con số gõ tay, không " +
+             "liên quan gì tới model. Đo ngày 31/08 thì nó đang ở 1.77m trong khi mắt ở 2.00m " +
+             "và KHỚP VAI ở 1.82m - tức là camera nằm dưới vai, hai bả vai nhô lên chắn hai " +
+             "bên khung hình.\n\n" +
+             "Đo từ xương thì đổi scale model hay thay nhân vật khác cũng tự đúng, " +
+             "không phải căn tay lại.\n\n" +
+             "Tắt ô này nếu muốn tự căn bằng Local Position trên prefab.")]
+    public bool autoCalibrateEyeLevel = true;
+
+    [Tooltip("Mắt nằm cao hơn xương đầu bao nhiêu mét (đo ở scale model = 1).\n\n" +
+             "Xương 'Head' của Mixamo nằm ở CHÂN SỌ, ngang đốt sống cổ trên cùng, " +
+             "không phải ở giữa mặt. Mắt cao hơn nó khoảng 0.11m trên người cao 1.83m.\n\n" +
+             "Code tự nhân với scale thật của model, nên cứ điền theo scale 1.")]
+    public float eyeHeightAboveHeadBone = 0.11f;
+
+    [Tooltip("Mắt nhô ra trước xương đầu bao nhiêu mét (đo ở scale model = 1).\n\n" +
+             "Không có ô này thì camera nằm giữa sọ, nhìn xuống sẽ thấy ngực mình ở khoảng " +
+             "cách sai và thân người trông to quá khổ.")]
+    public float eyeForwardOffset = 0.08f;
+
     [Header("Animation")]
     [Tooltip("Phải rời mặt đất LIÊN TỤC bấy nhiêu giây mới báo cho Animator là đang bay.\n\n" +
              "BẮT BUỘC PHẢI CÓ trên địa hình gồ ghề. CharacterController.isGrounded chỉ đúng " +
@@ -63,6 +85,15 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     public float gravity = -19.62f;    // Trọng lực
     public float mass = 3f;
     public float drag = 5f;             // Ma sát giảm tốc khi Dash
+
+    [Tooltip("Trần vận tốc BAY LÊN khi bị đẩy từ bên ngoài (đấm, trúng đạn, nổ TNT), m/s.\n\n" +
+             "Có ô này vì hệ số Quá Tải nhân vào cả phần dọc: người đầy điện bị đấm sẽ vọt " +
+             "thẳng lên gần 20m thay vì văng ra xa. Chỉ chặn phần DỌC, phần ngang giữ nguyên " +
+             "để cơ chế 'càng nhiễm càng bị hất xa' vẫn hoạt động.\n\n" +
+             "12 m/s ≈ nảy lên 2.5m. Tăng nếu muốn cú đấm hất bổng hơn, nhưng đừng quá 20 - " +
+             "trên mức đó là bay đủ lâu để tự lái về chỗ an toàn, mất hết tính sát thương.\n\n" +
+             "KHÔNG áp dụng cho Dash và Grapple: đó là chuyển động tự mình tạo ra.")]
+    public float maxVerticalImpact = 12f;
 
     // --- TRẠNG THÁI ĐƯỢC FUSION ĐỒNG BỘ ---
     // Những biến này trước đây là biến thường. Giờ phải đánh dấu [Networked] để Host
@@ -171,6 +202,11 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
 
         if (cameraTransform != null)
         {
+            // PHẢI căn trước khi chụp mốc gốc ở dòng dưới.
+            // Chụp trước rồi mới căn thì rung camera và nhấp nhô đầu sẽ cộng vào
+            // mốc CŨ, và camera bị kéo tuột về chỗ sai ngay khung hình đầu tiên.
+            if (autoCalibrateEyeLevel) CalibrateCameraToEyeLevel();
+
             cameraShake = cameraTransform.GetComponent<CameraShake>();
             cameraBaseLocalPosition = cameraTransform.localPosition;
         }
@@ -220,6 +256,41 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
             AudioListener listener = cameraTransform.GetComponent<AudioListener>();
             if (listener != null) listener.enabled = isMine;
         }
+    }
+
+    /// <summary>
+    /// Đặt camera vào đúng tầm mắt, đo từ xương đầu của chính model đang dùng.
+    ///
+    /// Cách làm: lấy vị trí xương đầu, đổi sang hệ toạ độ của nhân vật, rồi cộng thêm
+    /// khoảng cách từ chân sọ lên mắt và ra trước.
+    ///
+    /// Vì sao phải nhân với scale của model: hai ô offset điền theo model gốc (scale 1),
+    /// còn model trong prefab đang phóng to 1.2 lần. Không nhân thì mắt bị đặt thấp và
+    /// thụt vào so với thực tế - đúng 20% sai số, đủ để lại thấy vai.
+    ///
+    /// Chỉ chạy MỘT LẦN lúc spawn, không bám theo xương mỗi khung hình. Bám theo thì
+    /// camera sẽ nảy theo animation chạy bộ vốn được làm cho góc nhìn thứ ba - lắc rất
+    /// mạnh, chóng mặt ngay. Nhấp nhô đầu đã có CameraShake lo, với biên độ vừa phải và
+    /// tắt được trong Settings.
+    /// </summary>
+    private void CalibrateCameraToEyeLevel()
+    {
+        Animator animator = GetComponentInChildren<Animator>();
+        if (animator == null || !animator.isHuman) return;
+
+        Transform head = animator.GetBoneTransform(HumanBodyBones.Head);
+        if (head == null) return;
+
+        // lossyScale = scale thật sau khi nhân hết mọi cấp cha. Dùng nó chứ không dùng
+        // localScale, vì model có thể được phóng to ở một cấp cha bất kỳ.
+        float modelScale = head.lossyScale.y;
+        if (modelScale <= 0f) modelScale = 1f;
+
+        Vector3 headLocal = transform.InverseTransformPoint(head.position);
+
+        cameraTransform.localPosition = headLocal
+            + Vector3.up * (eyeHeightAboveHeadBone * modelScale)
+            + Vector3.forward * (eyeForwardOffset * modelScale);
     }
 
     public override void Despawned(NetworkRunner runner, bool hasState)
@@ -631,5 +702,29 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         }
 
         NetImpact += dir * (force / mass);
+
+        // CHẶN TRẦN PHẦN BAY LÊN. Sửa 31/08 — chữa lỗi "đấm phát bay thẳng lên trời".
+        //
+        // Nguyên nhân gốc: hệ số Quá Tải nhân vào CẢ VECTOR, tức là nhân cả phần dọc.
+        // Cú đấm cận chiến vốn chỉ định hất tung nhẹ (pushDirection.y = 0.3), nhưng:
+        //
+        //   người sạch điện : 200 lực / mass 3 -> phần dọc ~19 m/s  -> nảy lên ~2m, đẹp
+        //   người đầy điện  : nhân thêm 5 lần  -> phần dọc ~95 m/s  -> vọt lên gần 20m
+        //
+        // Nên càng đánh trúng nhiều, đối thủ càng bay thẳng đứng thay vì văng ra xa.
+        //
+        // Vì sao chỉ chặn phần DỌC mà không chặn phần ngang: mục tiêu của chế độ Quá Tải
+        // là "bị hất đi XA hơn" - mà xa là theo phương NGANG, hướng ra rìa vực. Bay thẳng
+        // lên trời không đưa ai tới gần cái chết cả, nó chỉ làm mất lượt và trông vô lý.
+        // Giữ nguyên phần ngang thì cơ chế cốt lõi vẫn nguyên vẹn.
+        //
+        // Chỉ áp dụng cho cú đẩy TỪ BÊN NGOÀI (scaleByCharge = true). Dash và Grapple là
+        // chuyển động tự mình tạo ra, người chơi chủ động nhắm nên không cần ai chặn hộ.
+        if (scaleByCharge && NetImpact.y > maxVerticalImpact)
+        {
+            Vector3 clamped = NetImpact;
+            clamped.y = maxVerticalImpact;
+            NetImpact = clamped;
+        }
     }
 }

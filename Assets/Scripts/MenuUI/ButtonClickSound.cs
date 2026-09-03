@@ -25,14 +25,23 @@ public class ButtonClickSound : MonoBehaviour
              "trong danh sách phòng. Tắt nếu scene không có nút động nào.")]
     public bool rescanPeriodically = true;
 
-    [Tooltip("Bao nhiêu giây quét lại một lần. Quét vài chục nút là việc rất nhẹ, " +
-             "1 giây là thừa nhanh so với tốc độ người chơi bấm.")]
+    [Tooltip("Bao nhiêu giây quét lại một lần.\n\n" +
+             "⚠️ ĐỪNG TIN LỜI CŨ 'quét vài chục nút là việc rất nhẹ'. Cái đắt KHÔNG PHẢI " +
+             "số nút, mà là FindObjectsByType phải DUYỆT TOÀN BỘ SCENE (kể cả object đang " +
+             "tắt) để tìm ra chúng. Trong scene gameplay có cả bản đồ thì mỗi lần quét là " +
+             "một cú khựng hình - cứ 1 giây giật một cái, rất giống lỗi mạng.\n\n" +
+             "Chỉ bật Rescan ở scene có nút SINH RA LÚC CHẠY (danh sách phòng ở MenuScene). " +
+             "TestScene không có nút nào như vậy: Shop, Radial, Settings đều tồn tại sẵn " +
+             "từ lúc mở scene và được lần quét đầu ở Start() bắt hết rồi.")]
     public float rescanInterval = 1f;
 
     // Những thứ đã gắn rồi, để không gắn chồng hai ba lần -> một cú bấm kêu mấy tiếng.
     private readonly HashSet<Object> _hooked = new HashSet<Object>();
 
     private float _nextScanTime;
+
+    // Lần quét đầu tiên đã chạy chưa. Chỉ lần đó mới được duyệt toàn scene — xem Scan().
+    private bool _didFirstScan;
 
     private void Start()
     {
@@ -57,7 +66,21 @@ public class ButtonClickSound : MonoBehaviour
         // Dọn những thứ đã bị huỷ, nếu không HashSet phình mãi qua các lần đổi scene
         _hooked.RemoveWhere(o => o == null);
 
-        Button[] buttons = scanWholeScene
+        // CHỈ LẦN QUÉT ĐẦU MỚI DUYỆT TOÀN SCENE. Sửa 01/09 - đây là lỗi hiệu năng thật.
+        //
+        // FindObjectsByType với FindObjectsInactive.Include phải đi qua MỌI object trong
+        // scene, kể cả đang tắt. TestScene có hơn 4000 vật trang trí, mà lại có TỚI HAI
+        // component này cùng chạy - thành 4 lượt duyệt toàn scene mỗi giây. Đủ để hạ FPS
+        // trung bình và gây giật đều đặn mỗi giây một cái, rất giống lag mạng.
+        //
+        // Vì sao chuyển sang quét cây con vẫn ĐỦ: thứ duy nhất cần quét lại định kỳ là nút
+        // SINH RA LÚC CHẠY - tức mấy dòng danh sách phòng ở MenuScene. Chúng được tạo ra
+        // dưới Canvas, mà script này nằm trên chính Canvas đó. Nút nằm sẵn trong scene từ
+        // đầu (Shop, Radial, Settings) thì lần quét đầu ở Start() đã bắt hết rồi.
+        bool deepScan = scanWholeScene && !_didFirstScan;
+        _didFirstScan = true;
+
+        Button[] buttons = deepScan
             ? FindObjectsByType<Button>(FindObjectsInactive.Include, FindObjectsSortMode.None)
             : GetComponentsInChildren<Button>(true);
 
@@ -74,7 +97,7 @@ public class ButtonClickSound : MonoBehaviour
 
         if (!includeToggles) return;
 
-        Toggle[] toggles = scanWholeScene
+        Toggle[] toggles = deepScan
             ? FindObjectsByType<Toggle>(FindObjectsInactive.Include, FindObjectsSortMode.None)
             : GetComponentsInChildren<Toggle>(true);
 

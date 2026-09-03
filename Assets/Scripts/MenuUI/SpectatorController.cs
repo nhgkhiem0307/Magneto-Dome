@@ -182,12 +182,12 @@ public class SpectatorController : MonoBehaviour
 
         if (_watching == null)
         {
-            spectatingText.text = "Không còn đồng đội nào để quan sát";
+            spectatingText.text = "No teammates left to spectate";
             return;
         }
 
         string playerName = GetPlayerName(_watching);
-        spectatingText.text = $"Đang xem: {playerName}";
+        spectatingText.text = $"Spectating: {playerName}";
     }
 
     private void HidePanel()
@@ -198,7 +198,7 @@ public class SpectatorController : MonoBehaviour
     // Lấy tên người chơi từ RoomPlayer của phòng chờ, đối chiếu theo PlayerRef
     private string GetPlayerName(FPSMovement player)
     {
-        if (player.Object == null) return "Đồng đội";
+        if (player.Object == null) return "Teammate";
 
         foreach (RoomPlayer rp in RoomPlayer.AllPlayers)
         {
@@ -209,6 +209,6 @@ public class SpectatorController : MonoBehaviour
             return string.IsNullOrEmpty(nickname) ? "Đồng đội" : nickname;
         }
 
-        return "Đồng đội";
+        return "Teammate";
     }
 }

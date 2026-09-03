@@ -117,6 +117,13 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     // Tắt Runner mất vài khung hình, cờ này chặn việc gọi chồng lên nhau.
     private bool _isReturningToMenu = false;
 
+    // Runner ĐÃ tắt xong rồi (Fusion vừa gọi OnShutdown).
+    //
+    // ⚠️ CỜ NÀY CHỐNG TREO MÁY, không phải để cho gọn. Xem ReturnToMenu():
+    // gọi await Shutdown() lần nữa trên một Runner đang tắt dở thì lệnh chờ đó
+    // KHÔNG BAO GIỜ hoàn thành, và cả game đứng im tại chỗ.
+    private bool _runnerIsDown = false;
+
     // Nhân vật trong trận của từng người chơi. Dùng để dọn dẹp khi họ thoát,
     // và sau này để hồi sinh ở đầu mỗi round.
     private readonly Dictionary<PlayerRef, NetworkObject> _spawnedPlayers = new Dictionary<PlayerRef, NetworkObject>();
@@ -274,7 +281,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         EnsureRunnerExists();
 
         _currentRoomCode = UnityEngine.Random.Range(10000, 99999).ToString();
-        if (yourRoomIDText != null) yourRoomIDText.text = "Mã Phòng: " + _currentRoomCode;
+        if (yourRoomIDText != null) yourRoomIDText.text = "Room ID: " + _currentRoomCode;
 
         var result = await _networkRunner.StartGame(new StartGameArgs()
         {
@@ -290,7 +297,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         }
         else
         {
-            SetErrorMessage("Không thể tạo phòng!");
+            SetErrorMessage("Could not create room!");
         }
     }
 
@@ -301,7 +308,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
         if (string.IsNullOrEmpty(joinCodeInput.text))
         {
-            SetErrorMessage("Vui lòng nhập Mã Phòng!");
+            SetErrorMessage("Please enter a Room ID!");
             return;
         }
 
@@ -321,7 +328,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         }
         else
         {
-            SetErrorMessage("Phòng không tồn tại hoặc đã đầy!");
+            SetErrorMessage("Room not found or already full!");
             ShowPanel(mainButtonsPanel);
             
             if (_networkRunner != null)
@@ -349,7 +356,27 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
         if (_networkRunner != null)
         {
-            await _networkRunner.Shutdown();
+            // CHỈ gọi Shutdown khi Runner CHƯA tắt.
+            //
+            // Đây là chỗ gây treo khi Host thoát giữa trận. Luồng chạy như sau:
+            // Host thoát -> Fusion tắt Runner ở máy Client -> gọi OnShutdown ->
+            // OnShutdown gọi ReturnToMenu -> ReturnToMenu lại "await Shutdown()"
+            // trên chính cái Runner đang tắt dở. Lệnh chờ đó không bao giờ hoàn thành,
+            // nên hàm dừng lại ngay tại đây: scene không được load, chuột không được trả,
+            // người chơi kẹt vĩnh viễn trong một thế giới không còn mạng.
+            if (!_runnerIsDown)
+            {
+                // Bọc try/catch vì đây là async void: một lỗi ném ra trong này sẽ không
+                // ai bắt được, và nó giết luôn phần còn lại của hàm - tức là vẫn kẹt.
+                try
+                {
+                    await _networkRunner.Shutdown();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning($"[MẠNG] Lỗi khi tắt Runner, vẫn tiếp tục về menu: {e.Message}");
+                }
+            }
 
             // Object chứa Runner cũng là DontDestroyOnLoad, không tự mất theo scene
             if (_networkRunner != null) Destroy(_networkRunner.gameObject);
@@ -403,6 +430,23 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
                 // Bật cờ này TRƯỚC khi load, để khi scene load xong thì biết
                 // đây là lần vào trận thật và tiến hành spawn nhân vật.
                 _matchStarted = true;
+
+                // KHOÁ PHÒNG LẠI. Thêm 01/09.
+                //
+                // OnPlayerJoined đã từ chối người vào giữa trận rồi, nhưng đó là lớp chặn
+                // SAU KHI họ đã kết nối - họ sẽ thấy mình vào được một nhịp rồi bị đá ra,
+                // trông như lỗi. Khoá ở đây thì họ không kết nối được ngay từ đầu, và
+                // phòng cũng biến mất khỏi hệ thống ghép trận.
+                //
+                // Giữ CẢ HAI lớp: khoá cửa là để lịch sự với người chơi, còn dòng từ chối
+                // bên OnPlayerJoined mới là thứ bảo đảm đúng đắn - vẫn có khe hở vài mili
+                // giây giữa lúc người ta bấm vào và lúc phòng khoá xong.
+                if (_networkRunner.SessionInfo != null)
+                {
+                    _networkRunner.SessionInfo.IsOpen = false;
+                    _networkRunner.SessionInfo.IsVisible = false;
+                }
+
                 _networkRunner.LoadScene(SceneRef.FromIndex(sceneIndex));
             }
             else
@@ -478,6 +522,23 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     {
         if (runner.IsServer)
         {
+            // TRẬN ĐÃ BẮT ĐẦU -> KHÔNG NHẬN THÊM AI. Thêm 01/09.
+            //
+            // Đây là đấu 2v2 theo round có tính điểm, nên người vào giữa chừng đẻ ra một
+            // loạt câu hỏi không có đáp án hay: vào đội nào khi đang 2v1? Có tiền không,
+            // hay $0 trong khi người khác đã tích luỹ qua 5 round? Điểm số tính từ đâu?
+            //
+            // Không game đấu đối kháng nào cho vào giữa trận - CS, Valorant, Rocket League
+            // đều chặn, và vì đúng lý do đó. Chặn ở đây xoá bỏ luôn cả một LỚP bug:
+            // không có ai vào giữa trận thì không có đội hình lệch, không có kinh tế lệch,
+            // không có _spawnedPlayers lệch.
+            if (_matchStarted)
+            {
+                Debug.LogWarning($"[MẠNG] {player} xin vào lúc trận đang chạy -> từ chối.");
+                runner.Disconnect(player);
+                return;
+            }
+
             var playerObj = runner.Spawn(roomPlayerPrefab, Vector3.zero, Quaternion.identity, player);
             var roomPlayer = playerObj.GetComponent<RoomPlayer>();
             roomPlayer.PlayerRef = player;
@@ -491,13 +552,46 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
+    /// <summary>
+    /// Một người chơi vừa rời phòng hoặc mất kết nối.
+    ///
+    /// ⚠️ TRƯỚC 01/09 HÀM NÀY KHÔNG DESPAWN NHÂN VẬT, nên người thoát giữa trận để lại
+    /// một cái "xác" đứng im giữa map: vẫn chắn đường, vẫn ăn đạn, vẫn bị tính vào quân số.
+    ///
+    /// May là dọn dẹp phần sau gần như MIỄN PHÍ: PlayerHealth.Despawned() tự gọi
+    /// AllPlayers.Remove(this), mà mọi vòng lặp trong GameManager đều duyệt AllPlayers -
+    /// thưởng tiền cuối round, hồi sinh, KillZone, tiến độ chiếm khu. Despawn đúng cách
+    /// là tất cả tự sạch theo, không phải sửa GameManager một dòng nào.
+    /// </summary>
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
+        // CHỈ Host được despawn. Client gọi Despawn sẽ bị Fusion từ chối và ném lỗi,
+        // mà hàm này thì chạy trên MỌI máy.
+        if (runner.IsServer && _spawnedPlayers.TryGetValue(player, out NetworkObject playerObject))
+        {
+            // Object có thể đã bị huỷ bởi một đường khác (kết thúc trận, đổi scene).
+            // Despawn một object đã chết cũng là một lỗi.
+            if (playerObject != null) runner.Despawn(playerObject);
+
+            // BẮT BUỘC PHẢI XOÁ KHỎI TỪ ĐIỂN.
+            //
+            // Không xoá thì PlayerRef đó nằm lại vĩnh viễn, và dòng
+            // "if (_spawnedPlayers.ContainsKey(playerRef)) continue;" bên SpawnAllPlayers
+            // sẽ CHẶN KHÔNG CHO HỌ SPAWN nếu họ vào lại phòng ở trận sau.
+            _spawnedPlayers.Remove(player);
+
+            Debug.Log($"<color=orange>[MẠNG] {player} đã rời trận, nhân vật đã được dọn.</color>");
+        }
+
         UpdateLobbyUI();
     }
 
     public void OnShutdown(NetworkRunner runner, ShutdownReason shutdownReason)
     {
+        // Runner đã tắt xong. PHẢI đặt trước khi gọi ReturnToMenu, nếu không hàm đó
+        // sẽ đi gọi Shutdown() lần nữa và treo cứng - xem ghi chú ở ReturnToMenu().
+        _runnerIsDown = true;
+
         // Đang ở trong trận mà Runner tắt -> Host đã kết thúc trận, hoặc mất kết nối.
         // Dù lý do nào thì cũng phải đưa người chơi về menu, không để họ kẹt lại
         // trong một scene không còn mạng.
@@ -515,14 +609,14 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         // Còn đang ở phòng chờ thì chỉ cần quay lại màn hình chính
         if (shutdownReason != ShutdownReason.Ok)
         {
-            SetErrorMessage("Kết nối bị ngắt!");
+            SetErrorMessage("Connection lost!");
             ShowPanel(mainButtonsPanel);
         }
     }
 
     public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
     {
-        SetErrorMessage("Không thể kết nối!");
+        SetErrorMessage("Could not connect!");
         ShowPanel(mainButtonsPanel);
     }
 
@@ -678,7 +772,35 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
     public void OnConnectedToServer(NetworkRunner runner) { }
-    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
+    /// <summary>
+    /// Máy này vừa mất kết nối tới Host. Nguyên nhân phổ biến nhất: HOST THOÁT GIỮA TRẬN.
+    ///
+    /// ⚠️ TRƯỚC 01/09 HÀM NÀY BỎ TRỐNG, và đó là lý do Host thoát thì mọi người đứng hình.
+    ///
+    /// Đừng tưởng OnShutdown sẽ lo hộ. Hai callback này báo hai chuyện khác nhau:
+    ///   OnDisconnectedFromServer : "đường truyền tới Host đứt"
+    ///   OnShutdown               : "Runner ở MÁY NÀY đã dừng hẳn"
+    ///
+    /// Mất Host không nhất thiết làm Runner của client tự dừng - nó có thể ngồi chờ kết nối
+    /// lại. Trong lúc đó scene vẫn chạy nhưng không còn ai mô phỏng: nhân vật đứng im, bấm
+    /// gì cũng không phản hồi. Người chơi thấy đúng là "đứng hình rồi crash".
+    /// </summary>
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
+    {
+        Debug.LogWarning($"[MẠNG] Mất kết nối tới Host: {reason}");
+
+        // Đang trong trận -> đưa về menu. ReturnToMenu tự chặn gọi chồng, nên gọi ở cả
+        // hai callback cũng an toàn: cái nào tới trước thì làm, cái sau tự thoát.
+        if (_matchStarted)
+        {
+            ReturnToMenu();
+            return;
+        }
+
+        // Còn ở phòng chờ thì chỉ cần lùi về màn hình chính
+        SetErrorMessage("Host left the room");
+        ShowPanel(mainButtonsPanel);
+    }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
     public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }

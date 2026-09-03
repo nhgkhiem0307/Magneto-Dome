@@ -36,6 +36,12 @@ public class SettingsUI : MonoBehaviour
     public TMP_Dropdown resolutionDropdown;
     public Toggle fullscreenToggle;
 
+    [Tooltip("Giới hạn khung hình. ĐỂ TRỐNG CŨNG KHÔNG SAO - giới hạn mặc định (VSync) đã " +
+             "được áp từ lúc khởi động game rồi, ô này chỉ để người chơi tự đổi.\n\n" +
+             "Đây là ô quan trọng nhất với máy nóng và laptop chạy pin: không giới hạn thì " +
+             "GPU vẽ 600-1500 khung/giây mà màn hình chỉ hiện được 60.")]
+    public TMP_Dropdown frameCapDropdown;
+
     // Danh sách độ phân giải máy hỗ trợ, đã lọc trùng
     private readonly List<Resolution> _resolutions = new List<Resolution>();
 
@@ -172,6 +178,32 @@ public class SettingsUI : MonoBehaviour
             resolutionDropdown.RefreshShownValue();
         }
 
+        // Ô giới hạn khung hình. Tự nạp danh sách lựa chọn nên không phải gõ tay
+        // trong Inspector - gõ tay thì thứ tự dễ lệch khỏi GameSettings.FrameCapOptions
+        // và người chơi chọn "60 FPS" lại ra "không giới hạn".
+        if (frameCapDropdown != null)
+        {
+            frameCapDropdown.ClearOptions();
+
+            List<string> capLabels = new List<string>();
+            foreach (int cap in GameSettings.FrameCapOptions)
+            {
+                capLabels.Add(GameSettings.FrameCapLabel(cap));
+            }
+            frameCapDropdown.AddOptions(capLabels);
+
+            int current = GameSettings.FrameCap;
+            for (int i = 0; i < GameSettings.FrameCapOptions.Length; i++)
+            {
+                if (GameSettings.FrameCapOptions[i] == current)
+                {
+                    frameCapDropdown.value = i;
+                    break;
+                }
+            }
+            frameCapDropdown.RefreshShownValue();
+        }
+
         RefreshAllLabels();
 
         _isInitializing = false;
@@ -194,6 +226,18 @@ public class SettingsUI : MonoBehaviour
         if (sensitivitySlider != null) sensitivitySlider.onValueChanged.AddListener(OnSensitivityChanged);
         if (fullscreenToggle != null) fullscreenToggle.onValueChanged.AddListener(OnFullscreenChanged);
         if (resolutionDropdown != null) resolutionDropdown.onValueChanged.AddListener(OnResolutionChanged);
+        if (frameCapDropdown != null) frameCapDropdown.onValueChanged.AddListener(OnFrameCapChanged);
+    }
+
+    private void OnFrameCapChanged(int index)
+    {
+        // Cùng lý do với các ô khác: lúc script tự đặt giá trị ban đầu, Unity vẫn bắn
+        // sự kiện này. Không chặn thì vừa mở bảng Settings đã ghi đè lựa chọn của người chơi.
+        if (_isInitializing) return;
+
+        if (index < 0 || index >= GameSettings.FrameCapOptions.Length) return;
+
+        GameSettings.SetFrameCap(GameSettings.FrameCapOptions[index]);
     }
 
     // --- CÁC SỰ KIỆN ---

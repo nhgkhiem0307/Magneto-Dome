@@ -417,12 +417,32 @@ Chủ project dùng linh hoạt cả hai cách:
 
 ## 7. Vấn đề đã biết (chưa sửa)
 
+### ✅ Đã xử lý 01/09 — người chơi thoát / vào giữa trận
+
+- **`OnPlayerLeft` đã despawn nhân vật.** Không còn "xác" đứng im trên map.
+  Dọn dẹp phần sau gần như miễn phí: `PlayerHealth.Despawned()` tự gỡ khỏi `AllPlayers`,
+  mà mọi vòng lặp trong `GameManager` đều duyệt danh sách đó — thưởng tiền, hồi sinh,
+  KillZone, tiến độ chiếm khu đều tự sạch theo, **không phải sửa `GameManager` dòng nào**.
+
+  ⚠️ Ba điều kiện bắt buộc, thiếu một là sinh lỗi mới:
+  `runner.IsServer` *(Client despawn sẽ bị Fusion từ chối)* ·
+  `_spawnedPlayers.Remove(player)` *(không xoá thì họ vào lại trận sau sẽ **không spawn được**,
+  vì bị dòng `ContainsKey` chặn)* · kiểm `!= null` *(object có thể đã bị huỷ đường khác)*.
+
+- **Người vào giữa trận: CHẶN HẲN.** Chốt thiết kế 01/09.
+  Đây là đấu 2v2 theo round có tính điểm — người vào giữa chừng đẻ ra loạt câu hỏi không có
+  đáp án hay: vào đội nào khi đang 2v1, có tiền không hay $0 sau 5 round, điểm tính từ đâu.
+  CS, Valorant, Rocket League đều chặn vì đúng lý do đó.
+
+  Làm **hai lớp**: `SessionInfo.IsOpen/IsVisible = false` lúc bấm Bắt Đầu *(lịch sự — họ
+  không kết nối được ngay từ đầu)*, và `runner.Disconnect(player)` trong `OnPlayerJoined`
+  *(bảo đảm đúng đắn — vẫn có khe hở vài mili giây giữa lúc bấm vào và lúc phòng khoá xong)*.
+
 ### 🟡 Đang treo chờ quyết định thiết kế
 
-- **`OnPlayerLeft` chưa despawn nhân vật.** Người thoát giữa trận để lại "xác" đứng im trên map.
-  Cố ý chưa làm: chủ project muốn gộp chung với cơ chế đền bù kinh tế
-  (1v2 thì người còn lại được bù tiền, 1v1 giữ nguyên) — chưa chốt con số.
-- **Người vào phòng giữa trận** chưa được xử lý (`OnPlayerJoined` vẫn spawn `RoomPlayer` như thường).
+- **Đền bù kinh tế khi lệch quân số** (1v2 thì đội ít người được bù tiền, 1v1 giữ nguyên).
+  Chưa chốt con số. Đề xuất: **+$100 mỗi đầu round** cho đội thiếu người, không phải một cục —
+  cho cục thì họ tiêu hết ngay round đó rồi các round sau lại thiệt như cũ.
 
 ### 🟢 Thiếu tính năng (theo lộ trình, chưa phải lỗi)
 
