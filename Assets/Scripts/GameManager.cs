@@ -89,6 +89,22 @@ public class GameManager : NetworkBehaviour
     // Đội vô địch: 0 = Đỏ, 1 = Xanh, -1 = chưa xong
     [Networked] public int MatchWinner { get; set; }
 
+    /// <summary>
+    /// Trận bị HUỶ giữa chừng vì có người thoát, chứ không phải kết thúc bình thường.
+    ///
+    /// Cần một cờ riêng chứ không mượn MatchWinner = -1, vì HUD phải hiện hai câu khác
+    /// hẳn nhau: "RED TEAM WINS!" và "MATCH CANCELLED". Mượn chung một ô thì không phân
+    /// biệt được "chưa ai thắng" với "trận hỏng".
+    /// </summary>
+    [Networked] public NetworkBool MatchAbandoned { get; set; }
+
+    // Số người chơi lúc trận bắt đầu. Tụt xuống dưới mức này nghĩa là có người thoát.
+    //
+    // Vì sao đếm mốc đầu thay vì so quân số hai đội mỗi tick: lúc mới vào trận, các nhân
+    // vật spawn lần lượt chứ không cùng một khung hình, nên có vài tick đội này đông hơn
+    // đội kia. So trực tiếp sẽ huỷ trận ngay khi vừa bắt đầu.
+    [Networked] private int ExpectedPlayerCount { get; set; }
+
     public override void Spawned()
     {
         Instance = this;
@@ -100,6 +116,8 @@ public class GameManager : NetworkBehaviour
             CurrentRound = 0;
             LastRoundWinner = -1;
             MatchWinner = -1;
+            MatchAbandoned = false;
+            ExpectedPlayerCount = 0; // chốt lại ở StartNewRound() của round đầu tiên
 
             // Chờ một nhịp cho mọi nhân vật spawn xong rồi mới bắt đầu round đầu tiên
             Phase = GamePhase.WaitingToStart;
@@ -116,6 +134,11 @@ public class GameManager : NetworkBehaviour
     {
         // Toàn bộ luật chơi do Host quyết định. Client chỉ nhận kết quả.
         if (!HasStateAuthority) return;
+
+        // CÓ NGƯỜI THOÁT GIỮA TRẬN -> huỷ trận. Thêm 01/09.
+        //
+        // Xét trước mọi thứ khác: không có lý do gì chạy tiếp một round mà quân số đã lệch.
+        if (CheckForAbandonedMatch()) return;
 
         // KillZone kiểm tra liên tục trong lúc đánh nhau
         if (Phase == GamePhase.Combat)
@@ -177,6 +200,20 @@ public class GameManager : NetworkBehaviour
     private void StartNewRound()
     {
         CurrentRound++;
+
+        // CHỐT MỐC QUÂN SỐ ở round ĐẦU TIÊN.
+        //
+        // Chốt ở đây chứ không phải trong Spawned(): lúc GameManager sinh ra thì nhân vật
+        // chưa spawn xong (xem thứ tự trong NetworkRunnerHandler.OnSceneLoadDone), đếm lúc
+        // đó sẽ ra 0. Tới round đầu tiên thì warmupDuration đã trôi qua và ai cũng có mặt.
+        //
+        // Chỉ chốt MỘT LẦN. Chốt lại mỗi round thì người thoát ở round 3 sẽ thành mốc mới
+        // của round 4, và trận cứ thế đánh tiếp với quân số lệch - đúng thứ đang muốn chặn.
+        if (ExpectedPlayerCount <= 0)
+        {
+            ExpectedPlayerCount = PlayerHealth.AllPlayers.Count;
+            Debug.Log($"<color=cyan>[TRẬN] Chốt quân số: {ExpectedPlayerCount} người.</color>");
+        }
 
         // Xoá tiến độ chiếm của round trước. Không có dòng này thì round 2 bắt đầu
         // với thanh đã gần đầy sẵn và kết thúc trong vài giây.
@@ -402,6 +439,47 @@ public class GameManager : NetworkBehaviour
         if (BlueScore >= pointsToWin && BlueScore > RedScore) return 1;
 
         return -1;
+    }
+
+    /// <summary>
+    /// Phát hiện có người thoát giữa trận và huỷ trận. Trả về true nếu vừa huỷ.
+    ///
+    /// VÌ SAO HUỶ CHỨ KHÔNG ĐÁNH TIẾP 2v1:
+    ///
+    /// Điều kiện thắng round của game này là TIẾN ĐỘ CHIẾM KHU, mà khu được quyết định
+    /// bằng số người đứng trong đó. Đội 2 người chỉ cần một người giữ khu, một người quấy
+    /// rối là thắng chắc - người còn lại bên kia không có cách nào xoay chuyển.
+    ///
+    /// Đền bù bằng tiền KHÔNG cứu được: tiền mua vật phẩm tiêu hao, không mua được một
+    /// người thứ hai để tranh khu. Đền bù kinh tế chỉ hợp với game mà tiền đổi thẳng ra
+    /// sức mạnh (như CS: tiền -> súng tốt hơn).
+    ///
+    /// Quyết định này nhất quán với việc CHẶN người vào giữa trận: cả hai cùng nói
+    /// "2v2 là thể thức cố định, không đủ người thì không đấu".
+    /// </summary>
+    private bool CheckForAbandonedMatch()
+    {
+        // Trận đã kết thúc rồi thì thôi, không huỷ chồng lên nữa.
+        if (Phase == GamePhase.MatchEnd || Phase == GamePhase.WaitingToStart) return false;
+
+        // Chưa chốt mốc quân số thì chưa có gì để so.
+        if (ExpectedPlayerCount <= 0) return false;
+
+        if (PlayerHealth.AllPlayers.Count >= ExpectedPlayerCount) return false;
+
+        Debug.LogWarning($"<color=orange>[TRẬN] Có người thoát " +
+                         $"({PlayerHealth.AllPlayers.Count}/{ExpectedPlayerCount}) -> huỷ trận.</color>");
+
+        MatchAbandoned = true;
+        MatchWinner = -1;   // không ai thắng
+        Phase = GamePhase.MatchEnd;
+
+        // Dùng đúng đồng hồ của MatchEnd: người chơi có vài giây đọc thông báo rồi mới
+        // bị đưa về menu. Không cắt thẳng về menu - đang đánh nhau mà màn hình nhảy phắt
+        // sang menu thì không ai hiểu chuyện gì vừa xảy ra.
+        PhaseTimer = TickTimer.CreateFromSeconds(Runner, matchEndDuration);
+
+        return true;
     }
 
     // Map là đảo lơ lửng nên rơi khỏi rìa phải chết, không thì kẹt dưới vực mãi

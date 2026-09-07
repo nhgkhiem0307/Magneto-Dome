@@ -292,6 +292,11 @@ public class PlayerHealth : NetworkBehaviour
 
             // Hiệu lực Nước Tăng Lực bị xoá khi sang round mới, giống như giáp.
             movement.ClearEnergyDrink();
+
+            // Xoá choáng. Thiếu dòng này thì người vừa ăn một cú đấm rồi rơi khỏi đảo sẽ
+            // hồi sinh trong trạng thái vẫn còn choáng - đứng chôn chân ngay tại điểm
+            // xuất phát, không hiểu vì sao.
+            movement.ClearStun();
         }
 
         // Chai xăng đang cầm trên tay cũng mất theo round.

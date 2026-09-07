@@ -326,7 +326,7 @@ public class HUDController : MonoBehaviour
             if (myHealth != null && myHealth.IsWaitingToRespawn)
             {
                 respawnCountdownText.gameObject.SetActive(true);
-                respawnCountdownText.text = $"Sống lại sau {Mathf.CeilToInt(myHealth.RespawnSecondsLeft)}s";
+                respawnCountdownText.text = $"Respawning in {Mathf.CeilToInt(myHealth.RespawnSecondsLeft)}s";
             }
             else
             {
@@ -530,9 +530,21 @@ public class HUDController : MonoBehaviour
                 break;
 
             case GameManager.GamePhase.MatchEnd:
-                SetAnnouncement(gm.MatchWinner == 0
-                    ? "RED TEAM WINS!"
-                    : "BLUE TEAM WINS!");
+                // Trận bị huỷ vì có người thoát -> nói rõ LÝ DO, không hiện đội thắng.
+                //
+                // Thiếu nhánh này thì trận huỷ sẽ hiện "BLUE TEAM WINS!" (vì MatchWinner
+                // bằng -1, khác 0), tức là báo sai người thắng - vừa khó hiểu vừa gây ức chế
+                // cho đội đang dẫn điểm.
+                if (gm.MatchAbandoned)
+                {
+                    SetAnnouncement("MATCH CANCELLED\nA PLAYER LEFT THE GAME");
+                }
+                else
+                {
+                    SetAnnouncement(gm.MatchWinner == 0
+                        ? "RED TEAM WINS!"
+                        : "BLUE TEAM WINS!");
+                }
                 break;
 
             default:

@@ -83,6 +83,15 @@ public class PlayerAnimatorDriver : MonoBehaviour
              "TẮT: quay lại kiểu cũ - vô hình hoàn toàn với chính mình, chỉ còn cái bóng.")]
     public bool showOwnBodyInFirstPerson = false;
 
+    [Tooltip("Giấu luôn BÓNG ĐỔ của chính mình.\n\n" +
+             "Bật khi đã dùng viewmodel (FirstPersonViewmodel). Lý do: bóng được đổ từ " +
+             "animation GÓC NHÌN THỨ BA - tay vung ở hai bên hông - trong khi tay viewmodel " +
+             "đang giơ trước mặt. Nhìn xuống thấy hai thứ mâu thuẫn nhau, và cái bóng lộ ra " +
+             "ngay là nó chẳng liên quan gì tới thứ mình đang điều khiển.\n\n" +
+             "Đánh đổi: mất cảm giác 'có thân', góc nhìn thứ nhất bớt bám đất. Tắt ô này " +
+             "nếu bạn thấy giữ bóng vẫn hơn.")]
+    public bool hideOwnShadow = true;
+
     [Tooltip("Thu nhỏ xương đầu còn bấy nhiêu lần để nó biến mất.\n\n" +
              "CỐ Ý KHÔNG ĐỂ 0. Scale bằng 0 tạo ma trận suy biến, một số đường tính da " +
              "(skinning) sẽ cho ra pháp tuyến NaN và mặt bị nháy đen hoặc kéo dài vô tận. " +
@@ -450,7 +459,11 @@ public class PlayerAnimatorDriver : MonoBehaviour
             // Bỏ qua thứ vốn không đổ bóng (hiệu ứng, UI trong thế giới...)
             if (r.shadowCastingMode == ShadowCastingMode.Off) continue;
 
-            r.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+            // ShadowsOnly = vô hình nhưng vẫn đổ bóng.
+            // Off = biến mất hoàn toàn, kể cả bóng.
+            r.shadowCastingMode = hideOwnShadow
+                ? ShadowCastingMode.Off
+                : ShadowCastingMode.ShadowsOnly;
         }
     }
 

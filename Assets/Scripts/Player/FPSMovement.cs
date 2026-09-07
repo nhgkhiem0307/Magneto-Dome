@@ -43,6 +43,27 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     [Tooltip("Độ mạnh cú rung khi Dash, thang 0..1. Đặt 0 để tắt.")]
     public float dashShakeTrauma = 0.35f;
 
+    [Header("Choáng khi bị tác động")]
+    [Tooltip("Bị đấm / trúng đạn / dính nổ thì mất điều khiển bao nhiêu giây.\n\n" +
+             "NGẮN THÔI. 0.35 đủ để cảm nhận được là vừa ăn đòn và không kịp phản ứng, " +
+             "nhưng chưa đủ để thành ức chế. Trên 0.6 là người chơi bắt đầu thấy như game " +
+             "bị treo chứ không phải nhân vật bị choáng.")]
+    public float stunDuration = 0.35f;
+
+    [Tooltip("Sau khi hết choáng thì MIỄN NHIỄM choáng thêm bấy nhiêu giây.\n\n" +
+             "⚠️ BẮT BUỘC PHẢI CÓ, đây không phải tuỳ chọn. Thiếu nó thì hai người vây một " +
+             "sẽ khoá cứng nạn nhân vĩnh viễn - mỗi cú đấm lại nạp choáng mới, người đó " +
+             "không bao giờ điều khiển được nữa cho tới lúc rơi khỏi đảo.\n\n" +
+             "Nôm na: bị choáng nhiều nhất một lần mỗi (stunDuration + ô này) giây.")]
+    public float stunImmunityDuration = 0.9f;
+
+    [Tooltip("Đang choáng thì có chặn luôn Dash không.\n\n" +
+             "Nên bật: Dash là đường thoát hiểm, cho dùng ngay lúc vừa ăn đòn thì cú đấm " +
+             "gần như không có hậu quả gì.\n\n" +
+             "Cố ý KHÔNG bao giờ chặn xoay camera - bị cướp quyền nhìn là thứ gây ức chế " +
+             "nhất trong game bắn súng, kể cả khi chỉ mất một phần ba giây.")]
+    public bool stunBlocksDash = true;
+
     [Header("Góc nhìn thứ nhất - vị trí camera")]
     [Tooltip("Tự đặt camera vào đúng TẦM MẮT bằng cách đo từ xương đầu lúc spawn.\n\n" +
              "Vì sao cần: ô Local Position của camera trên prefab là con số gõ tay, không " +
@@ -181,6 +202,16 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     // Còn bao lâu nữa mới thật sự coi là rời mặt đất. Xem groundedGraceTime.
     [Networked] private TickTimer GroundedGraceTimer { get; set; }
 
+    // Đang choáng tới lúc nào. Phải [Networked] vì Host là bên quyết định, mà máy nạn nhân
+    // cần biết để thôi gửi lệnh di chuyển, và các máy khác cần biết để chạy animation đúng.
+    [Networked] private TickTimer StunTimer { get; set; }
+
+    // Miễn nhiễm choáng tới lúc nào. Xem stunImmunityDuration.
+    [Networked] private TickTimer StunImmunityTimer { get; set; }
+
+    /// <summary>Đang bị choáng, mất quyền điều khiển. PlayerMagnetController đọc để chặn đánh.</summary>
+    public bool IsStunned => Runner != null && !StunTimer.ExpiredOrNotRunning(Runner);
+
     /// <summary>
     /// Tốc độ đi bộ đo TẠI MÁY NÀY, không qua mạng. Chỉ dùng cho nhấp nhô camera của
     /// chính mình — thứ không ai khác nhìn thấy nên không cần khớp với máy khác.
@@ -243,6 +274,17 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
             // Vừa vào trận: để CursorLock tính lại thay vì tự khoá.
             // Nó sẽ khoá chuột nếu không có bảng giao diện nào đang mở.
             CursorLock.Refresh();
+
+            // DỰNG VIEWMODEL — chỉ cho nhân vật của mình.
+            //
+            // Gọi ở đây chứ không để nó tự dựng trong Awake của chính nó: lúc Awake thì
+            // chưa biết ai là nhân vật của người ngồi trước máy này, mà dựng nhầm cho cả
+            // 4 nhân vật thì mỗi máy có 4 bản sao tay và 4 camera phụ.
+            FirstPersonViewmodel viewmodel = GetComponent<FirstPersonViewmodel>();
+            if (viewmodel != null)
+            {
+                viewmodel.Build(cameraTransform, GetComponentInChildren<Animator>());
+            }
         }
 
         // Chỉ bật Camera và AudioListener của nhân vật mình.
@@ -355,6 +397,17 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         Vector3 inputDir = new Vector3(input.MoveDirection.x, 0f, input.MoveDirection.y);
         inputDir = Vector3.ClampMagnitude(inputDir, 1f);
 
+        // ĐANG CHOÁNG -> mất quyền đi lại.
+        //
+        // Xoá inputDir chứ không xoá moveDirection ở dòng dưới: inputDir còn được dùng cho
+        // WalkSpeed01 và MovingBackward ở cuối hàm. Xoá ở đây thì animation cũng tự về đứng
+        // yên, không phải sửa thêm chỗ nào.
+        //
+        // KHÔNG đụng tới vận tốc rơi và lực bị hất - người bị choáng vẫn phải bay theo cú
+        // đấm và vẫn rơi. Chặn cả hai thứ đó thì nạn nhân đứng chôn chân giữa không trung.
+        bool stunned = IsStunned;
+        if (stunned) inputDir = Vector3.zero;
+
         Vector3 moveDirection = transform.right * inputDir.x + transform.forward * inputDir.z;
 
         // 3. COOLDOWN DASH & LỆNH DASH
@@ -371,6 +424,10 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         // "tick trước" và "tick này" thành ra giống hệt nhau, nên WasPressed() luôn trả về
         // false — nhảy sẽ không bao giờ chạy mà cũng không báo lỗi gì.
         bool jumpPressed = input.Buttons.WasPressed(PreviousButtons, (int)InputButton.Jump);
+
+        // Choáng thì chặn luôn Dash: đó là đường thoát hiểm, cho dùng ngay lúc vừa ăn đòn
+        // thì cú đấm gần như không còn hậu quả gì.
+        if (stunned && stunBlocksDash) dashPressed = false;
 
         if (dashPressed && dashTimer <= 0f)
         {
@@ -665,6 +722,42 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         cameraShake.AddDisorient(strength);
     }
 
+    /// <summary>
+    /// Gây choáng: mất quyền di chuyển trong stunDuration giây.
+    ///
+    /// Tự bỏ qua nếu đang trong thời gian miễn nhiễm - xem stunImmunityDuration.
+    /// </summary>
+    public void ApplyStun()
+    {
+        // Chỉ Host được ghi. Hàm này chạy trên máy nào gọi AddImpact, mà AddImpact thì
+        // Client cũng dự đoán được - để Client ghi thì Fusion sẽ tua lại và giá trị dao động.
+        if (!HasStateAuthority) return;
+        if (Runner == null) return;
+        if (stunDuration <= 0f) return;
+
+        // Còn miễn nhiễm thì bỏ qua hoàn toàn, KHÔNG nạp lại đồng hồ.
+        //
+        // Đây là chốt chống khoá cứng. Không có nó thì hai người vây một sẽ giữ nạn nhân
+        // trong trạng thái choáng vĩnh viễn: mỗi cú đấm nạp lại 0.35 giây, mà hai người
+        // thay nhau đấm thì khoảng trống giữa hai cú luôn nhỏ hơn 0.35.
+        if (!StunImmunityTimer.ExpiredOrNotRunning(Runner)) return;
+
+        StunTimer = TickTimer.CreateFromSeconds(Runner, stunDuration);
+
+        // Miễn nhiễm tính từ BÂY GIỜ và kéo dài qua hết cơn choáng, nên khoảng cách tối
+        // thiểu giữa hai lần choáng là (stunDuration + stunImmunityDuration).
+        StunImmunityTimer = TickTimer.CreateFromSeconds(Runner, stunDuration + stunImmunityDuration);
+    }
+
+    /// <summary>Xoá choáng ngay. GameManager gọi khi hồi sinh / sang round mới.</summary>
+    public void ClearStun()
+    {
+        if (!HasStateAuthority) return;
+
+        StunTimer = TickTimer.None;
+        StunImmunityTimer = TickTimer.None;
+    }
+
     /// <summary>Xoá sạch dư chấn camera. Gọi khi hồi sinh / sang round mới nếu cần.</summary>
     public void ResetCameraShake()
     {
@@ -696,9 +789,19 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         dir.Normalize();
         if (dir.y < 0f) dir.y = -dir.y;
 
-        if (scaleByCharge && health != null)
+        // CHOÁNG KHI BỊ TÁC ĐỘNG TỪ BÊN NGOÀI.
+        //
+        // Móc vào đúng đây vì scaleByCharge ĐÃ LÀ câu hỏi "cú đẩy này từ bên ngoài hay do
+        // mình tự tạo ra?" - câu hỏi y hệt cái ta cần trả lời cho việc choáng.
+        //
+        // Nhờ vậy chỉ một dòng là phủ hết cả ba nguồn: đấm cận chiến, trúng đạn, nổ TNT.
+        // Và Dash với Grapple tự động KHÔNG gây choáng, vì chúng truyền false - lướt xong
+        // tự làm mình choáng thì vô lý.
+        if (scaleByCharge)
         {
-            force *= health.KnockbackMultiplier;
+            ApplyStun();
+
+            if (health != null) force *= health.KnockbackMultiplier;
         }
 
         NetImpact += dir * (force / mass);

@@ -335838,7 +335838,7 @@ Transform:
   m_GameObject: {fileID: 2015654167}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 40, y: 4.6, z: 40}
+  m_LocalPosition: {x: 40, y: 6, z: 40}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -335859,33 +335859,22 @@ MonoBehaviour:
   radius: 13
   halfHeight: 3
   buildVisualAtRuntime: 1
-  tongueCount: 600
-  flameHeight: 0.4
-  flameHeightAtFull: 1
-  tongueWidth: 0.5
-  flameSpeed: 1.6
-  flameSway: 0.22
-  edgeHeightBoost: 1.6
-  flameAlpha: 0.38
-  hotCoreColor: {r: 2.6, g: 2.3, b: 1.9, a: 1}
-  hotCoreAmount: 0.5
-  risingFlames: 1
-  flameLifetime: 1.1
-  convergeToCenter: 0.35
-  groundGlowAlpha: 0.5
-  groundGlowScale: 1.15
-  emberCount: 70
-  emberRiseHeight: 5
-  emberSize: 0.09
-  emberLifetime: 2.2
-  neutralColor: {r: 1.15, g: 1.12, b: 1.05, a: 1}
-  redTeamColor: {r: 1.5, g: 0.55, b: 0.45, a: 1}
-  blueTeamColor: {r: 0.5, g: 0.8, b: 1.5, a: 1}
-  contestedColor: {r: 1.5, g: 1.25, b: 0.6, a: 1}
-  colorBlendSpeed: 4
+  ringCount: 3
+  ringTopHeight: 4
+  ringWidth: 0.12
+  ringSpinSpeed: 18
+  beamHeight: 14
+  beamRadiusRatio: 0.06
   zoneLight: {fileID: 0}
   lightRange: 18
   lightIntensity: 3
+  neutralColor: {r: 1.4, g: 1.4, b: 1.5, a: 1}
+  redTeamColor: {r: 3, g: 0.35, b: 0.3, a: 1}
+  blueTeamColor: {r: 0.35, g: 0.8, b: 3, a: 1}
+  contestedColor: {r: 3, g: 2.2, b: 0.5, a: 1}
+  pulseAmount: 0.25
+  pulseSpeed: 1.2
+  colorBlendSpeed: 4
   gizmoColor: {r: 1, g: 0.85, b: 0.2, a: 0.25}
 --- !u!1001 &2018086931
 PrefabInstance:

@@ -43,13 +43,29 @@ public static class CursorLock
     }
 
     /// <summary>
-    /// Xoá sạch mọi đăng ký. Gọi khi đổi scene hoặc rời trận —
+    /// Xoá sạch mọi đăng ký VÀ thả chuột ra. Gọi khi đổi scene hoặc rời trận —
     /// lúc đó mọi bảng giao diện đều đã bị huỷ theo scene cũ.
+    ///
+    /// ⚠️ CỐ Ý KHÔNG GỌI Apply(). Đây là lỗi đã sửa ngày 01/09 và rất dễ vô tình khôi phục.
+    ///
+    /// Apply() hỏi "còn nhân vật không?" để quyết định. Nhưng lúc ReturnToMenu() gọi hàm
+    /// này thì nhân vật VẪN CÒN SỐNG - nó chỉ bị huỷ vài khung hình sau, khi scene thật sự
+    /// đổi. Nên Apply() thấy inMatch = true, mà danh sách đăng ký thì vừa bị xoá sạch,
+    /// và nó kết luận: KHOÁ CHUỘT LẠI.
+    ///
+    /// Kết quả là một hàm tên "thả hết" lại đi khoá chuột, rồi MenuScene load xong mà
+    /// không ai tính lại nữa - người chơi vào menu với con trỏ bị khoá, không bấm được nút
+    /// nào. Bấm Escape thì mở Settings, Settings đăng ký xin chuột, và chuột được thả -
+    /// đó là lý do Escape "chữa" được lỗi này.
+    ///
+    /// Đổi scene thì LUÔN LUÔN phải thả chuột, không có ngoại lệ nào cần hỏi thêm.
     /// </summary>
     public static void ReleaseAll()
     {
         _requesters.Clear();
-        Apply();
+
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 
     /// <summary>

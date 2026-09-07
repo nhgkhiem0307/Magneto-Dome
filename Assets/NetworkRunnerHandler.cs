@@ -117,6 +117,69 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     // Tắt Runner mất vài khung hình, cờ này chặn việc gọi chồng lên nhau.
     private bool _isReturningToMenu = false;
 
+    /// <summary>
+    /// Máy này có đang ở trong scene gameplay hay không.
+    ///
+    /// ⚠️ ĐỪNG DÙNG _matchStarted CHO VIỆC NÀY. Cờ đó chỉ được đặt trong OnClickStartMatch(),
+    /// mà hàm đó nằm sau "if (IsServer)" nên CHỈ HOST chạy - trên máy Client nó vĩnh viễn
+    /// bằng false.
+    ///
+    /// Đó chính là lý do bản sửa ngày 01/09 không ăn: Host thoát, Client nhận
+    /// OnDisconnectedFromServer, nhưng "if (_matchStarted)" trả về false nên nó rơi xuống
+    /// nhánh "còn ở phòng chờ" và đi gọi ShowPanel(mainButtonsPanel) - một panel đã bị huỷ
+    /// cùng MenuScene. Không ai đưa Client về menu, họ kẹt lại trong TestScene.
+    ///
+    /// Hỏi scene đang chạy thì đúng trên MỌI máy, bất kể ai là người bấm Bắt Đầu.
+    /// </summary>
+    private bool IsInGameScene => SceneManager.GetActiveScene().name == gameSceneName;
+
+    /// <summary>
+    /// Vừa từ một trận đấu quay về menu, hay vừa mới mở game lên.
+    ///
+    /// Phải là biến TĨNH: khi về menu, object NetworkRunnerHandler cũ bị huỷ và một bản
+    /// mới trong MenuScene nhận vai. Biến thường sẽ mất theo object cũ, chỉ biến tĩnh mới
+    /// truyền được thông tin qua ranh giới đó.
+    ///
+    /// Dùng để chọn màn hình đầu tiên:
+    ///   - Mới mở game  -> màn NHẬP TÊN (đây là đường DUY NHẤT để đổi tên, vì không nút
+    ///                     nào trong MenuScene quay lại được màn này)
+    ///   - Về từ trận   -> thẳng MÀN HÌNH CHÍNH, khỏi bắt gõ lại tên vừa dùng xong
+    ///
+    /// Biến tĩnh tự mất khi tắt hẳn game, nên lần mở sau lại vào màn nhập tên - đúng ý.
+    /// </summary>
+    private static bool _returningFromMatch = false;
+
+    /// <summary>
+    /// Câu thông báo cần hiện NGAY khi về tới MenuScene. Rỗng = không có gì để báo.
+    ///
+    /// Vì sao phải để dành lại thay vì hiện tại chỗ: khi Host thoát thì MẠNG ĐÃ CHẾT và
+    /// GameManager cũng despawn theo. Không dùng được pha MatchEnd như trường hợp client
+    /// thoát (xem GameManager.CheckForAbandonedMatch) - không còn ai đồng bộ gì cho ai nữa.
+    ///
+    /// Nên câu thông báo được cất vào một biến TĨNH, sống sót qua việc đổi scene, rồi
+    /// Start() của MenuScene lấy ra hiện. Không có nó thì client đang đánh nhau bỗng thấy
+    /// mình ở menu, không hiểu vì sao.
+    /// </summary>
+    private static string _pendingMenuMessage = "";
+
+    /// <summary>
+    /// Đang có một thao tác mạng chạy dở (tạo phòng, vào phòng, ghép trận, rời phòng).
+    ///
+    /// ⚠️ MỌI NÚT MẠNG ĐỀU PHẢI HỎI CỜ NÀY TRƯỚC.
+    ///
+    /// Bốn hàm OnClickMatchmaking / OnConfirmCreateRoom / OnClickJoinByCode /
+    /// OnClickLeaveRoom đều là "async void" và đều gọi StartGame() hoặc Shutdown() -
+    /// những thao tác mất vài giây. Trong khoảng đó nút vẫn bấm được, mà người chơi thì
+    /// LUÔN bấm lại khi thấy không có gì xảy ra.
+    ///
+    /// Gọi StartGame() lần thứ hai trên một Runner đang khởi động dở là lỗi chắc chắn:
+    /// Fusion không cho phép, và trạng thái phòng sẽ hỏng.
+    ///
+    /// Một cờ dùng CHUNG cho cả bốn nút, không phải mỗi nút một cờ - vì chúng loại trừ
+    /// lẫn nhau: đang tạo phòng thì cũng không được bấm vào phòng khác.
+    /// </summary>
+    private bool _isBusyWithNetwork = false;
+
     // Runner ĐÃ tắt xong rồi (Fusion vừa gọi OnShutdown).
     //
     // ⚠️ CỜ NÀY CHỐNG TREO MÁY, không phải để cho gọn. Xem ReturnToMenu():
@@ -169,8 +232,41 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
         RefreshCurrentNameText();
 
-        ShowPanel(namePanel);
-        if (statusErrorText != null) statusErrorText.text = "";
+        // BẢO HIỂM CHO CON TRỎ CHUỘT.
+        //
+        // ReturnToMenu() đã gọi CursorLock.ReleaseAll() rồi, nhưng đó là ở scene CŨ.
+        // Thả lại một lần nữa khi MenuScene đã chạy thật, để bịt mọi đường khoá chuột khác
+        // mà ta chưa lường tới.
+        CursorLock.ReleaseAll();
+
+        // VỀ TỪ MỘT TRẬN ĐẤU -> VÀO THẲNG MÀN HÌNH CHÍNH.
+        //
+        // Đánh xong một trận mà bị ném về màn gõ tên như vừa mở game lần đầu thì vừa thừa
+        // vừa mất phương hướng - tên đã lưu trong PlayerPrefs rồi, gõ lại làm gì.
+        //
+        // Nhưng KHÔNG bỏ hẳn màn nhập tên đi được: đối chiếu 4 nút ShowPanel trong
+        // MenuScene thì không nút nào trỏ về namePanel, tức đây là đường DUY NHẤT để đổi
+        // tên. Bỏ luôn thì người chơi kẹt với cái tên gõ lần đầu, vĩnh viễn.
+        bool skipNameEntry = _returningFromMatch;
+        _returningFromMatch = false;
+
+        Debug.Log($"[MENU] Vào menu — bỏ qua màn nhập tên: {skipNameEntry}");
+
+        ShowPanel(skipNameEntry ? mainButtonsPanel : namePanel);
+
+        // Có chuyện gì xảy ra ở trận vừa rồi thì báo ngay tại đây.
+        //
+        // Đặt SAU ShowPanel: ShowPanel không đụng tới StatusErrorText (nó là con trực tiếp
+        // của Canvas, không nằm trong panel nào), nhưng đặt sau cho chắc thứ tự.
+        if (!string.IsNullOrEmpty(_pendingMenuMessage))
+        {
+            SetErrorMessage(_pendingMenuMessage);
+            _pendingMenuMessage = "";
+        }
+        else if (statusErrorText != null)
+        {
+            statusErrorText.text = "";
+        }
     }
 
     private void Update()
@@ -261,81 +357,117 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     // --- 1. GHÉP TRẬN NGẪU NHIÊN ---
     public async void OnClickMatchmaking()
     {
-        if (statusErrorText != null) statusErrorText.text = "";
-        EnsureRunnerExists();
+        if (_isBusyWithNetwork) return;
+        _isBusyWithNetwork = true;
 
-        await _networkRunner.StartGame(new StartGameArgs()
+        try
         {
-            GameMode = GameMode.AutoHostOrClient,
-            PlayerCount = 4,
-            SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
-        });
+            if (statusErrorText != null) statusErrorText.text = "";
+            EnsureRunnerExists();
 
-        ShowPanel(roomLobbyPanel);
+            await _networkRunner.StartGame(new StartGameArgs()
+            {
+                GameMode = GameMode.AutoHostOrClient,
+                PlayerCount = 4,
+                SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
+            });
+
+            ShowPanel(roomLobbyPanel);
+        }
+        finally
+        {
+            // finally chứ không phải đặt ở dòng cuối: nếu StartGame ném lỗi thì dòng cuối
+            // không bao giờ chạy tới, cờ kẹt ở true và mọi nút mạng CHẾT VĨNH VIỄN -
+            // người chơi phải tắt game mở lại. finally thì hỏng kiểu gì cũng được gỡ cờ.
+            _isBusyWithNetwork = false;
+        }
     }
 
     // --- 2. TẠO PHÒNG MỚI ---
     public async void OnConfirmCreateRoom()
     {
-        if (statusErrorText != null) statusErrorText.text = "";
-        EnsureRunnerExists();
+        if (_isBusyWithNetwork) return;
+        _isBusyWithNetwork = true;
 
-        _currentRoomCode = UnityEngine.Random.Range(10000, 99999).ToString();
-        if (yourRoomIDText != null) yourRoomIDText.text = "Room ID: " + _currentRoomCode;
-
-        var result = await _networkRunner.StartGame(new StartGameArgs()
+        try
         {
-            GameMode = GameMode.Host,
-            SessionName = _currentRoomCode,
-            PlayerCount = 4,
-            SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
-        });
+            if (statusErrorText != null) statusErrorText.text = "";
+            EnsureRunnerExists();
 
-        if (result.Ok)
-        {
-            ShowPanel(roomLobbyPanel);
+            _currentRoomCode = UnityEngine.Random.Range(10000, 99999).ToString();
+            if (yourRoomIDText != null) yourRoomIDText.text = "Room ID: " + _currentRoomCode;
+
+            var result = await _networkRunner.StartGame(new StartGameArgs()
+            {
+                GameMode = GameMode.Host,
+                SessionName = _currentRoomCode,
+                PlayerCount = 4,
+                SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
+            });
+
+            if (result.Ok)
+            {
+                ShowPanel(roomLobbyPanel);
+            }
+            else
+            {
+                SetErrorMessage("Could not create room!");
+            }
         }
-        else
+        finally
         {
-            SetErrorMessage("Could not create room!");
+            _isBusyWithNetwork = false;
         }
     }
 
     // --- 3. VÀO PHÒNG BẰNG MÃ ---
     public async void OnClickJoinByCode()
     {
+        if (_isBusyWithNetwork) return;
+
         if (statusErrorText != null) statusErrorText.text = "";
 
+        // Kiểm ô nhập TRƯỚC khi bật cờ bận: đây chỉ là kiểm tra tại chỗ, chưa đụng tới
+        // mạng. Bật cờ rồi mới return thì cờ bị kẹt ở true.
         if (string.IsNullOrEmpty(joinCodeInput.text))
         {
             SetErrorMessage("Please enter a Room ID!");
             return;
         }
 
-        EnsureRunnerExists();
-        _currentRoomCode = joinCodeInput.text.Trim();
+        _isBusyWithNetwork = true;
 
-        var result = await _networkRunner.StartGame(new StartGameArgs()
-        {
-            GameMode = GameMode.Client,
-            SessionName = _currentRoomCode,
-            SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
-        });
-
-        if (result.Ok)
-        {
-            ShowPanel(roomLobbyPanel);
-        }
-        else
-        {
-            SetErrorMessage("Room not found or already full!");
-            ShowPanel(mainButtonsPanel);
-            
-            if (_networkRunner != null)
+        try
             {
-                Destroy(_networkRunner.gameObject);
-                _networkRunner = null;
+            EnsureRunnerExists();
+            _currentRoomCode = joinCodeInput.text.Trim();
+
+            var result = await _networkRunner.StartGame(new StartGameArgs()
+            {
+                GameMode = GameMode.Client,
+                SessionName = _currentRoomCode,
+                SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
+            });
+
+            if (result.Ok)
+            {
+                ShowPanel(roomLobbyPanel);
             }
+            else
+            {
+                SetErrorMessage("Room not found or already full!");
+                ShowPanel(mainButtonsPanel);
+
+                if (_networkRunner != null)
+                {
+                    Destroy(_networkRunner.gameObject);
+                    _networkRunner = null;
+                }
+            }
+            }
+        finally
+        {
+            _isBusyWithNetwork = false;
         }
     }
 
@@ -353,6 +485,16 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         // GameManager có thể gọi thêm lần nữa.
         if (_isReturningToMenu) return;
         _isReturningToMenu = true;
+
+        // ĐẶT CỜ NGAY DÒNG ĐẦU, TRƯỚC MỌI LỆNH await.
+        //
+        // Trước đây cờ này nằm ở cuối hàm, ngay trên LoadScene. Nhưng giữa đầu hàm và
+        // cuối hàm có một "await Shutdown()" - mà await nghĩa là hàm TẠM DỪNG rồi mới
+        // chạy tiếp. Nếu vì lý do nào đó phần sau await không chạy tới nơi, cờ không bao
+        // giờ được đặt, và người chơi bị ném về màn nhập tên.
+        //
+        // Đặt ở đây thì dù phần sau có hỏng cách nào, cờ vẫn đúng.
+        _returningFromMatch = true;
 
         if (_networkRunner != null)
         {
@@ -410,18 +552,62 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     // --- 4. RỜI PHÒNG ---
     public async void OnClickLeaveRoom()
     {
-        if (_networkRunner != null)
+        if (_isBusyWithNetwork) return;
+        _isBusyWithNetwork = true;
+
+        try
         {
-            await _networkRunner.Shutdown();
-            Destroy(_networkRunner.gameObject);
-            _networkRunner = null;
+            if (_networkRunner != null)
+            {
+                // Không gọi Shutdown nếu Fusion đã tự tắt Runner - cùng cái bẫy treo máy
+                // đã gặp ở ReturnToMenu(): await trên một Runner đang tắt dở không bao giờ
+                // hoàn thành, và nút Rời phòng sẽ đứng im mãi mãi.
+                if (!_runnerIsDown)
+                {
+                    try
+                    {
+                        await _networkRunner.Shutdown();
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogWarning($"[MẠNG] Lỗi khi rời phòng, vẫn về menu: {e.Message}");
+                    }
+                }
+
+                if (_networkRunner != null) Destroy(_networkRunner.gameObject);
+                _networkRunner = null;
+            }
+
+            // Runner cũ đã chết, cờ phải trả về false để lần tạo/vào phòng sau còn chạy được.
+            _runnerIsDown = false;
+
+            ShowPanel(mainButtonsPanel);
         }
-        ShowPanel(mainButtonsPanel);
+        finally
+        {
+            _isBusyWithNetwork = false;
+        }
     }
 
     // --- 5. BẮT ĐẦU TRẬN (LOAD SCENE) ---
     public void OnClickStartMatch()
     {
+        // CHẶN BẤM NHIỀU LẦN. Thêm 01/09.
+        //
+        // Trước đây không có dòng này, nên bấm Bắt Đầu 3 lần là gọi runner.LoadScene()
+        // 3 lần. Hậu quả:
+        //   - Fusion đang load dở lại nhận lệnh load mới -> lỗi trong Console
+        //   - OnSceneLoadDone chạy nhiều lần -> tuy SpawnAllGamePlayers và SpawnGameManager
+        //     đều có chốt chống trùng, nhưng đó là chốt CUỐI CÙNG, không nên dựa vào
+        //   - Người chơi thấy màn hình load nhấp nháy vài lần
+        //
+        // Nút bị bấm nhiều lần là chuyện bình thường: mạng lag một nhịp là người ta bấm lại.
+        if (_matchStarted)
+        {
+            Debug.LogWarning("[MẠNG] Trận đã bắt đầu rồi, bỏ qua lần bấm này.");
+            return;
+        }
+
         if (_networkRunner != null && _networkRunner.IsServer)
         {
             int sceneIndex = SceneUtility.GetBuildIndexByScenePath(gameSceneName);
@@ -430,6 +616,13 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
                 // Bật cờ này TRƯỚC khi load, để khi scene load xong thì biết
                 // đây là lần vào trận thật và tiến hành spawn nhân vật.
                 _matchStarted = true;
+
+                // Tắt nút đi cho người chơi THẤY là đã bấm được.
+                //
+                // Dòng return ở đầu hàm đã chặn về mặt logic rồi, nhưng nút vẫn sáng và
+                // vẫn bấm được thì người chơi tưởng chưa ăn và cứ bấm tiếp. Tắt nút là
+                // phản hồi bằng hình ảnh, khác mục đích với dòng chặn kia.
+                if (startMatchButton != null) startMatchButton.interactable = false;
 
                 // KHOÁ PHÒNG LẠI. Thêm 01/09.
                 //
@@ -451,7 +644,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             }
             else
             {
-                SetErrorMessage($"Scene '{gameSceneName}' chưa được thêm vào Build Settings!");
+                SetErrorMessage($"Scene '{gameSceneName}' is not in Build Settings!");
             }
         }
     }
@@ -484,7 +677,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
         foreach (var p in RoomPlayer.AllPlayers)
         {
-            string pName = string.IsNullOrEmpty(p.NickName.ToString()) ? "Đang tải..." : p.NickName.ToString();
+            string pName = string.IsNullOrEmpty(p.NickName.ToString()) ? "Loading..." : p.NickName.ToString();
             
             if (p.Team == 0)
             {
@@ -498,12 +691,12 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             }
         }
 
-        if (teamRedText != null) teamRedText.text = $"ĐỘI ĐỎ ({redCount}/2):\n" + redList;
-        if (teamBlueText != null) teamBlueText.text = $"ĐỘI XANH ({blueCount}/2):\n" + blueList;
+        if (teamRedText != null) teamRedText.text = $"RED TEAM ({redCount}/2):\n" + redList;
+        if (teamBlueText != null) teamBlueText.text = $"BLUE TEAM ({blueCount}/2):\n" + blueList;
 
         if (roomTitleText != null)
         {
-            roomTitleText.text = $"PHÒNG: {_currentRoomCode} ({RoomPlayer.AllPlayers.Count}/4)";
+            roomTitleText.text = $"ROOM: {_currentRoomCode} ({RoomPlayer.AllPlayers.Count}/4)";
         }
 
         if (startMatchButton != null)
@@ -595,11 +788,28 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         // Đang ở trong trận mà Runner tắt -> Host đã kết thúc trận, hoặc mất kết nối.
         // Dù lý do nào thì cũng phải đưa người chơi về menu, không để họ kẹt lại
         // trong một scene không còn mạng.
-        if (_matchStarted)
+        //
+        // Xét CẢ HAI: _matchStarted đúng cho Host, IsInGameScene đúng cho Client.
+        // Chỉ xét _matchStarted thì Client không bao giờ được đưa về menu.
+        if (_matchStarted || IsInGameScene)
         {
+            // CHỈ báo khi kết thúc BẤT THƯỜNG.
+            //
+            // ShutdownReason.Ok nghĩa là trận kết thúc đúng luật - lúc đó người chơi đã
+            // xem thông báo "RED TEAM WINS!" hay "MATCH CANCELLED" suốt 8 giây rồi.
+            // Báo thêm một câu lỗi ở menu nữa là thừa, và làm một kết thúc bình thường
+            // trông như có sự cố.
             if (shutdownReason != ShutdownReason.Ok)
             {
                 Debug.LogWarning($"[MẠNG] Trận kết thúc bất thường: {shutdownReason}");
+
+                // Không ghi đè câu đã đặt sẵn bên OnDisconnectedFromServer - câu đó cụ thể
+                // hơn ("Host left the game"), còn câu này chỉ là phương án dự phòng khi
+                // OnShutdown tới trước.
+                if (string.IsNullOrEmpty(_pendingMenuMessage))
+                {
+                    _pendingMenuMessage = "Match ended unexpectedly — connection lost";
+                }
             }
 
             ReturnToMenu();
@@ -791,8 +1001,16 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
         // Đang trong trận -> đưa về menu. ReturnToMenu tự chặn gọi chồng, nên gọi ở cả
         // hai callback cũng an toàn: cái nào tới trước thì làm, cái sau tự thoát.
-        if (_matchStarted)
+        //
+        // ⚠️ PHẢI xét IsInGameScene, không chỉ _matchStarted. Trên máy Client cờ đó luôn
+        // là false, và đây chính là chỗ làm bản sửa lần trước không ăn - xem ghi chú
+        // đầy đủ ở khai báo IsInGameScene.
+        if (_matchStarted || IsInGameScene)
         {
+            // Để dành câu thông báo cho MenuScene hiện. Không hiện được tại chỗ vì mạng
+            // đã chết, và người chơi sắp bị chuyển scene trong tích tắc.
+            _pendingMenuMessage = "Host left the game — match ended";
+
             ReturnToMenu();
             return;
         }

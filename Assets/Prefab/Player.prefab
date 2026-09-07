@@ -5354,6 +5354,7 @@ GameObject:
   - component: {fileID: 7727870304868840478}
   - component: {fileID: 4435755394867021995}
   - component: {fileID: 5070809547340815761}
+  - component: {fileID: 3605298917471149570}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -5496,6 +5497,8 @@ MonoBehaviour:
   meleeShakeTrauma: 1
   meleeKickStrength: 2
   _currentGlovePolarity: 0
+  _IsPulling:
+    _value: 0
   _HasGasolineEquipped:
     _value: 0
 --- !u!114 &121466040936443899
@@ -5512,7 +5515,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FPSMovement
   dashKey: 113
   jumpKey: 32
-  moveSpeed: 9
+  moveSpeed: 7
   mouseSensitivity: 1
   cameraTransform: {fileID: 6162753422709012679}
   dashForce: 70
@@ -5520,6 +5523,9 @@ MonoBehaviour:
   jumpHeight: 1
   airControl: 0.8
   dashShakeTrauma: 0.7
+  stunDuration: 0.35
+  stunImmunityDuration: 0.9
+  stunBlocksDash: 1
   autoCalibrateEyeLevel: 1
   eyeHeightAboveHeadBone: 0.11
   eyeForwardOffset: 0.08
@@ -5671,6 +5677,7 @@ MonoBehaviour:
   reverseWhenMovingBackward: 1
   hideOwnBody: 1
   showOwnBodyInFirstPerson: 0
+  hideOwnShadow: 1
   headHideScale: 0.001
   firstPersonNearClip: 0.08
   useFirstPersonHandIK: 0
@@ -5739,6 +5746,49 @@ MonoBehaviour:
   heavyColor: {r: 0.68, g: 0.45, b: 1, a: 1}
   spikeColor: {r: 1, g: 0.35, b: 0.78, a: 1}
   tntColor: {r: 1, g: 0.58, b: 0.08, a: 1}
+--- !u!114 &3605298917471149570
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6178301003363824090}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30b2249b2784adf4aa4565ec2ff579c6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FirstPersonViewmodel
+  enableViewmodel: 1
+  viewmodelLayerName: Viewmodel
+  viewmodelFov: 45
+  viewmodelNearClip: 0.01
+  autoPlaceBody: 1
+  shoulderBelowEye: 0.25
+  bodyBehind: 0.12
+  bodyOffset: {x: 0, y: -2, z: -0.12}
+  leftHandRest: {x: -0.26, y: -0.24, z: 0.42}
+  rightHandRest: {x: 0.28, y: -0.26, z: 0.4}
+  elbowHint: {x: 0.6, y: -1, z: -0.35}
+  walkBobAmount: 0.045
+  walkSwingAmount: 0.24
+  walkLateralAmount: 0.05
+  walkRollAmount: 2.2
+  walkBobSpeed: 5
+  breatheAmount: 0.012
+  swayAmount: 0.006
+  swayMax: 0.07
+  swayRecover: 6
+  poseStiffness: 140
+  poseDamping: 20
+  punchThrust: 0.55
+  punchDrop: 0.06
+  firePush: 0.6
+  fireRecoil: 0.22
+  fireRecoilDelay: 0.09
+  laserExtend: 0.42
+  laserHold: 0.18
+  pullDraw: 0.2
+  pullSpread: 0.1
 --- !u!1 &6264108880301330700
 GameObject:
   m_ObjectHideFlags: 0

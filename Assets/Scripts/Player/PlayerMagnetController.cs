@@ -188,6 +188,16 @@ public class PlayerMagnetController : NetworkBehaviour
     [Networked, OnChangedRender(nameof(OnLaserFired))]
     private int LaserCount { get; set; }
 
+    /// <summary>
+    /// Đang giữ chuột hút một vật về tay.
+    ///
+    /// Khác ba bộ đếm ở trên: đây là TRẠNG THÁI LIÊN TỤC, không phải sự kiện một nhịp.
+    /// Viewmodel đọc ô này để giữ tư thế hai tay kéo về ngực suốt thời gian hút.
+    ///
+    /// [Networked] vì nhánh hút chỉ chạy trên Host - Client cần biết để tạo dáng tay.
+    /// </summary>
+    [Networked] public NetworkBool IsPulling { get; set; }
+
     // Đang cầm sẵn Chai Xăng Tẩy Chế trên tay hay không.
     // Dùng xong một lần là hết, phải rút chai khác từ túi.
     [Networked] public NetworkBool HasGasolineEquipped { get; set; }
@@ -232,6 +242,9 @@ public class PlayerMagnetController : NetworkBehaviour
     }
 
     private FPSMovement movement;
+
+    // Viewmodel g\u00f3c nh\u00ecn th\u1ee9 nh\u1ea5t. Ch\u1ec9 kh\u00e1c null tr\u00ean m\u00e1y c\u1ee7a ch\u1ee7 nh\u00e2n v\u1eadt.
+    private FirstPersonViewmodel viewmodel;
     private PlayerHealth health;
     private PlayerAnimatorDriver animatorDriver;
 
@@ -242,6 +255,7 @@ public class PlayerMagnetController : NetworkBehaviour
     public override void Spawned()
     {
         movement = GetComponent<FPSMovement>();
+        viewmodel = GetComponent<FirstPersonViewmodel>();
         health = GetComponent<PlayerHealth>();
         animatorDriver = GetComponent<PlayerAnimatorDriver>();
 
@@ -304,6 +318,30 @@ public class PlayerMagnetController : NetworkBehaviour
         // vừa cầm vừa di chuyển. Độ trễ đều đặn dễ quen tay hơn là giật ngẫu nhiên.
         // Đừng thử lại nếu không có cách xử lý sai lệch dự đoán tử tế hơn.
         if (!HasStateAuthority) return;
+
+        // XOÁ CỜ HÚT ở đầu mỗi tick. Nhánh hút bên dưới sẽ bật lại nếu còn đang hút.
+        //
+        // Phải xoá chủ động thế này chứ không tìm chỗ "khi thôi hút" để tắt: người chơi
+        // thôi hút bằng RẤT NHIỀU đường - nhả chuột, vật vào tay, vật bị cất túi, quay
+        // mặt đi chỗ khác, chết. Bắt hết từng đường thì chắc chắn sót một cái, mà sót là
+        // tay kẹt tư thế hút vĩnh viễn.
+        IsPulling = false;
+
+        // ĐANG CHOÁNG -> không đánh đấm gì được.
+        //
+        // Đặt SAU phần xoay người và tính hướng ngắm ở trên, để người bị choáng vẫn ngó
+        // nghiêng được. Cướp quyền nhìn là thứ gây ức chế nhất trong game bắn súng.
+        //
+        // Cố ý KHÔNG buông vật đang cầm: đang giơ cái bàn lên thì ăn một cú đấm, làm rơi
+        // luôn cái bàn nghe hợp lý nhưng chơi thì bực - mất cả công đi nhặt. Choáng đã là
+        // hình phạt đủ rồi.
+        if (movement != null && movement.IsStunned)
+        {
+            if (grabbedObject != null) KeepObjectInHand(aimRotation);
+
+            PreviousButtons = input.Buttons;
+            return;
+        }
 
         // TRẠNG THÁI 1: ĐANG CÓ ĐỒ TRÊN TAY
         if (grabbedObject != null)
@@ -469,6 +507,13 @@ public class PlayerMagnetController : NetworkBehaviour
         // "bỏ qua va chạm với chính người bắn ra nó" - mà MarkAsPulledBullet đặt
         // shooterOwner = mình, nên vật về tới tay không hề trừ điện của mình.
         if (pullDealsDamage) magObj.MarkAsBullet(this);
+
+        // Báo cho viewmodel biết đang hút, để nó giữ tư thế hai tay kéo về ngực.
+        //
+        // Đặt ở đây - trong nhánh HÚT MƯỢT - chứ không đặt ở đầu HandleLeftClickMagnet:
+        // đầu hàm còn có nhánh nạp điện, đẩy vật, cản Heavy, hút nhầm Spike. Bật cờ ở đó
+        // thì tay làm tư thế hút cả khi đang đẩy vật ra xa, ngược hẳn hành động.
+        IsPulling = true;
 
         // NGƯỠNG BẮT VÀO TAY PHẢI CỘNG THÊM BÁN KÍNH VẬT.
         //
@@ -898,6 +943,9 @@ public class PlayerMagnetController : NetworkBehaviour
         // đã bảo đảm sẵn. Để trống ô Punch Trigger Param bên kia thì nó tự bỏ qua.
         if (animatorDriver != null) animatorDriver.TriggerPunch();
 
+        // Vung tay tr\u01b0\u1edbc m\u1eaft. T\u1ef1 l\u1ecdc: viewmodel ch\u1ec9 t\u1ed3n t\u1ea1i tr\u00ean m\u00e1y ch\u1ee7 nh\u00e2n v\u1eadt.
+        if (viewmodel != null) viewmodel.PlayPunch();
+
         // Rung + giật camera của NGƯỜI ĐẤM.
         //
         // Hàm này chạy trên mọi máy (vì MeleeCount là [Networked]), nhưng ShakeCamera và
@@ -919,6 +967,8 @@ public class PlayerMagnetController : NetworkBehaviour
 
         movement.ShakeCamera(fireShakeTrauma);
         movement.KickCamera(fireKickStrength);
+
+        if (viewmodel != null) viewmodel.PlayFire();
     }
 
     // Chạy trên MỌI máy, đúng một lần cho mỗi phát laze vào vật chưa có điện.
@@ -928,6 +978,8 @@ public class PlayerMagnetController : NetworkBehaviour
     private void OnLaserFired()
     {
         AudioManager.Laser(transform.position);
+
+        if (viewmodel != null) viewmodel.PlayLaser();
     }
 
     /// <summary>

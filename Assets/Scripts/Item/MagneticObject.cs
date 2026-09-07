@@ -499,6 +499,10 @@ public class MagneticObject : NetworkBehaviour
         WasCounteredInFlight = false; // cú bay mới, cho phép can thiệp lại
         LaunchCount++; // để mọi máy phát tiếng, xem OnLaunched
 
+        // Bật quét va chạm liên tục, nếu không đạn bay 125 m/s sẽ xuyên qua người chơi.
+        // Xem giải thích đầy đủ ở EnableHighSpeedCollision().
+        EnableHighSpeedCollision();
+
         // Khoá một khoảng ngắn không cho tự tắt tư cách đạn.
         // Cần vì lực đẩy chỉ thật sự biến thành vận tốc ở bước vật lý kế tiếp,
         // nên ngay lúc vừa phóng thì tốc độ vẫn đang bằng 0.
@@ -524,12 +528,49 @@ public class MagneticObject : NetworkBehaviour
     /// Hàm này làm đúng phần tối thiểu và TỰ BỎ QUA nếu đã đánh dấu cho cùng chủ nhân,
     /// nên gọi bao nhiêu lần cũng như một lần.
     /// </summary>
+    /// <summary>
+    /// Bật chế độ phát hiện va chạm LIÊN TỤC cho vật đang bay nhanh.
+    ///
+    /// ⚠️ ĐÂY LÀ LỖI "BẮN XUYÊN QUA NGƯỜI" — sửa 01/09. Đọc kỹ trước khi gỡ.
+    ///
+    /// Mọi prefab đều để Collision Detection = Discrete (mặc định Unity). Ở chế độ đó
+    /// PhysX chỉ kiểm tra chồng lấn TẠI CÁC VỊ TRÍ RỜI RẠC, mỗi bước vật lý một lần.
+    ///
+    /// Làm phép tính với thông số thật của game:
+    ///     bước vật lý  = 0.02 giây (50Hz)
+    ///     pushSpeed    = 125 m/s  ->  2.5 MÉT mỗi bước
+    ///     fireSpeed    = 45 m/s   ->  0.9 mét mỗi bước
+    ///     bề ngang người chơi     =  1 mét
+    ///
+    /// Vật nhảy 2.5m mỗi bước qua một mục tiêu rộng 1m thì nó XUYÊN THẲNG QUA mà không
+    /// hề sinh ra va chạm nào. Đó là lý do đạn "lúc trúng lúc không" và vật càng MẢNH
+    /// càng hay trượt - vật to còn có cơ hội chồng lấn tại điểm lấy mẫu, thân cây thì không.
+    ///
+    /// ContinuousDynamic quét cả quãng đường giữa hai bước thay vì chỉ kiểm hai đầu mút.
+    /// Đắt hơn Discrete, nhưng chỉ bật cho vật ĐANG BAY nên số lượng luôn nhỏ.
+    ///
+    /// Đặt bằng code chứ không sửa từng prefab: có hàng chục prefab vật thể, sửa tay thì
+    /// chắc chắn sót, mà sót cái nào là cái đó bắn xuyên người mãi mãi.
+    /// </summary>
+    private void EnableHighSpeedCollision()
+    {
+        if (rb == null) return;
+
+        // Không đặt được cho vật kinematic - Unity sẽ cảnh báo và bỏ qua.
+        // Vật đang là đạn thì luôn không kinematic, nhưng kiểm cho chắc.
+        if (rb.isKinematic) return;
+
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+    }
+
     public void MarkAsBullet(PlayerMagnetController owner)
     {
         if (!HasStateAuthority) return;
 
         // Đã đánh dấu cho đúng người này rồi thì thôi, đây là lần gọi thứ hai trở đi
         if (isMovingAsBullet && shooterOwner == owner) return;
+
+        EnableHighSpeedCollision();
 
         isMovingAsBullet = true;
         shooterOwner = owner;
@@ -760,6 +801,17 @@ public class MagneticObject : NetworkBehaviour
         // Vật đang ẩn trong túi / đã nổ: ApplyStoredState() mới là chủ của isKinematic
         // lúc này, ghi đè ở đây sẽ làm vật sống lại giữa lúc đang nằm trong túi.
         if (IsStored || IsDestroyed) return;
+
+        // TRẢ VỀ DISCRETE TRƯỚC KHI ĐÓNG BĂNG.
+        //
+        // Hai lý do, cả hai đều bắt buộc:
+        //   1. Unity cảnh báo nếu đặt ContinuousDynamic cho vật kinematic
+        //   2. Map có hơn 4000 vật nằm im - để chúng quét va chạm liên tục là phí sạch,
+        //      mà đó đúng là thứ ta vừa mất cả buổi để tối ưu
+        //
+        // Vật tỉnh dậy sẽ được bật lại ở LaunchAsBullet / MarkAsBullet, tức là đúng lúc
+        // nó thật sự bay nhanh. Vật lăn lều bều không cần quét liên tục.
+        if (IsSleeping) rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
 
         rb.isKinematic = IsSleeping;
 
