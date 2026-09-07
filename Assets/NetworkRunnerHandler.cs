@@ -25,7 +25,13 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     public GameObject roomLobbyPanel;
     public GameObject createRoomPanel;
     public GameObject roomListPanel;
-    private GameObject[] _allPanels;    
+    private GameObject[] _allPanels;
+
+    [Header("Room List UI")]
+    [Tooltip("Transform 'Content' bên trong Scroll View của roomListPanel — nơi các dòng RoomItemUI được sinh ra.")]
+    public Transform roomListContent;
+    [Tooltip("Prefab Assets/Prefab/RoomItemUI.prefab — mỗi phòng trong danh sách là một bản sao của prefab này.")]
+    public RoomItemUI roomItemPrefab;
 
     [Header("UI Inputs & Texts")]
     public TMP_InputField nameInput;
@@ -365,20 +371,67 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             if (statusErrorText != null) statusErrorText.text = "";
             EnsureRunnerExists();
 
-            await _networkRunner.StartGame(new StartGameArgs()
+            var result = await _networkRunner.StartGame(new StartGameArgs()
             {
                 GameMode = GameMode.AutoHostOrClient,
                 PlayerCount = 4,
+                // Không đặt SessionName -> Photon tự ghép vào phòng public đang mở còn
+                // trống, hoặc tự tạo phòng mới (kèm cái tên tự sinh) nếu chưa có phòng
+                // nào. IsVisible mặc định = true nên phòng này SẼ hiện trong Room List
+                // và CÓ THỂ bị người khác ghép trận ngẫu nhiên vào - đúng ý "global".
                 SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
             });
 
+            // Trước đây không có dòng này nên _currentRoomCode luôn rỗng với phòng
+            // Global -> roomTitleText/yourRoomIDText hiện trống, trông như phòng
+            // "không có ID". Lấy đúng cái tên Photon vừa gán cho session (dù do ta tạo
+            // mới hay vừa được ghép vào phòng có sẵn), dùng luôn làm "ID phòng" hiển thị -
+            // vừa đúng sự thật vừa khỏi phải tự sinh thêm một mã khác chồng lên.
+            if (result.Ok && _networkRunner.SessionInfo != null)
+            {
+                _currentRoomCode = _networkRunner.SessionInfo.Name;
+            }
+
             ShowPanel(roomLobbyPanel);
+            UpdateLobbyUI();
         }
         finally
         {
             // finally chứ không phải đặt ở dòng cuối: nếu StartGame ném lỗi thì dòng cuối
             // không bao giờ chạy tới, cờ kẹt ở true và mọi nút mạng CHẾT VĨNH VIỄN -
             // người chơi phải tắt game mở lại. finally thì hỏng kiểu gì cũng được gỡ cờ.
+            _isBusyWithNetwork = false;
+        }
+    }
+
+    // --- 1b. MỞ DANH SÁCH PHÒNG ---
+    //
+    // Trước đây nút này chỉ gọi thẳng ShowPanel(roomListPanel) — hiện cái panel trống ra
+    // rồi thôi. Photon không tự gửi danh sách phòng cho máy nào cả, phải CHỦ ĐỘNG xin
+    // bằng JoinSessionLobby() thì Fusion mới bắt đầu gọi OnSessionListUpdated() về sau.
+    public async void OnClickOpenRoomList()
+    {
+        if (_isBusyWithNetwork) return;
+        _isBusyWithNetwork = true;
+
+        try
+        {
+            if (statusErrorText != null) statusErrorText.text = "";
+            EnsureRunnerExists();
+
+            var result = await _networkRunner.JoinSessionLobby(SessionLobby.ClientServer);
+
+            if (result.Ok)
+            {
+                ShowPanel(roomListPanel);
+            }
+            else
+            {
+                SetErrorMessage("Could not load room list!");
+            }
+        }
+        finally
+        {
             _isBusyWithNetwork = false;
         }
     }
@@ -402,12 +455,26 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
                 GameMode = GameMode.Host,
                 SessionName = _currentRoomCode,
                 PlayerCount = 4,
+                // Phòng CUSTOM là phòng riêng, chỉ vào được bằng đúng mã - không cho lộ
+                // ra ngoài. IsVisible=false vừa giấu nó khỏi Room List (JoinSessionLobby
+                // sẽ không trả phòng này về nữa), vừa khiến Global Matchmaking
+                // (GameMode.AutoHostOrClient không chỉ định SessionName) bỏ qua nó luôn -
+                // Photon chỉ tự ghép người vào những phòng Visible, đúng ý "custom không
+                // hiện ở room list cũng không bị ghép trận ngẫu nhiên vào".
+                IsVisible = false,
                 SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
             });
 
             if (result.Ok)
             {
                 ShowPanel(roomLobbyPanel);
+
+                // yourRoomIDText nằm trong createRoomPanel, panel vừa bị ẩn đi ở dòng
+                // trên - viết chữ vào đó thì không ai thấy được nữa. Còn roomTitleText
+                // (nằm trong roomLobbyPanel, panel ĐANG hiện) vốn chỉ được cập nhật gián
+                // tiếp qua UpdateLobbyUI() khi RoomPlayer của Host spawn xong - có độ trễ
+                // mạng. Gọi thẳng ở đây để Host thấy mã phòng NGAY, không phải chờ.
+                UpdateLobbyUI();
             }
             else
             {
@@ -423,8 +490,6 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     // --- 3. VÀO PHÒNG BẰNG MÃ ---
     public async void OnClickJoinByCode()
     {
-        if (_isBusyWithNetwork) return;
-
         if (statusErrorText != null) statusErrorText.text = "";
 
         // Kiểm ô nhập TRƯỚC khi bật cờ bận: đây chỉ là kiểm tra tại chỗ, chưa đụng tới
@@ -435,12 +500,27 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             return;
         }
 
+        await JoinRoomByCode(joinCodeInput.text.Trim());
+    }
+
+    // Được RoomItemUI gọi khi người chơi bấm nút JOIN trên một dòng trong Room List.
+    public async void JoinRoomFromList(string sessionName)
+    {
+        await JoinRoomByCode(sessionName);
+    }
+
+    // Logic dùng chung cho cả "gõ mã phòng" lẫn "bấm Join trong danh sách phòng" -
+    // hai đường đó chỉ khác nhau ở CHỖ lấy ra cái mã phòng, còn lại giống hệt nhau.
+    private async System.Threading.Tasks.Task JoinRoomByCode(string code)
+    {
+        if (_isBusyWithNetwork) return;
         _isBusyWithNetwork = true;
 
         try
-            {
+        {
+            if (statusErrorText != null) statusErrorText.text = "";
             EnsureRunnerExists();
-            _currentRoomCode = joinCodeInput.text.Trim();
+            _currentRoomCode = code;
 
             var result = await _networkRunner.StartGame(new StartGameArgs()
             {
@@ -452,6 +532,10 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             if (result.Ok)
             {
                 ShowPanel(roomLobbyPanel);
+
+                // Cùng lý do như ở OnConfirmCreateRoom(): đừng chờ RoomPlayer spawn xong
+                // mới thấy mã phòng.
+                UpdateLobbyUI();
             }
             else
             {
@@ -464,7 +548,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
                     _networkRunner = null;
                 }
             }
-            }
+        }
         finally
         {
             _isBusyWithNetwork = false;
@@ -699,6 +783,16 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             roomTitleText.text = $"ROOM: {_currentRoomCode} ({RoomPlayer.AllPlayers.Count}/4)";
         }
 
+        // Trước đây chỉ OnConfirmCreateRoom() gán dòng này, nên chỉ Host thấy được mã
+        // phòng - người join bằng mã thì ô này luôn trống. UpdateLobbyUI() chạy trên MỌI
+        // máy (Host lẫn Client) mỗi khi có người vào/ra/đổi đội, nên gán lại ở đây thì
+        // cả hai bên đều thấy đúng mã phòng, kể cả trường hợp Host tạo phòng xong mới
+        // gán text lần đầu (trước khi RoomPlayer của chính Host kịp Spawned()).
+        if (yourRoomIDText != null)
+        {
+            yourRoomIDText.text = "Room ID: " + _currentRoomCode;
+        }
+
         if (startMatchButton != null)
         {
             startMatchButton.gameObject.SetActive(_networkRunner != null && _networkRunner.IsServer);
@@ -774,6 +868,28 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             _spawnedPlayers.Remove(player);
 
             Debug.Log($"<color=orange>[MẠNG] {player} đã rời trận, nhân vật đã được dọn.</color>");
+        }
+
+        // DỌN LUÔN RoomPlayer CỦA NGƯỜI VỪA RỜI. Thêm 07/09.
+        //
+        // Trước đây hàm này chỉ dọn nhân vật TRONG TRẬN (_spawnedPlayers ở trên), còn
+        // RoomPlayer - object đại diện cho họ trong PHÒNG CHỜ - không hề bị despawn.
+        // Hai hậu quả:
+        //   1. Rời phòng chờ (chưa vào trận) -> RoomPlayer của họ nằm lại vĩnh viễn
+        //      trong RoomPlayer.AllPlayers -> UpdateLobbyUI() vẫn đếm và hiện tên họ,
+        //      trông như Host "không cập nhật" khi có người thoát.
+        //   2. Người đó rời rồi vào lại (rất hay gặp khi test bằng ParrelSync) ->
+        //      OnPlayerJoined spawn thêm một RoomPlayer MỚI, còn bản CŨ vẫn còn sống ->
+        //      danh sách phòng hiện 2, 3... bản "ma" của cùng một người.
+        //
+        // CHỈ Host được Despawn - cùng lý do như _spawnedPlayers ở trên.
+        if (runner.IsServer)
+        {
+            RoomPlayer leavingRoomPlayer = RoomPlayer.AllPlayers.Find(p => p.PlayerRef == player);
+            if (leavingRoomPlayer != null && leavingRoomPlayer.Object != null)
+            {
+                runner.Despawn(leavingRoomPlayer.Object);
+            }
         }
 
         UpdateLobbyUI();
@@ -1021,7 +1137,32 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     }
     public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
     public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
-    public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList) { }
+    /// <summary>
+    /// Fusion gọi hàm này mỗi khi danh sách phòng trong Lobby thay đổi (có phòng mới,
+    /// phòng đầy, phòng đóng...) - NHƯNG CHỈ SAU KHI đã JoinSessionLobby() thành công.
+    /// Trước đây thân hàm để trống nên dù Photon có gửi danh sách về, không ai vẽ nó lên
+    /// UI cả - đó là lý do bấm Room List không thấy phòng nào.
+    /// </summary>
+    public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
+    {
+        if (roomListContent == null || roomItemPrefab == null) return;
+
+        // Xoá sạch danh sách cũ rồi vẽ lại từ đầu - đơn giản và đủ nhanh vì phòng chờ
+        // hiếm khi có quá vài chục phòng cùng lúc.
+        foreach (Transform child in roomListContent)
+        {
+            Destroy(child.gameObject);
+        }
+
+        foreach (SessionInfo session in sessionList)
+        {
+            // IsVisible=false là phòng đã khoá (trận đã bắt đầu) - xem OnClickStartMatch().
+            if (!session.IsVisible) continue;
+
+            RoomItemUI item = Instantiate(roomItemPrefab, roomListContent);
+            item.Setup(session, this);
+        }
+    }
     public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
     public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }

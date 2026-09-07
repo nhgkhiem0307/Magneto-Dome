@@ -17,7 +17,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &5237907752382818058
 RectTransform:
   m_ObjectHideFlags: 0
@@ -391,8 +391,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -131.7, y: 184.3}
-  m_SizeDelta: {x: 200, y: 50}
+  m_AnchoredPosition: {x: -135, y: 180}
+  m_SizeDelta: {x: 300, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2066563723266262951
 CanvasRenderer:
@@ -5769,6 +5769,17 @@ MonoBehaviour:
   leftHandRest: {x: -0.26, y: -0.24, z: 0.42}
   rightHandRest: {x: 0.28, y: -0.26, z: 0.4}
   elbowHint: {x: 0.6, y: -1, z: -0.35}
+  autoScaleRest: 1
+  restReach01: 0.68
+  shakeFollow: 0.4
+  enableFingers: 1
+  idleCurl: 1
+  controlExtend01: 0.82
+  fingerCurlScale: 1
+  flipFingerCurl: 0
+  fistSpeed: 9
+  punchFistHold: 0.3
+  handRaise: 0.06
   walkBobAmount: 0.045
   walkSwingAmount: 0.24
   walkLateralAmount: 0.05
@@ -5782,9 +5793,11 @@ MonoBehaviour:
   poseDamping: 20
   punchThrust: 0.55
   punchDrop: 0.06
+  punchHold: 0.13
   firePush: 0.6
   fireRecoil: 0.22
   fireRecoilDelay: 0.09
+  fireHold: 0.1
   laserExtend: 0.42
   laserHold: 0.18
   pullDraw: 0.2
@@ -5823,8 +5836,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 147.2, y: 185.7}
-  m_SizeDelta: {x: 200, y: 50}
+  m_AnchoredPosition: {x: 150, y: 185}
+  m_SizeDelta: {x: 250, y: 50}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5251031839684960965
 CanvasRenderer:
