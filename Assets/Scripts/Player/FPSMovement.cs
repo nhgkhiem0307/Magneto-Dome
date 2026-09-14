@@ -116,6 +116,16 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
              "KHÔNG áp dụng cho Dash và Grapple: đó là chuyển động tự mình tạo ra.")]
     public float maxVerticalImpact = 12f;
 
+    [Tooltip("Nhân TOÀN BỘ lực đẩy từ bên ngoài. 1.3 = mọi cú hất đều mạnh thêm 30%.\n\n" +
+             "Một chỗ duy nhất cho cả ba nguồn: đấm cận chiến, trúng đạn, nổ TNT. Chỉnh ở " +
+             "đây thay vì đi sửa meleePushForce / hitKnockbackForce / explosionForce riêng " +
+             "từng cái rồi lệch nhau.\n\n" +
+             "KHÔNG ăn vào Dash và Grapple - hai thứ đó truyền scaleByCharge = false vì " +
+             "chúng là chuyển động tự mình tạo ra.\n\n" +
+             "Song song với PlayerHealth > Charge Gain Multiplier: ô kia chỉnh SÁT THƯƠNG " +
+             "chung, ô này chỉnh LỰC VĂNG chung.")]
+    public float knockbackMultiplier = 1.3f;
+
     // --- TRẠNG THÁI ĐƯỢC FUSION ĐỒNG BỘ ---
     // Những biến này trước đây là biến thường. Giờ phải đánh dấu [Networked] để Host
     // và các máy Client cùng thấy một giá trị giống nhau, và để Fusion tua lại
@@ -208,6 +218,31 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
 
     // Miễn nhiễm choáng tới lúc nào. Xem stunImmunityDuration.
     [Networked] private TickTimer StunImmunityTimer { get; set; }
+
+    /// <summary>
+    /// Đếm số lần bị choáng, để mọi máy biết đúng khoảnh khắc nó xảy ra.
+    ///
+    /// ⚠️ VÌ SAO KHÔNG GỌI THẲNG HitCamera TRONG ApplyStun: ApplyStun chỉ chạy trên HOST
+    /// (nó ghi giá trị [Networked]). Mà HitCamera lại tự lọc bằng HasInputAuthority - trên
+    /// Host, nhân vật của client KHÔNG có input authority, nên lời gọi bị bỏ qua và màn
+    /// hình nạn nhân chẳng bao giờ nhận được gì.
+    ///
+    /// Bộ đếm + OnChangedRender là khuôn đã dùng cho MeleeCount, LaserCount, FireCount:
+    /// Host tăng số, mọi máy nhận thay đổi, mỗi máy tự quyết định có phải mình không.
+    /// </summary>
+    [Networked, OnChangedRender(nameof(OnStunned))]
+    private int StunCount { get; set; }
+
+    private void OnStunned()
+    {
+        // Váng đầu HẾT CỠ đúng lúc mất quyền điều khiển.
+        //
+        // Đây là thứ làm cơn choáng NHÌN THẤY ĐƯỢC. Bản trước chỉ khoá phím 0.35 giây mà
+        // không báo gì cả - mà 0.35 giây đó lại trùng đúng lúc nạn nhân đang bị hất bay,
+        // nên họ tưởng mình không đi được là do đang ở trên không, không hề biết mình vừa
+        // bị choáng. Một cơ chế không nhìn thấy được thì không khác gì không tồn tại.
+        HitCamera(1f);
+    }
 
     /// <summary>Đang bị choáng, mất quyền điều khiển. PlayerMagnetController đọc để chặn đánh.</summary>
     public bool IsStunned => Runner != null && !StunTimer.ExpiredOrNotRunning(Runner);
@@ -743,6 +778,7 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         if (!StunImmunityTimer.ExpiredOrNotRunning(Runner)) return;
 
         StunTimer = TickTimer.CreateFromSeconds(Runner, stunDuration);
+        StunCount++;   // báo cho mọi máy, xem OnStunned
 
         // Miễn nhiễm tính từ BÂY GIỜ và kéo dài qua hết cơn choáng, nên khoảng cách tối
         // thiểu giữa hai lần choáng là (stunDuration + stunImmunityDuration).
@@ -800,6 +836,15 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         if (scaleByCharge)
         {
             ApplyStun();
+
+            // HỆ SỐ TOÀN CỤC. Nhân ở đây thì phủ hết MỌI nguồn đẩy từ bên ngoài chỉ bằng
+            // một con số: đấm cận chiến, trúng đạn, nổ TNT, và cả thứ thêm vào sau này.
+            //
+            // Cố ý nằm TRONG nhánh scaleByCharge, tức chỉ ăn vào cú đẩy TỪ BÊN NGOÀI.
+            // Dash và Grapple truyền false nên không dính - nếu nhân cả chúng thì người
+            // chơi tự lướt cũng bay xa thêm 30%, mà đó là chuyển động họ chủ động nhắm,
+            // không phải thứ cần "cường hoá".
+            force *= knockbackMultiplier;
 
             if (health != null) force *= health.KnockbackMultiplier;
         }

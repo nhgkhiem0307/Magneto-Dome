@@ -80,6 +80,15 @@ public class CameraShake : MonoBehaviour
     // ==================== 3. VÁNG ĐẦU KHI ĂN ĐÒN ====================
 
     [Header("Váng đầu khi ĂN ĐÒN")]
+    [Tooltip("Nhân TOÀN BỘ độ mạnh của cảm giác váng đầu: góc lảo đảo, phập phồng FOV, " +
+             "và độ mờ màn hình.\n\n" +
+             "⚠️ Thêm vào vì ba ô bên dưới ĐÃ được ghi xuống prefab, nên sửa mặc định trong " +
+             "code không còn tác dụng nữa. Ô này mới hoàn toàn nên chắc chắn ăn.\n\n" +
+             "Con số cũ quá nhẹ để nhận ra: lảo đảo 7 độ trải đều trong 1.5 giây, tức mỗi " +
+             "giây chỉ nhúc nhích vài độ. Người chơi đang tập trung né đạn thì không thể " +
+             "phân biệt được nó với rung camera bình thường.")]
+    public float hitFeedbackScale = 2.2f;
+
     [Tooltip("Biên độ lảo đảo tối đa, theo độ. To hơn hẳn rung thường vì đây là lúc " +
              "người chơi ĐANG MẤT KIỂM SOÁT, không phải chỉ bị xóc.")]
     public float disorientMaxAngle = 7f;
@@ -159,6 +168,20 @@ public class CameraShake : MonoBehaviour
     // tính thẳng từ Time.time, vì khi đứng lại rồi chạy tiếp, tính từ Time.time sẽ
     // nhảy vào giữa một bước chân bất kỳ và camera giật một cái.
     private float _bobPhase;
+
+    /// <summary>
+    /// Pha nhấp nhô hiện tại và tốc độ đi đã làm mượt, để bộ viewmodel bám theo.
+    ///
+    /// ⚠️ VÌ SAO PHẢI CHIA SẺ RA NGOÀI: viewmodel cũng có nhịp nhấp nhô riêng. Hai nhịp
+    /// chạy ở hai TẦN SỐ KHÁC NHAU (camera 8 lần/giây, viewmodel 5) thì chúng chồng lên
+    /// nhau thành phách - lúc cùng chiều lúc ngược chiều, chu kỳ 3 lần/giây. Trên màn
+    /// hình đó chính là cảnh hai bàn tay rung lắc dữ dội mỗi khi đi bộ.
+    ///
+    /// Cho viewmodel dùng CHUNG pha này thì hai bên nhấp nhô đồng bộ tuyệt đối, và
+    /// chuyển động tương đối giữa tay với khung hình bằng đúng không.
+    /// </summary>
+    public float BobPhase => _bobPhase;
+    public float SmoothedSpeed01 => _smoothedSpeed01;
 
     // Tốc độ đi bộ đã được làm mượt, thang 0..1.
     private float _smoothedSpeed01;
@@ -374,13 +397,15 @@ public class CameraShake : MonoBehaviour
 
             float t = Time.time * disorientFrequency;
 
-            rot.x += disorientMaxAngle * d * (Mathf.PerlinNoise(_seedD1, t) * 2f - 1f);
-            rot.y += disorientMaxAngle * d * (Mathf.PerlinNoise(_seedD2, t) * 2f - 1f);
+            float dAngle = disorientMaxAngle * hitFeedbackScale;
+
+            rot.x += dAngle * d * (Mathf.PerlinNoise(_seedD1, t) * 2f - 1f);
+            rot.y += dAngle * d * (Mathf.PerlinNoise(_seedD2, t) * 2f - 1f);
 
             // Trục nghiêng đầu chạy CHẬM HƠN nữa (t * 0.6) và biên độ lớn hơn.
             // Nghiêng nhanh chỉ là rung; nghiêng chậm mới làm đường chân trời đảo qua đảo lại
             // đủ lâu để mắt kịp nhận ra là nó đang nghiêng — đó mới là cái gây choáng.
-            rot.z += disorientMaxAngle * disorientRollBias * d
+            rot.z += dAngle * disorientRollBias * d
                      * (Mathf.PerlinNoise(_seedD3, t * 0.6f) * 2f - 1f);
 
             // FOV phập phồng: cảnh vật lúc phình ra lúc co lại.
@@ -388,7 +413,7 @@ public class CameraShake : MonoBehaviour
             // Perlin cho nhịp bất quy tắc, trông giống lỗi hiển thị hơn là giống choáng.
             if (_cam != null && disorientFovPunch > 0f)
             {
-                _cam.fieldOfView = _baseFov + disorientFovPunch * d
+                _cam.fieldOfView = _baseFov + disorientFovPunch * hitFeedbackScale * d
                                    * Mathf.Sin(Time.time * disorientFrequency * 1.7f);
             }
 
@@ -528,7 +553,7 @@ public class CameraShake : MonoBehaviour
         // Weight 0 thì URP bỏ qua hoàn toàn, không tốn một mili-giây nào - nên không cần
         // và không nên tắt component, việc tắt/bật liên tục mới là thứ gây khựng hình.
         _blurVolume.weight = amount01;
-        _dof.gaussianMaxRadius.value = Mathf.Max(0.01f, blurMaxRadius * amount01);
+        _dof.gaussianMaxRadius.value = Mathf.Max(0.01f, blurMaxRadius * hitFeedbackScale * amount01);
     }
 
     private void OnDestroy()

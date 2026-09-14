@@ -21,7 +21,11 @@ public class RoomItemUI : MonoBehaviour
         {
             // Phòng đã đầy hoặc trận đã bắt đầu -> vẫn hiện trong danh sách nhưng không
             // bấm JOIN được, thay vì để người chơi bấm rồi nhận lỗi "Room not found".
-            joinButton.interactable = session.IsOpen;
+            // Phải xét CẢ số người, không chỉ IsOpen. Phòng đầy 4/4 vẫn có IsOpen = true
+            // (nó chỉ báo "chưa khoá vì trận bắt đầu"), nên chỉ xét IsOpen là nút JOIN của
+            // phòng đầy vẫn bấm được, rồi văng ra "Room not found or already full!" -
+            // đúng cái mà dòng ghi chú bên trên nói là đã tránh được.
+            joinButton.interactable = session.IsOpen && session.PlayerCount < session.MaxPlayers;
 
             joinButton.onClick.RemoveAllListeners();
             joinButton.onClick.AddListener(() => handler.JoinRoomFromList(session.Name));

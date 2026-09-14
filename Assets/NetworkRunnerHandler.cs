@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -115,6 +116,17 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     // Đã đổi tên biến từ _runner thành _networkRunner để tránh trùng lặp serialization
     private NetworkRunner _networkRunner;
     private string _currentRoomCode = "";
+
+    // Bản danh sách phòng mới nhất Fusion gửi về qua OnSessionListUpdated.
+    //
+    // Phải nhớ lại vì Fusion KHÔNG có hàm nào cho hỏi "hiện có phòng nào?" - nó chỉ đẩy
+    // danh sách sang qua callback đó, lúc nào nó muốn. Ghép trận cần đọc danh sách này
+    // nên bắt buộc phải giữ một bản.
+    private List<SessionInfo> _cachedSessions = new List<SessionInfo>();
+
+    // Đã nhận được ít nhất một lần danh sách chưa. Khác với "danh sách rỗng": rỗng nghĩa
+    // là chắc chắn không có phòng nào, còn chưa nhận nghĩa là chưa biết gì cả.
+    private bool _sessionListReceived = false;
 
     // Đánh dấu Host đã bấm "Bắt Đầu Trận", để phân biệt lần load scene nào mới là vào trận thật
     private bool _matchStarted = false;
@@ -343,6 +355,37 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
     private void EnsureRunnerExists()
     {
+        // ⚠️ VỨT RUNNER ĐÃ CHẾT TRƯỚC KHI XÉT NULL. (sửa 09/09)
+        //
+        // Đây là nguyên nhân "vào phòng rồi rời ra thì Room List chết hẳn tới lúc tắt game".
+        //
+        // Chỉ có ĐÚNG MỘT đường dọn Runner tử tế: nút Rời Phòng - nó Shutdown, Destroy,
+        // rồi gán _networkRunner = null. Nhưng Runner còn chết theo cả chục đường KHÁC mà
+        // không đi qua nút đó: Host rời phòng chờ, mất mạng, Photon ngắt...
+        //
+        // Những đường đó chỉ gọi OnShutdown. Mà OnShutdown, khi mình còn ở phòng chờ và
+        // lý do là "Ok", KHÔNG dọn gì cả - nó chỉ đặt cờ _runnerIsDown rồi thôi.
+        //
+        // Hậu quả: _networkRunner vẫn KHÁC null, nhưng trỏ vào một Runner đã tắt. Hàm này
+        // thấy khác null nên vui vẻ dùng lại nó, và mọi lệnh sau đó đều hỏng -
+        // JoinSessionLobby() thất bại nên Room List báo "Could not load room list!" và
+        // không bao giờ mở ra nữa. Không có gì tự sửa được, phải tắt game mở lại.
+        //
+        // Xét CẢ HAI cờ: _runnerIsDown là ghi nhận của mình (bắt được cả lúc Fusion đang
+        // tắt dở), IsShutdown là sự thật từ phía Fusion (bắt được cả trường hợp nó tắt mà
+        // callback không tới được mình).
+        if (_networkRunner != null && (_runnerIsDown || _networkRunner.IsShutdown))
+        {
+            Debug.Log("[MẠNG] Runner cũ đã tắt, dựng Runner mới thay thế.");
+
+            Destroy(_networkRunner.gameObject);
+            _networkRunner = null;
+
+            // Runner mới thì cờ phải sạch, nếu không lần Rời Phòng kế tiếp sẽ BỎ QUA
+            // lệnh Shutdown vì tưởng nó đã tắt sẵn rồi.
+            _runnerIsDown = false;
+        }
+
         if (_networkRunner == null)
         {
             GameObject runnerObj = new GameObject("FusionNetworkRunner");
@@ -361,6 +404,18 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     }
 
     // --- 1. GHÉP TRẬN NGẪU NHIÊN ---
+    //
+    // ⚠️ VÌ SAO KHÔNG DÙNG GameMode.AutoHostOrClient NỮA (đổi 09/09):
+    //
+    // Chế độ đó tiện thật - Photon tự tìm phòng trống, không có thì tự mở phòng mới -
+    // NHƯNG cái tên phòng do Photon tự đặt là một chuỗi GUID dài loằng ngoằng. Mà tên
+    // phòng chính là thứ hiển thị làm "Room ID", nên phòng Global có ID không đọc nổi,
+    // không đọc cho bạn bè nghe được, trong khi phòng Custom lại có mã 5 số đẹp đẽ.
+    // Fusion KHÔNG cho đổi tên session sau khi đã tạo, nên cách duy nhất là tự đặt tên
+    // ngay từ đầu - tức phải tự làm luôn phần ghép trận.
+    //
+    // Ba bước thay cho một: xin danh sách phòng -> thấy phòng mở còn chỗ thì vào ->
+    // không có thì tự mở phòng mới với mã 5 số.
     public async void OnClickMatchmaking()
     {
         if (_isBusyWithNetwork) return;
@@ -371,25 +426,69 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             if (statusErrorText != null) statusErrorText.text = "";
             EnsureRunnerExists();
 
-            var result = await _networkRunner.StartGame(new StartGameArgs()
+            // B1: vào Lobby để XEM danh sách. Đây chỉ là xem, chưa vào phòng nào cả.
+            if (!await EnsureInLobby())
             {
-                GameMode = GameMode.AutoHostOrClient,
-                PlayerCount = 4,
-                // Không đặt SessionName -> Photon tự ghép vào phòng public đang mở còn
-                // trống, hoặc tự tạo phòng mới (kèm cái tên tự sinh) nếu chưa có phòng
-                // nào. IsVisible mặc định = true nên phòng này SẼ hiện trong Room List
-                // và CÓ THỂ bị người khác ghép trận ngẫu nhiên vào - đúng ý "global".
-                SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
-            });
+                SetErrorMessage("Could not reach matchmaking!");
+                return;
+            }
 
-            // Trước đây không có dòng này nên _currentRoomCode luôn rỗng với phòng
-            // Global -> roomTitleText/yourRoomIDText hiện trống, trông như phòng
-            // "không có ID". Lấy đúng cái tên Photon vừa gán cho session (dù do ta tạo
-            // mới hay vừa được ghép vào phòng có sẵn), dùng luôn làm "ID phòng" hiển thị -
-            // vừa đúng sự thật vừa khỏi phải tự sinh thêm một mã khác chồng lên.
-            if (result.Ok && _networkRunner.SessionInfo != null)
+            // B2: đợi danh sách về. JoinSessionLobby trả về ngay khi vào được lobby,
+            // nhưng danh sách phòng thì tới sau qua OnSessionListUpdated.
+            await WaitForSessionList(1.5f);
+
+            SessionInfo target = FindOpenSession();
+
+            // B3: không thấy phòng nào -> đợi thêm một nhịp NGẪU NHIÊN rồi nhìn lại.
+            //
+            // Chống trường hợp hai người bấm Ghép Trận gần như cùng lúc: cả hai cùng
+            // thấy "không có phòng nào" rồi cùng mở hai phòng riêng, và không bao giờ
+            // gặp nhau. Nhịp đợi lệch nhau làm người bấm sau kịp nhìn thấy phòng của
+            // người bấm trước. Không diệt hẳn được khe hở, nhưng thu nó lại rất nhiều.
+            if (target == null)
             {
-                _currentRoomCode = _networkRunner.SessionInfo.Name;
+                await Task.Delay(UnityEngine.Random.Range(150, 600));
+                target = FindOpenSession();
+            }
+
+            StartGameArgs args;
+
+            if (target != null)
+            {
+                _currentRoomCode = target.Name;
+                args = new StartGameArgs()
+                {
+                    GameMode = GameMode.Client,
+                    SessionName = target.Name,
+                    PlayerCount = 4,
+                    SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
+                };
+            }
+            else
+            {
+                _currentRoomCode = GenerateRoomCode();
+                args = new StartGameArgs()
+                {
+                    GameMode = GameMode.Host,
+                    SessionName = _currentRoomCode,
+                    PlayerCount = 4,
+
+                    // NGƯỢC HẲN với phòng Custom. Phòng Global phải cho người lạ nhìn
+                    // thấy và ghép vào - đó là toàn bộ ý nghĩa của nó.
+                    IsVisible = true,
+                    IsOpen = true,
+
+                    SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
+                };
+            }
+
+            var result = await _networkRunner.StartGame(args);
+
+            if (!result.Ok)
+            {
+                _currentRoomCode = "";
+                SetErrorMessage("Could not join a match!");
+                return;
             }
 
             ShowPanel(roomLobbyPanel);
@@ -402,6 +501,92 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             // người chơi phải tắt game mở lại. finally thì hỏng kiểu gì cũng được gỡ cờ.
             _isBusyWithNetwork = false;
         }
+    }
+
+    /// <summary>
+    /// Bảo đảm Runner đang ở trong Lobby, vào nếu chưa.
+    ///
+    /// ⚠️ KHÔNG GỌI JoinSessionLobby() HAI LẦN. Fusion coi việc xin vào một Lobby mà mình
+    /// đang đứng trong đó là lỗi, và trả về thất bại. Trước đây cả Room List lẫn Ghép Trận
+    /// đều gọi thẳng, nên mở Room List lần thứ hai là dính ngay "Could not load room list!"
+    /// dù chẳng có gì hỏng cả.
+    ///
+    /// LobbyInfo.IsValid là cách Fusion cho biết "đang ở trong Lobby rồi".
+    /// </summary>
+    private async Task<bool> EnsureInLobby()
+    {
+        if (_networkRunner == null) return false;
+        if (_networkRunner.LobbyInfo.IsValid) return true;
+
+        var result = await _networkRunner.JoinSessionLobby(SessionLobby.ClientServer);
+        return result.Ok;
+    }
+
+    /// <summary>
+    /// Đợi Fusion gửi danh sách phòng về, tối đa bấy nhiêu giây.
+    ///
+    /// Hết giờ mà chưa có gì thì vẫn đi tiếp chứ không báo lỗi: coi như không có phòng
+    /// nào và tự mở phòng mới. Thà mở thừa một phòng còn hơn chặn người chơi lại.
+    /// </summary>
+    private async Task WaitForSessionList(float timeoutSeconds)
+    {
+        _sessionListReceived = false;
+
+        int waited = 0;
+        int limit = Mathf.RoundToInt(timeoutSeconds * 1000f);
+
+        while (!_sessionListReceived && waited < limit)
+        {
+            await Task.Delay(100);
+            waited += 100;
+        }
+    }
+
+    /// <summary>
+    /// Tìm một phòng Global đang mở và còn chỗ trong danh sách vừa nhận.
+    /// </summary>
+    private SessionInfo FindOpenSession()
+    {
+        foreach (SessionInfo session in _cachedSessions)
+        {
+            if (session == null) continue;
+
+            // IsVisible=false có hai nghĩa, và cả hai đều là "đừng đụng vào": phòng Custom
+            // (chỉ vào bằng mã), hoặc phòng đã khoá vì trận bắt đầu rồi.
+            if (!session.IsVisible) continue;
+            if (!session.IsOpen) continue;
+            if (session.PlayerCount >= session.MaxPlayers) continue;
+
+            return session;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Sinh mã phòng 5 chữ số, tránh trùng với các phòng đang thấy trong danh sách.
+    ///
+    /// ⚠️ Random.Range(int, int) LOẠI TRỪ số cuối, nên phải để 100000 mới ra được 99999.
+    /// Bản cũ ghi 99999 nên mã 99999 không bao giờ sinh ra - vô hại nhưng vẫn là sai.
+    /// </summary>
+    private string GenerateRoomCode()
+    {
+        // 20 lần là quá đủ: có 90000 mã mà phòng thì chỉ vài chục, xác suất trượt cả 20
+        // lần gần như bằng không. Vẫn phải có giới hạn để không lỡ lặp vô tận.
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            string code = UnityEngine.Random.Range(10000, 100000).ToString();
+
+            bool taken = false;
+            foreach (SessionInfo session in _cachedSessions)
+            {
+                if (session != null && session.Name == code) { taken = true; break; }
+            }
+
+            if (!taken) return code;
+        }
+
+        return UnityEngine.Random.Range(10000, 100000).ToString();
     }
 
     // --- 1b. MỞ DANH SÁCH PHÒNG ---
@@ -419,9 +604,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             if (statusErrorText != null) statusErrorText.text = "";
             EnsureRunnerExists();
 
-            var result = await _networkRunner.JoinSessionLobby(SessionLobby.ClientServer);
-
-            if (result.Ok)
+            if (await EnsureInLobby())
             {
                 ShowPanel(roomListPanel);
             }
@@ -447,7 +630,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             if (statusErrorText != null) statusErrorText.text = "";
             EnsureRunnerExists();
 
-            _currentRoomCode = UnityEngine.Random.Range(10000, 99999).ToString();
+            _currentRoomCode = GenerateRoomCode();
             if (yourRoomIDText != null) yourRoomIDText.text = "Room ID: " + _currentRoomCode;
 
             var result = await _networkRunner.StartGame(new StartGameArgs()
@@ -932,12 +1115,18 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             return;
         }
 
-        // Còn đang ở phòng chờ thì chỉ cần quay lại màn hình chính
+        // --- Còn đang ở phòng chờ ---
+        //
+        // ⚠️ Trước đây cả khối này nằm trong "if (reason != Ok)", nên khi Runner tắt một
+        // cách bình thường (Host bấm rời phòng chờ chẳng hạn) thì KHÔNG LÀM GÌ CẢ: người
+        // chơi ngồi nhìn bảng phòng chờ đã chết, mọi nút bấm không ăn, mà cũng không có
+        // câu báo nào. Runner hỏng thì phải rời bảng đó bất kể lý do gì.
         if (shutdownReason != ShutdownReason.Ok)
         {
             SetErrorMessage("Connection lost!");
-            ShowPanel(mainButtonsPanel);
         }
+
+        ShowPanel(mainButtonsPanel);
     }
 
     public void OnConnectFailed(NetworkRunner runner, NetAddress remoteAddress, NetConnectFailedReason reason)
@@ -1145,6 +1334,12 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     /// </summary>
     public void OnSessionListUpdated(NetworkRunner runner, List<SessionInfo> sessionList)
     {
+        // NHỚ LẠI TRƯỚC, VẼ SAU. Ghép trận đọc bản nhớ này chứ không vẽ gì cả, nên nếu
+        // để dòng nhớ xuống dưới câu lệnh thoát sớm bên dưới thì chỉ cần chưa gán ô
+        // roomListContent trong Inspector là ghép trận chết theo - một lỗi rất khó lần ra.
+        _cachedSessions = sessionList ?? new List<SessionInfo>();
+        _sessionListReceived = true;
+
         if (roomListContent == null || roomItemPrefab == null) return;
 
         // Xoá sạch danh sách cũ rồi vẽ lại từ đầu - đơn giản và đủ nhanh vì phòng chờ

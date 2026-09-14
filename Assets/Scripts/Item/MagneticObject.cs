@@ -28,6 +28,34 @@ public class MagneticObject : NetworkBehaviour
              "So sánh: cú đấm cận chiến đang để 200.")]
     public float hitKnockbackForce = 120f;
 
+    [Tooltip("Độ dài vệt sáng kéo theo sau đạn, tính bằng GIÂY. Đặt 0 để tắt.\n\n" +
+             "⚠️ Đây là hiệu ứng có GIÁ TRỊ CHƠI, không phải trang trí. Đạn bay 125 m/s, " +
+             "tức băng qua cả màn hình trong chưa tới một phần mười giây - mắt gần như " +
+             "không kịp ghi nhận có gì vừa lướt qua.\n\n" +
+             "Vệt sáng biến một điểm chớp nhoáng thành một ĐƯỜNG còn nằm lại trên màn hình, " +
+             "nên người chơi thấy được hướng đạn tới và kịp né. Không có nó thì trúng đạn " +
+             "luôn là một cú bất ngờ vô lý.\n\n" +
+             "Màu theo điện tích, nên nhìn vệt là biết nên hút hay nên tránh.")]
+    public float bulletTrailTime = 0.35f;
+
+    [Tooltip("Bay nhanh hơn tốc độ này thì có thêm VỆT GIÓ trắng bám sát vật, mét/giây. " +
+             "Đặt 0 để tắt.\n\n" +
+             "Khác vệt điện tích ở trên: vệt kia dài và có màu, cho biết đạn ĐI HƯỚNG NÀO " +
+             "và mang dấu gì. Vệt gió thì ngắn, trắng, bám sát - nó cho biết đạn ĐANG BAY " +
+             "NHANH TỚI MỨC NÀO.\n\n" +
+             "Có ngưỡng tốc độ vì đó chính là ý nghĩa của nó: một vật lăn lóc cũng tạo vệt " +
+             "gió thì con số đó chẳng nói lên điều gì nữa. Chỉ thứ thật sự nguy hiểm mới " +
+             "được xé gió.")]
+    public float windTrailMinSpeed = 30f;
+
+    [Tooltip("Nhân THÊM riêng cho lực hất của đạn trúng người. 1.6 = mạnh thêm 60%.\n\n" +
+             "Chồng lên hệ số toàn cục ở FPSMovement > Knockback Multiplier, không thay " +
+             "thế nó. Tổng thực tế = hitKnockbackForce x (sát thương/10) x 1.6 x 1.3 x hệ " +
+             "số điện tích của nạn nhân.\n\n" +
+             "Để riêng vì trúng đạn cần mạnh hơn các nguồn khác: đạn bay tới từ xa và " +
+             "tránh được, nên trúng phải đáng. Cú đấm thì đã có lợi thế áp sát rồi.")]
+    public float bulletKnockbackMultiplier = 1.6f;
+
     [Tooltip("Bay chậm hơn tốc độ này thì thôi không tính là đạn nữa, không gây sát thương.")]
     public float minBulletSpeed = 3f;
 
@@ -73,6 +101,16 @@ public class MagneticObject : NetworkBehaviour
 
     [Header("Explosion Settings (chỉ dùng cho TNT)")]
     public float explosionRadius = 6f;
+
+    [Tooltip("TNT đang bay tự nổ khi có người lọt vào bán kính này, mét. Đặt 0 để tắt.\n\n" +
+             "⚠️ VÌ SAO KHÔNG DÙNG LUÔN Explosion Radius (6m): nổ ngay khi vừa chạm mép " +
+             "vùng sát thương thì nạn nhân luôn đứng ở RÌA vụ nổ, mà sát thương giảm dần " +
+             "theo khoảng cách nên ở rìa nó gần bằng không. TNT sẽ luôn nổ, và luôn vô hại.\n\n" +
+             "4m thì người bị dính nhận khoảng 33% sát thương trở lên. Đây là ô cân bằng: " +
+             "to thì dễ trúng nhưng yếu, nhỏ thì mạnh nhưng khó.\n\n" +
+             "Người NÉM không kích nổ được quả của chính mình - không thì vừa bắn ra khỏi " +
+             "tay là nổ ngay trong mặt.")]
+    public float tntProximityRadius = 4f;
     public float explosionForce = 15f;
 
     [Tooltip("Nhân riêng lực thổi VẬT THỂ xung quanh, không đụng tới lực hất người chơi.\n\n" +
@@ -178,6 +216,15 @@ public class MagneticObject : NetworkBehaviour
 
     // Người đã bắn vật này ra. CHỈ có ý nghĩa trên máy Host, vì chỉ Host xử lý va chạm.
     [HideInInspector] public PlayerMagnetController shooterOwner;
+
+    // Vệt sáng kéo sau đạn. Tạo một lần ở phát bắn đầu tiên rồi dùng lại mãi - mỗi
+    // TrailRenderer là một batch vẽ, tạo mới mỗi phát là tự giết hiệu năng.
+    private TrailRenderer _trail;
+    private bool _trailOn;
+
+    // Vệt gió: lớp thứ hai, trắng và ngắn, chỉ bật khi bay đủ nhanh.
+    private TrailRenderer _wind;
+    private bool _windOn;
 
     private Rigidbody rb;
     private Material mat;
@@ -371,6 +418,10 @@ public class MagneticObject : NetworkBehaviour
     private void OnExploded()
     {
         AudioManager.Explosion(transform.position);
+
+        // Vòng sóng loang đúng bằng bán kính sát thương thật, nên người chơi HỌC ĐƯỢC
+        // tầm nổ bằng mắt thay vì phải đoán. Đây là lý do không phóng đại con số cho đẹp.
+        CombatVFX.Shockwave(transform.position, explosionRadius, new Color(1f, 0.55f, 0.12f));
     }
 
     // Bật/tắt phần nhìn thấy được và phần va chạm. Chạy trên mọi máy.
@@ -718,6 +769,9 @@ public class MagneticObject : NetworkBehaviour
             }
         }
 
+        // 1b. TNT ĐANG BAY: tự nổ khi có người tới gần
+        CheckTntProximity();
+
         // 2. NGỦ ĐÔNG
         UpdateSleepState();
     }
@@ -929,7 +983,7 @@ public class MagneticObject : NetworkBehaviour
 
             // Đạn mạnh đẩy mạnh: Normal(10) x1, Heavy(20) x2, Spike(25) x2.5.
             // Tự động đúng tỉ lệ, không phải chỉnh tay từng prefab.
-            float knockback = hitKnockbackForce * (CurrentDamage / 10f);
+            float knockback = hitKnockbackForce * (CurrentDamage / 10f) * bulletKnockbackMultiplier;
 
             // KHÔNG truyền scaleByCharge - để mặc định true, vì đây là cú đẩy từ bên ngoài.
             // Chính chỗ này làm nạn nhân nhiễm điện nặng bay xa gấp nhiều lần.
@@ -1002,6 +1056,165 @@ public class MagneticObject : NetworkBehaviour
             rb.useGravity = true;
             rb.linearDamping = 0.05f; // Giá trị mặc định của Unity 6
         }
+    }
+
+    /// <summary>
+    /// TNT đang bay thì tự nổ khi có người chơi lọt vào tầm, không cần đâm trúng.
+    ///
+    /// ⚠️ VÌ SAO CẦN: đạn bay 125 m/s, tức 2 mét mỗi tick mạng. Muốn đâm TRÚNG một người
+    /// rộng chưa tới 1 mét thì phải ngắm chính xác tới mức gần như không thể, và người bị
+    /// bắn cũng không kịp nhận ra thứ gì vừa lướt qua. Kết quả là TNT hầu như chỉ nổ khi
+    /// đập vào mặt đất, cách nạn nhân vài mét, chẳng ảnh hưởng gì.
+    ///
+    /// Nổ theo khoảng cách thì lướt sượt qua cũng đủ, đúng cách mìn và đạn phòng không
+    /// thật hoạt động - chúng cũng không nhắm trúng trực tiếp bao giờ.
+    ///
+    /// CHỈ HOST chạy hàm này (FixedUpdateNetwork đã chặn sẵn), nên quyết định nổ là duy
+    /// nhất và mọi máy nhận cùng một kết quả qua ExplodeCount.
+    /// </summary>
+    void CheckTntProximity()
+    {
+        if (CurrentType != ObjectType.TNT) return;
+        if (!isMovingAsBullet) return;
+        if (IsStored || IsDestroyed) return;
+        if (tntProximityRadius <= 0f) return;
+
+        Collider[] hits = Physics.OverlapSphere(transform.position, tntProximityRadius);
+
+        foreach (Collider hit in hits)
+        {
+            if (hit == null) continue;
+            if (!hit.CompareTag("Player")) continue;
+
+            // Người ném không kích nổ được quả của chính mình. Thiếu dòng này thì vừa bắn
+            // ra khỏi tay là nổ ngay trong mặt, vì lúc đó quả TNT vẫn còn sát người.
+            if (shooterOwner != null && hit.gameObject == shooterOwner.gameObject) continue;
+
+            // Người đã rơi khỏi đảo vẫn còn collider cho tới lúc hồi sinh - đừng để họ
+            // kích nổ quả bay ngang qua.
+            PlayerHealth health = hit.GetComponent<PlayerHealth>();
+            if (health != null && !health.IsAlive) continue;
+
+            Explode();
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Đồng bộ vệt sáng theo trạng thái đạn, mỗi khung hình, trên MỌI máy.
+    ///
+    /// ⚠️ VÌ SAO BÁM THEO TRẠNG THÁI CHỨ KHÔNG MÓC VÀO LÚC BẮN/LÚC DỪNG:
+    /// hai chỗ đó (LaunchAsBullet, ResetBulletState) đều bị chặn bằng HasStateAuthority,
+    /// tức CHỈ CHẠY TRÊN HOST. Gắn vệt sáng vào đó thì máy client không bao giờ bật hay
+    /// tắt được nó - hoặc không thấy vệt nào, hoặc thấy một vệt bật mãi không tắt.
+    ///
+    /// isMovingAsBullet vốn đã là [Networked] nên mọi máy tự biết. Đọc nó mỗi khung hình
+    /// là cách duy nhất vừa đúng vừa không tốn thêm một byte đường truyền nào.
+    /// </summary>
+    public override void Render()
+    {
+        bool want = isMovingAsBullet && bulletTrailTime > 0f && !IsStored && !IsDestroyed;
+
+        if (want == _trailOn && _trail != null) return;
+        if (!want && _trail == null) return;   // chưa từng bắn thì chưa cần tạo gì
+
+        if (_trail == null)
+        {
+            _trail = gameObject.AddComponent<TrailRenderer>();
+            _trail.sharedMaterial = CombatVFX.Additive;
+            _trail.time = bulletTrailTime;
+            _trail.minVertexDistance = 0.25f;
+            _trail.numCapVertices = 4;
+            _trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _trail.receiveShadows = false;
+            _trail.textureMode = LineTextureMode.Stretch;
+
+            // Thon dần về đuôi: đầu vệt là chỗ đạn vừa đi qua nên còn dày, đuôi là dư ảnh
+            // đang tan. Dày đều hai đầu trông như một ống nhựa bị kéo lê.
+            _trail.widthCurve = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 0.05f));
+
+            if (CombatVFX.logVFX) Debug.Log($"<color=#66CCFF>[CombatVFX] Tạo vệt đạn cho {name}</color>", this);
+        }
+
+        if (want)
+        {
+            Color c = CombatVFX.PolarityColor(currentPolarity);
+            _trail.startColor = c;
+
+            // Đuôi trong suốt hẳn, để vệt TAN vào không khí thay vì cụt ngang một nhát.
+            _trail.endColor = new Color(c.r, c.g, c.b, 0f);
+            _trail.widthMultiplier = Mathf.Clamp(GetBoundingRadius() * 0.9f, 0.12f, 0.6f);
+
+            // Xoá dấu cũ trước khi bật lại. Không xoá thì cú bắn mới nối liền với chỗ vật
+            // nằm im lúc trước, vẽ ra một đường thẳng dài xuyên qua cả bản đồ.
+            _trail.Clear();
+        }
+
+        _trail.emitting = want;
+        _trailOn = want;
+
+        UpdateWindTrail(want);
+    }
+
+    /// <summary>
+    /// Vệt gió: lớp sáng trắng ngắn, chỉ hiện khi vật thật sự bay nhanh.
+    ///
+    /// Vì sao tách khỏi vệt điện tích thay vì chỉnh vệt kia cho to lên: hai vệt nói HAI
+    /// ĐIỀU KHÁC NHAU. Vệt màu dài cho biết đạn đi hướng nào và mang dấu gì - thứ người
+    /// chơi cần để quyết định hút hay né. Vệt gió trắng ngắn cho biết nó đang bay nhanh
+    /// tới mức nào - thứ người chơi cần để biết còn kịp phản ứng hay không.
+    ///
+    /// Gộp làm một thì mất một trong hai thông tin đó.
+    /// </summary>
+    private void UpdateWindTrail(bool isBullet)
+    {
+        bool want = isBullet
+                    && windTrailMinSpeed > 0f
+                    && rb != null
+                    && rb.linearVelocity.magnitude >= windTrailMinSpeed;
+
+        if (want == _windOn && _wind != null) return;
+        if (!want && _wind == null) return;
+
+        if (_wind == null)
+        {
+            _wind = new GameObject("WindTrail").AddComponent<TrailRenderer>();
+            _wind.transform.SetParent(transform, false);
+
+            _wind.sharedMaterial = CombatVFX.Additive;
+
+            // NGẮN hơn hẳn vệt màu. Vệt gió là lớp không khí bị xé ngay sát vật, nó tan
+            // gần như tức thì - kéo dài ra thì lại thành một vệt màu thứ hai, thừa.
+            //
+            // 0.14 thay vì 0.09: ở 125 m/s thì 0.09 giây chỉ dài 11 mét, mà vệt lại mờ,
+            // nên nó tan trước khi mắt kịp bắt. Vẫn giữ ngắn hơn vệt màu (0.35) đủ nhiều
+            // để hai lớp không lẫn vào nhau.
+            _wind.time = 0.14f;
+            _wind.minVertexDistance = 0.1f;
+            _wind.numCapVertices = 2;
+            _wind.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _wind.receiveShadows = false;
+            _wind.textureMode = LineTextureMode.Stretch;
+            _wind.widthCurve = new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 0f));
+        }
+
+        if (want)
+        {
+            // Trắng hơi ngả xanh: đây là KHÔNG KHÍ bị xé chứ không phải năng lượng.
+            //
+            // Đẩy màu vượt quá 1 để phần dư tràn sang Bloom - cùng mẹo đã dùng cho tia
+            // laze. Nhờ vậy vệt gió sáng rõ mà VẪN giữ được vẻ mỏng, thay vì phải bôi
+            // dày ra mới thấy (bôi dày thì nó lấn át vệt màu, mất luôn ý nghĩa phân biệt).
+            _wind.startColor = new Color(1.5f, 1.7f, 2f, 0.9f);
+            _wind.endColor = new Color(1.5f, 1.7f, 2f, 0f);
+
+            // To hơn vệt màu để nó bọc ra ngoài, ra dáng luồng khí trượt quanh vật.
+            _wind.widthMultiplier = Mathf.Clamp(GetBoundingRadius() * 2f, 0.28f, 1.3f);
+            _wind.Clear();
+        }
+
+        _wind.emitting = want;
+        _windOn = want;
     }
 
     void Explode()

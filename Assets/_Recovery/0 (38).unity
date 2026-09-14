@@ -288,7 +288,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0.0000055019386}
+  m_AnchoredPosition: {x: 0, y: 300}
   m_SizeDelta: {x: 0, y: 300}
   m_Pivot: {x: 0, y: 1}
 --- !u!1 &53704389
@@ -6412,7 +6412,7 @@ MonoBehaviour:
   m_HandleRect: {fileID: 671948570}
   m_Direction: 2
   m_Value: 0
-  m_Size: 0.99992716
+  m_Size: 1
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -6661,11 +6661,11 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 2131822041}
         m_TargetAssemblyTypeName: NetworkRunnerHandler, Assembly-CSharp
-        m_MethodName: OnClickOpenRoomList
-        m_Mode: 1
+        m_MethodName: ShowPanel
+        m_Mode: 2
         m_Arguments:
-          m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_ObjectArgument: {fileID: 417925654}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.GameObject, UnityEngine
           m_IntArgument: 0
           m_FloatArgument: 0
           m_StringArgument: 
@@ -9224,8 +9224,8 @@ MonoBehaviour:
   roomLobbyPanel: {fileID: 1993894012}
   createRoomPanel: {fileID: 1935694817}
   roomListPanel: {fileID: 417925654}
-  roomListContent: {fileID: 19834497}
-  roomItemPrefab: {fileID: 8786107329793584624, guid: 85785bf8a20845047b53c4abd2efe47d, type: 3}
+  roomListContent: {fileID: 0}
+  roomItemPrefab: {fileID: 0}
   nameInput: {fileID: 634635827}
   joinCodeInput: {fileID: 1926739020}
   yourRoomIDText: {fileID: 1820833071}

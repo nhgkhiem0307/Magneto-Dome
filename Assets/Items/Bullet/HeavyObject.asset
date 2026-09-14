@@ -16,6 +16,6 @@ MonoBehaviour:
   itemIcon: {fileID: 0}
   maxStackSize: 10
   itemType: 0
-  associatedObjectType: 3
+  associatedObjectType: 1
   price: 0
   consumableType: 0

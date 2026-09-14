@@ -93,8 +93,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05715667c48e445478f2f1827f3479d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MagneticObject
-  objectType: 0
-  baseDamage: 10
+  objectType: 1
+  baseDamage: 20
   hitKnockbackForce: 120
   minBulletSpeed: 3
   bulletArmTime: 0.25

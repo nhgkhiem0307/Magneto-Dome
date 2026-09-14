@@ -350,10 +350,10 @@ MonoBehaviour:
   disorientDuration: 1.5
   disorientFovPunch: 4
   enableHitBlur: 1
-  blurMaxRadius: 1.3
+  blurMaxRadius: 2
   blurDuration: 0.45
   enableHeadBob: 1
-  bobFrequency: 5
+  bobFrequency: 2
   bobVerticalAmount: 0.045
   bobRollAmount: 0.6
   bobSmoothing: 8
@@ -5523,7 +5523,7 @@ MonoBehaviour:
   jumpHeight: 1
   airControl: 0.8
   dashShakeTrauma: 0.7
-  stunDuration: 0.35
+  stunDuration: 1
   stunImmunityDuration: 0.9
   stunBlocksDash: 1
   autoCalibrateEyeLevel: 1
@@ -5766,41 +5766,60 @@ MonoBehaviour:
   shoulderBelowEye: 0.25
   bodyBehind: 0.12
   bodyOffset: {x: 0, y: -2, z: -0.12}
-  leftHandRest: {x: -0.26, y: -0.24, z: 0.42}
-  rightHandRest: {x: 0.28, y: -0.26, z: 0.4}
+  alertLeftHand: {x: -0.2, y: -0.15, z: 0.7}
+  alertRightHand: {x: 0.25, y: -0.2, z: 0.38}
+  alertLeftDraw: 1.35
+  alertRightDraw: 0.92
+  alertLeftCurl: 0.55
   elbowHint: {x: 0.6, y: -1, z: -0.35}
   autoScaleRest: 1
   restReach01: 0.68
+  decoupleFromShake: 1
   shakeFollow: 0.4
   enableFingers: 1
   idleCurl: 1
   controlExtend01: 0.82
   fingerCurlScale: 1
   flipFingerCurl: 0
-  fistSpeed: 9
+  fistSpeed: 12
   punchFistHold: 0.3
   handRaise: 0.06
-  walkBobAmount: 0.045
-  walkSwingAmount: 0.24
-  walkLateralAmount: 0.05
-  walkRollAmount: 2.2
-  walkBobSpeed: 5
+  walkSwingReach: 0.2
+  walkSwingDegPerMeter: 200
+  walkSwingRate: 0.8
+  walkBobSpeed: 4
   breatheAmount: 0.012
   swayAmount: 0.006
   swayMax: 0.07
   swayRecover: 6
   poseStiffness: 140
   poseDamping: 20
-  punchThrust: 0.55
-  punchDrop: 0.06
+  poseOvershoot: 1.55
+  punchThrust: 0.1
+  punchExtend01: 1
+  punchLunge: 0.07
+  punchRise: 0.15
+  punchTwist: 13
+  punchFovPunch: 7
+  punchWindupHold: 0.1
+  punchWindup01: 0.42
   punchHold: 0.13
   firePush: 0.6
   fireRecoil: 0.22
   fireRecoilDelay: 0.09
   fireHold: 0.1
+  fireWindupHold: 0.07
+  fireWindup01: 0.4
+  fireExtend01: 0.92
+  pushExtend01: 1
+  pushSpread: 0.18
+  pushHold: 0.16
+  fireLunge: 0.06
   laserExtend: 0.42
   laserHold: 0.18
-  pullDraw: 0.2
+  pullExtend01: 0.3
+  pullStrain: 0.045
+  pullStrainSpeed: 9
   pullSpread: 0.1
 --- !u!1 &6264108880301330700
 GameObject:

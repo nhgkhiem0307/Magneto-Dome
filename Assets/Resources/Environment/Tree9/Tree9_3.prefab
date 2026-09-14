@@ -143,6 +143,9 @@ MonoBehaviour:
   objectType: 0
   baseDamage: 10
   hitKnockbackForce: 120
+  bulletTrailTime: 0.35
+  windTrailMinSpeed: 30
+  bulletKnockbackMultiplier: 1.6
   minBulletSpeed: 3
   bulletArmTime: 0.25
   bounceRiseDamp: 0.2
@@ -154,6 +157,7 @@ MonoBehaviour:
   sleepDelay: 0.6
   wakeImpulseTransfer: 1
   explosionRadius: 6
+  tntProximityRadius: 4
   explosionForce: 15
   debrisForceMultiplier: 4
   debrisBecomesBullet: 1

@@ -60,12 +60,44 @@ public class FirstPersonViewmodel : MonoBehaviour
     [Tooltip("Dùng khi tắt Auto Place Body. Vị trí khung so với camera, gõ tay.")]
     public Vector3 bodyOffset = new Vector3(0f, -2f, -0.12f);
 
-    [Header("Tư thế nghỉ (toạ độ theo CAMERA)")]
-    [Tooltip("Vị trí bàn tay TRÁI khi không làm gì. x = trái/phải, y = trên/dưới, z = xa/gần.")]
-    public Vector3 leftHandRest = new Vector3(-0.26f, -0.24f, 0.42f);
+    [Header("Tư thế CẢNH GIÁC khi đứng yên (toạ độ theo CAMERA)")]
+    [Tooltip("Bàn tay TRÁI - tay PHỤ, hạ thấp và đẩy ra xa cho nhỏ bớt.\n\n" +
+             "⚠️ Hai ô cũ Left/Right Hand Rest đã bỏ. Chúng đặt hai tay ĐỐI XỨNG NHAU " +
+             "hoàn toàn - cùng độ cao, cùng độ vươn - và thứ đó luôn trông vô hồn, bất kể " +
+             "chỉnh số thế nào. Cơ thể người ở trạng thái sẵn sàng KHÔNG BAO GIỜ đối xứng: " +
+             "luôn có một tay dẫn và một tay thủ, như tư thế thủ của võ sĩ.\n\n" +
+             "Chia vai trò theo ĐÚNG THỨ MỖI TAY LÀM trong code, không theo cảm tính:\n\n" +
+             "  Tay PHẢI làm ba trong bốn động tác - đấm, bắn laze, giữ vật lơ lửng. Nó là " +
+             "tay bận rộn nên nằm sẵn ở tư thế dẫn: cao, gần người, thấy rõ.\n\n" +
+             "  Tay TRÁI chỉ có mỗi cú đẩy. Nó lùi xuống thấp và ra xa, chỉ đủ hiện diện.\n\n" +
+             "⚠️ ĐỪNG ĐỘNG VÀO TAY PHẢI khi chủ project chỉ than phiền về tay trái. Đã " +
+             "mắc lỗi này một lần: được nhờ hạ tay trái xuống, lại đi nâng tay phải lên, " +
+             "nên trên màn hình nhìn y như cũ - chỉ đổi xem tay nào cao hơn tay nào.")]
+    public Vector3 alertLeftHand = new Vector3(-0.2f, -0.2f, 0.46f);
 
-    [Tooltip("Vị trí bàn tay PHẢI khi không làm gì.")]
-    public Vector3 rightHandRest = new Vector3(0.28f, -0.26f, 0.4f);
+    [Tooltip("Bàn tay PHẢI - tay DẪN, đưa cao và giữ gần người, sẵn sàng bung ra.")]
+    public Vector3 alertRightHand = new Vector3(0.25f, -0.15f, 0.38f);
+
+    [Tooltip("Tay TRÁI vươn xa thêm bao nhiêu lần so với Rest Reach 01. Trên 1 là ra xa, nhỏ lại.\n\n" +
+             "⚠️ ĐÂY MỚI LÀ Ô LÀM TAY NHỎ LẠI TRÊN MÀN HÌNH, không phải toạ độ ở ô trên.\n\n" +
+             "Lý do: MeasureRest chỉ lấy HƯỚNG từ ô toạ độ kia rồi ép khoảng cách về đúng " +
+             "Rest Reach 01. Nên gõ z lớn hơn chỉ làm tay chếch ra trước nhiều hơn, chứ " +
+             "khoảng cách tới mắt gần như không đổi - và kích thước trên màn hình cũng vậy.\n\n" +
+             "Muốn tay nhỏ đi thì phải cho nó ra XA MẮT hơn thật, tức tăng ô này.")]
+    [Range(0.6f, 1.4f)]
+    public float alertLeftDraw = 1.35f;
+
+    [Tooltip("Tay PHẢI thu về còn bao nhiêu phần. Dưới 1 là gần người hơn, tức to và rõ hơn.\n\n" +
+             "Chênh lệch ĐỘ VƯƠN mới là thứ tạo chiều sâu. Chỉ khác độ cao thôi thì hai " +
+             "tay vẫn nằm trên cùng một mặt phẳng, nhìn vẫn phẳng lì.")]
+    [Range(0.5f, 1.2f)]
+    public float alertRightDraw = 0.92f;
+
+    [Tooltip("Độ nắm của bàn tay TRÁI lúc cảnh giác. Thấp hơn Idle Curl của tay phải.\n\n" +
+             "Tay trái nắm hờ buông xuôi, tay phải (theo ô Idle Curl) nắm chặt thành đấm " +
+             "sẵn sàng. Hai bàn tay khác thế là một tầng bất đối xứng nữa.")]
+    [Range(0f, 1f)]
+    public float alertLeftCurl = 0.55f;
 
     [Tooltip("Hướng KHUỶU TAY chống về. Âm ở Y nghĩa là khuỷu chúc xuống.\n\n" +
              "Thiếu gợi ý này thì bộ giải IK chọn tư thế khuỷu tuỳ ý miễn bàn tay tới đúng " +
@@ -90,7 +122,17 @@ public class FirstPersonViewmodel : MonoBehaviour
     public float restReach01 = 0.68f;
 
     [Header("Rung camera")]
-    [Tooltip("Tay hứng bao nhiêu phần rung của camera. 1 = dính cứng, 0 = đứng im hoàn toàn.\n\n" +
+    [Tooltip("Bật thì tay TỰ GHÌ LẠI một phần rung của camera, theo ô Shake Follow bên dưới.\n\n" +
+             "⚠️ MẶC ĐỊNH TẮT, và nên để tắt. Ghì một phần nghĩa là tay chuyển động NGƯỢC " +
+             "chiều camera đúng phần chênh - lúc đứng yên ăn một cú đấm thì hay, nhưng lúc " +
+             "ĐI BỘ thì camera nhấp nhô liên tục theo bước chân, và tay cứ lắc ngược lại " +
+             "từng nhịp. Mắt đọc thành RUNG GIẬT chứ không thành sức nặng.\n\n" +
+             "Tắt thì tay là con của camera đúng nghĩa: camera đi đâu tay theo đó, tuyệt " +
+             "đối không rung tương đối. Nhịp đi bộ của tay đã có Walk Roll Amount lo riêng.")]
+    public bool decoupleFromShake = false;
+
+    [Tooltip("Chỉ có tác dụng khi bật Decouple From Shake. Tay hứng bao nhiêu phần rung " +
+             "của camera. 1 = dính cứng, 0 = đứng im hoàn toàn.\n\n" +
              "Tay là con của camera nên mặc định nó ăn TRỌN 100% cú rung - lắc 3.5 độ ở " +
              "25 lần/giây. Vấn đề là cả khung hình lẫn bàn tay rung y hệt nhau, nên mắt " +
              "không thấy tay rung, chỉ thấy tay DÁN CHẾT vào màn hình. Ngố đúng chỗ đó.\n\n" +
@@ -98,6 +140,16 @@ public class FirstPersonViewmodel : MonoBehaviour
              "làm tay trông có khối lượng thật. Mọi game bắn súng đều tách hai thứ này ra.")]
     [Range(0f, 1f)]
     public float shakeFollow = 0.4f;
+
+    [Header("Tia điện trên găng")]
+    [Tooltip("Tia điện chạy trên găng tay, màu theo điện tích đang mang.\n\n" +
+             "⚠️ CHỈ NGƯỜI CHƠI NÀY THẤY. Đối thủ nhìn sang thì thấy hiệu ứng khác hẳn - " +
+             "quả cầu sáng trong lòng bàn tay, do PlayerVisuals lo. Hai thứ độc lập.\n\n" +
+             "Lý do phải làm riêng: quả cầu của PlayerVisuals gắn vào xương của THÂN THẬT, " +
+             "mà thân thật bị giấu đi ở góc nhìn thứ nhất (Hide Own Body). Còn bản sao " +
+             "viewmodel thì bị xoá sạch mọi script lúc dựng, nên nó không mang theo gì cả. " +
+             "Kết quả là chủ nhân vật KHÔNG hề thấy điện tích găng của chính mình.")]
+    public bool enableGloveArcs = true;
 
     [Header("Ngón tay")]
     [Tooltip("Cuộn ngón tay bằng code. Avatar Mixamo đang dùng đã map đủ 30 xương ngón " +
@@ -137,27 +189,41 @@ public class FirstPersonViewmodel : MonoBehaviour
     public float handRaise = 0.06f;
 
     [Header("Chuyển động nền")]
-    [Tooltip("Biên độ nhấp nhô LÊN XUỐNG khi đi bộ, mét.")]
-    public float walkBobAmount = 0.05f;
+    [Tooltip("Biên độ ĐÁNH TAY khi đi bộ, mét. Đây là ô DUY NHẤT chỉnh nhịp đi bộ.\n\n" +
+             "⚠️ NĂM Ô CŨ (Walk Bob / Swing / Lateral / Vertical Swing / Motion Scale) ĐÃ " +
+             "BỎ HẲN, vì chúng dính bẫy giá trị Inspector đè giá trị code.\n\n" +
+             "Chuyện đã xảy ra: code nâng Walk Swing Amount lên 0.24, nhưng prefab vẫn giữ " +
+             "0.11 từ trước và không ai sửa tay. Rồi Walk Motion Scale 0.45 nhân vào nữa, " +
+             "còn 0.05m - năm centimet, nhỏ hơn chính bàn tay. Đó là lý do 'không thấy " +
+             "đánh tay gì'.\n\n" +
+             "Ô này MỚI HOÀN TOÀN nên chắc chắn lấy đúng số ở đây. Ba thành phần còn lại " +
+             "(nhún dọc, lắc ngang, nhấp so le, xoay khung) suy ra theo tỉ lệ cố định từ nó, nên chỉnh " +
+             "một chỗ là cả nhịp đi bộ to nhỏ theo, không lệch nhau.")]
+    [Range(0f, 0.5f)]
+    public float walkSwingReach = 0.2f;
 
-    [Tooltip("Biên độ ĐÁNH TAY trước-sau khi đi bộ, mét. Hai tay so le nhau.\n\n" +
-             "⚠️ ĐỪNG NHẦM VỚI Walk Bob Amount. Ô kia chỉ làm tay nhún lên xuống - mắt gần " +
-             "như không nhận ra, và đó là lý do bản đầu 'đi mà không thấy đánh tay'.\n\n" +
-             "Đánh tay trước-sau mới là chuyển động người ta THẤY khi đi bộ. Phải so le: " +
-             "tay trái ra trước thì tay phải ra sau. Cùng pha thì trông như đang bơi ếch.")]
-    public float walkSwingAmount = 0.24f;
+    [Tooltip("Đổi Walk Swing Reach ra GÓC RƠI XUỐNG của cánh tay: bao nhiêu độ trên mỗi mét.\n\n" +
+             "⚠️ ĐÂY LÀ CUNG RƠI MỘT CHIỀU, không phải biên độ hai chiều. Điểm CAO NHẤT " +
+             "của nhịp vung luôn đúng bằng tư thế nghỉ - tay không bao giờ vung lên cao hơn " +
+             "chỗ nó đứng lúc rảnh.\n\n" +
+             "Bản trước dao động đều hai bên tư thế nghỉ, nên nửa nhịp nào tay cũng nhấc " +
+             "cao hơn lúc đứng yên - vừa che tầm nhìn vừa không giống người đi bộ.\n\n" +
+             "Mặc định 0.2m x 200 = 40 độ. Hai tay so le: tay này ở đỉnh (ngang tư thế " +
+             "nghỉ) thì tay kia đang ở đáy, chúc xuống khỏi khung hình. Đó chính là cảnh " +
+             "mắt người thật nhìn xuống lúc đi: mỗi lúc chỉ thấy MỘT tay.")]
+    public float walkSwingDegPerMeter = 200f;
 
-    [Tooltip("Biên độ tay lắc SANG NGANG theo mỗi bước, mét. Nhỏ thôi - đây chỉ là gia vị " +
-             "để chuyển động không nằm gọn trong một mặt phẳng.")]
-    public float walkLateralAmount = 0.05f;
-
-    [Tooltip("Xoay CẢ BỘ KHUNG theo nhịp bước, tính bằng độ.\n\n" +
-             "Đây là thứ bản đầu thiếu hẳn, và là lý do 'đi mà không thấy đánh tay': dời " +
-             "bàn tay 11cm thì phần lớn chuyển động bị chính bàn tay che mất, vì bàn tay to " +
-             "gần bằng chừng đó.\n\n" +
-             "Xoay cả khung thì VAI cũng nhấp nhô theo, và mắt bắt được ngay - đó mới là " +
-             "cách cơ thể thật chuyển động khi đi: xoay quanh cột sống, không phải dời tay.")]
-    public float walkRollAmount = 2.2f;
+    [Tooltip("Nhịp đánh tay bằng bao nhiêu phần nhịp nhấp nhô của camera. 0.5 = chậm bằng nửa.\n\n" +
+             "⚠️ Tần số GỐC không nằm ở đây mà ở CameraShake > Bob Frequency (đang để 5), vì " +
+             "hai bên dùng CHUNG một pha - đó là cách đã chữa lỗi tay rung lắc khi đi bộ.\n\n" +
+             "Nhưng dùng chung nguyên xi thì tay đánh 5 nhịp mỗi giây, nhanh như đang bơi. " +
+             "Người thật đi bộ đánh tay khoảng 1 nhịp/giây, vì MỘT chu kỳ đánh tay có HAI " +
+             "bước chân.\n\n" +
+             "Ô này chia nhỏ nhịp tay xuống mà VẪN GIỮ KHOÁ PHA - vì nó nhân vào cùng một " +
+             "pha chứ không đếm riêng một đồng hồ khác. Nên đặt số nào cũng không quay lại " +
+             "cảnh rung lắc. Muốn đúng kiểu người thật thì để 0.5.")]
+    [Range(0.1f, 1f)]
+    public float walkSwingRate = 0.5f;
 
     [Tooltip("Số nhịp nhấp nhô mỗi giây khi chạy hết tốc.")]
     public float walkBobSpeed = 5f;
@@ -187,12 +253,78 @@ public class FirstPersonViewmodel : MonoBehaviour
              "'điểm kết' thay vì trôi tuột về chỗ cũ.")]
     public float poseDamping = 20f;
 
+    [Tooltip("Ba động tác thọc tay (đấm / bắn / đẩy) nhắm VƯỢT QUA đích bấy nhiêu lần.\n\n" +
+             "⚠️ ĐÂY LÀ Ô LÀM ĐỘNG TÁC DỨT KHOÁT. Lò xo cần khoảng 0.085 giây để đi được " +
+             "63% quãng đường; đặt đích đúng chỗ tay duỗi thẳng thì trong 0.13 giây giữ tư " +
+             "thế nó mới tới được chừng 78% - tay KHÔNG BAO GIỜ thẳng hẳn, và động tác " +
+             "trông nhũn.\n\n" +
+             "Nhắm ra xa hơn tầm tay thì lò xo phóng nhanh hơn hẳn và ĐI QUA điểm duỗi " +
+             "thẳng. Không sợ tay dài ra: SolveArm kẹp mọi đích ở đúng tầm với, nên phần " +
+             "vượt quá chỉ biến thành TỐC ĐỘ chứ không thành độ dài.")]
+    [Range(1f, 2f)]
+    public float poseOvershoot = 1.55f;
+
     [Header("Động tác — ĐẤM")]
     [Tooltip("Tay phải thọc ra trước bao nhiêu mét.")]
     public float punchThrust = 0.55f;
 
-    [Tooltip("Tay phải hạ xuống bao nhiêu khi thọc (cú đấm đi hơi chúc xuống, không nằm ngang).")]
-    public float punchDrop = 0.06f;
+
+    [Tooltip("Cả thân người chồm ra trước bấy nhiêu mét khi đấm.\n\n" +
+             "Đây là thứ làm cú đấm CÓ SỨC NẶNG. Chỉ duỗi tay thì chỉ có cánh tay đấm; " +
+             "chồm cả người ra thì VAI cũng tiến lên, và mắt đọc ra là cả cơ thể dồn vào " +
+             "cú đó - đúng cách người thật đấm.")]
+    public float punchLunge = 0.07f;
+
+    [Tooltip("Hướng cú đấm, tính theo CAMERA. (0,0,1) là thẳng trước mặt.\n\n" +
+             "⚠️ ĐO TỪ MẮT, KHÔNG ĐO TỪ VAI - đây là chỗ chữa bệnh 'đấm xuống đất'.\n\n" +
+             "Bản trước lấy hướng từ VAI. Mà vai nằm thấp hơn mắt 25cm, nên đấm nằm ngang " +
+             "từ vai thì nắm đấm dừng ở 24cm dưới tầm mắt - tức 29 độ dưới trục nhìn, " +
+             "trong khi khung hình chỉ mở 22.5 độ mỗi bên. Nắm đấm rơi HẲN XUỐNG DƯỚI mép " +
+             "màn hình, nhìn y như đang đấm xuống đất.\n\n" +
+             "Ô Punch Rise cũ càng làm tệ hơn: nó nâng VAI lên, mà đích thì vẫn đứng yên " +
+             "một chỗ, nên cánh tay chúc xuống dốc hơn nữa. Đó là lý do đặt 0.21 thì hỏng. " +
+             "Ô đó đã bỏ hẳn.\n\n" +
+             "Đo từ mắt thì gõ hướng nào là nắm đấm đi đúng chỗ đó trên màn hình, bất kể " +
+             "vai nằm đâu.")]
+    public Vector3 punchAim = new Vector3(0.16f, -0.1f, 1f);
+
+    [Tooltip("Lúc rút, nắm đấm cách MẮT bao nhiêu mét. Nhỏ = sát mặt, to trên màn hình.")]
+    public float punchWindupDist = 0.2f;
+
+    [Tooltip("Lúc thọc hết, nắm đấm cách MẮT bao nhiêu mét.\n\n" +
+             "Để xa hơn tầm tay là cố ý: bộ giải IK tự kẹp lại ở tầm với, nên phần dư chỉ " +
+             "biến thành tốc độ và giữ cho tay duỗi thẳng cứng suốt nhịp thọc.")]
+    public float punchStrikeDist = 0.62f;
+
+    [Tooltip("Cả thân người VẶN sang trái bấy nhiêu độ khi đấm.\n\n" +
+             "Đây là ô làm THẤY ĐƯỢC CẢ CÁNH TAY. Vai phải nằm thấp và lệch hẳn sang bên " +
+             "phải khung hình, nên khi tay duỗi thẳng ra trước thì phần lớn bắp tay và " +
+             "cẳng tay nằm ngoài mép màn hình - chỉ mỗi nắm đấm lọt vào.\n\n" +
+             "Vặn người sang trái là đưa VAI PHẢI ra trước và vào trong, kéo theo cả cánh " +
+             "tay vào giữa khung hình. Cơ thể thật cũng vặn hông khi đấm, chính vì thế.")]
+    public float punchTwist = 16f;
+
+    [Tooltip("Góc nhìn camera viewmodel NỞ RA bấy nhiêu độ ở đỉnh cú đấm.\n\n" +
+             "Mẹo của ống kính góc rộng: FOV càng rộng thì thứ ở gần càng bị kéo giãn về " +
+             "phía người xem. Nở FOV đúng lúc nắm đấm lao tới làm cả cánh tay VỌT RA " +
+             "trong một nhịp - hiệu ứng mạnh hơn nhiều so với việc duỗi tay thêm vài " +
+             "centimet, mà lại không tốn tầm với nào cả.\n\n" +
+             "Chỉ đụng camera viewmodel, không đụng camera chính - thế giới đứng yên, chỉ " +
+             "cánh tay vọt lên.")]
+    public float punchFovPunch = 7f;
+
+    [Tooltip("Rút tay về bao nhiêu giây TRƯỚC khi thọc ra. Cộng thêm vào Punch Hold.\n\n" +
+             "⚠️ ĐÂY LÀ THỨ QUYẾT ĐỊNH CÚ ĐẤM CÓ LỰC HAY KHÔNG, và là lý do bản trước " +
+             "'chỉ đưa tay ra một chút như khều nhẹ'.\n\n" +
+             "Nguyên nhân là HÌNH HỌC, không phải biên độ: cú thọc đi dọc theo TRỤC NHÌN " +
+             "của camera, mà chuyển động dọc trục nhìn gần như không dời đi đâu trên màn " +
+             "hình - nó chỉ làm vật to lên hay nhỏ đi. Tệ hơn nữa, vai nằm THẤP VÀ SAU " +
+             "camera, nên duỗi tay ra là nắm đấm đi XA MẮT HƠN, tức là NHỎ LẠI. Duỗi hết " +
+             "sức mà hình ảnh thu nhỏ dần thì không thể nào ra vẻ mạnh được.\n\n" +
+             "Cách chữa là pha rút tay: kéo nắm đấm về sát mặt trước đã. Lúc đó nó chiếm " +
+             "một mảng lớn màn hình, rồi lao ra và nhỏ dần. Chính cú ĐỔI KÍCH THƯỚC LỚN " +
+             "cộng với quãng đường dài trên màn hình mới là thứ mắt đọc thành sức mạnh.")]
+    public float punchWindupHold = 0.1f;
 
     [Tooltip("Giữ tư thế thọc tay bao nhiêu giây.\n\n" +
              "⚠️ Ô này là thứ làm cú đấm NHÌN THẤY ĐƯỢC. Bản trước chỉ cộng một xung vào " +
@@ -220,6 +352,50 @@ public class FirstPersonViewmodel : MonoBehaviour
     [Tooltip("Giữ tư thế đẩy tay bao nhiêu giây. Xem ghi chú ở Punch Hold.")]
     public float fireHold = 0.1f;
 
+    [Tooltip("Rút hai tay về bao nhiêu giây trước khi đẩy ra. Cộng thêm vào Fire Hold.\n\n" +
+             "Cùng lý do với Punch Windup Hold, và cũng chữa cùng một bệnh: không có nhịp " +
+             "rút thì tay xuất phát từ CHỖ NÓ ĐANG ĐỨNG - mà lúc đang giữ vật lơ lửng, chỗ " +
+             "đó là đâu đó trên cao chỉ vào vật. Lao từ trên cao xuống đường bắn thì ra " +
+             "một VÒNG CUNG, chứ không phải một cú đẩy thẳng.\n\n" +
+             "Có nhịp rút thì mọi cú bắn đều bắt đầu từ CÙNG MỘT CHỖ, nằm ngay trên đường " +
+             "đẩy - nên nó luôn là đường thẳng, bất kể trước đó tay ở đâu.")]
+    public float fireWindupHold = 0.07f;
+
+    [Tooltip("Lúc rút, hai tay co về còn bao nhiêu phần trăm tầm với. Nhỏ = co sát người.")]
+    [Range(0.2f, 0.8f)]
+    public float fireWindup01 = 0.4f;
+
+    [Tooltip("Khi bắn/đẩy, hai tay vươn tới bao nhiêu phần trăm tầm với.\n\n" +
+             "⚠️ Phải ĐO TỪ VAI chứ không cộng thêm vào tư thế nghỉ. Lý do: lúc đang giữ " +
+             "vật lơ lửng, tay phải đã vươn sẵn 82% rồi - cộng thêm một đoạn nhỏ vào đó " +
+             "gần như không dời đi đâu cả, và cú bắn biến mất.\n\n" +
+             "Đo từ vai thì dù tay đang ở đâu, nó cũng bị kéo thẳng tới đúng chỗ này.")]
+    [Range(0.5f, 1f)]
+    public float fireExtend01 = 0.92f;
+
+    [Header("Động tác — ĐẨY VẬT")]
+    [Tooltip("Tay TRÁI vươn tới bao nhiêu phần trăm tầm với khi đẩy vật.")]
+    [Range(0.5f, 1f)]
+    public float pushExtend01 = 0.98f;
+
+    [Tooltip("Tay trái dang RA NGOÀI bao nhiêu khi đẩy, tính theo phần của tầm với.\n\n" +
+             "Đẩy mà tay đi thẳng trước mặt thì trông y hệt cú bắn. Dang ra ngoài mới ra " +
+             "dáng xoè bàn tay chặn và hất một vật đang lơ lửng.")]
+    [Range(0f, 0.5f)]
+    public float pushSpread = 0.18f;
+
+    [Tooltip("Giữ tư thế đẩy bao nhiêu giây.")]
+    public float pushHold = 0.16f;
+
+    [Tooltip("Cả thân chồm ra trước bấy nhiêu mét khi bắn hoặc đẩy.\n\n" +
+             "⚠️ Đây là cách DUY NHẤT đưa tay ra trước thêm được nữa. Lúc bắn, tay đã " +
+             "duỗi thẳng hết cỡ rồi (SolveArm kẹp ở đúng tầm với), nên tăng Fire Extend 01 " +
+             "hay Pose Overshoot lên bao nhiêu cũng ra cùng một tư thế - không dài thêm " +
+             "một milimet nào.\n\n" +
+             "Muốn bàn tay đi xa hơn thì phải dời cả VAI ra trước. Cùng nguyên lý với " +
+             "Punch Lunge.")]
+    public float fireLunge = 0.06f;
+
     [Header("Động tác — BẮN LAZE")]
     [Tooltip("Tay trái vươn ra trước bao nhiêu mét.")]
     public float laserExtend = 0.42f;
@@ -228,9 +404,22 @@ public class FirstPersonViewmodel : MonoBehaviour
     public float laserHold = 0.18f;
 
     [Header("Động tác — HÚT ĐẠN")]
-    [Tooltip("Hai tay kéo về gần ngực bao nhiêu mét khi đang hút. " +
-             "Đây là trạng thái GIỮ LIÊN TỤC, không phải cú đánh một nhịp.")]
-    public float pullDraw = 0.26f;
+    [Tooltip("Khi hút, hai tay ở bao nhiêu phần trăm tầm với. Nhỏ = co sát người.\n\n" +
+             "Thay cho ô Pull Draw cũ vốn CỘNG một đoạn lùi vào tư thế nghỉ. Cộng lùi thì " +
+             "tay chỉ thụt về dọc trục nhìn, mà lùi dọc trục nhìn thì trên màn hình gần " +
+             "như không thấy gì - đúng lý do cú hút trông yếu ớt.\n\n" +
+             "Đo từ vai thì đặt được hai tay lên NGANG MẶT và DANG RỘNG, tức là dịch " +
+             "chuyển thật sự trên màn hình chứ không phải chỉ đổi độ sâu.")]
+    [Range(0.3f, 0.9f)]
+    public float pullExtend01 = 0.62f;
+
+    [Tooltip("Biên độ ghì run khi đang hút, phần của tầm với. Nhỏ thôi.\n\n" +
+             "Giữ nguyên một tư thế chết cứng thì trông như ảnh chụp. Rung nhẹ theo nhịp " +
+             "mới ra vẻ đang GẮNG SỨC ghì một vật nặng.")]
+    public float pullStrain = 0.045f;
+
+    [Tooltip("Số nhịp ghì run mỗi giây khi hút.")]
+    public float pullStrainSpeed = 9f;
 
     [Tooltip("Hai tay tách rộng ra bao nhiêu khi hút - như đang ôm lấy luồng từ trường.")]
     public float pullSpread = 0.1f;
@@ -267,9 +456,30 @@ public class FirstPersonViewmodel : MonoBehaviour
     private bool _hasLastLook;
 
     private float _bobPhase;
+
+    // Pha ĐÁNH TAY - chậm hơn pha nhấp nhô theo walkSwingRate. ApplyBodyRoll cũng đọc ô này.
+    private float _swingPhase;
     private float _laserTimer;
     private float _fireRecoilTimer;
-    private float _punchTimer, _fireTimer;
+    private float _punchTimer, _fireTimer, _pushTimer;
+
+    // Pháp tuyến LÒNG BÀN TAY, ghi theo toạ độ bàn tay. Dùng để xoay bàn tay hướng lòng
+    // về phía vật khi đẩy.
+    private Vector3 _lPalmLocal, _rPalmLocal;
+
+    // Tư thế GỐC của bàn tay trái, và độ mạnh của phép xoay lòng bàn tay (0-1).
+    //
+    // ⚠️ CÙNG CÁI BẪY ĐÃ GẶP Ở NGÓN TAY: xoay bàn tay là ghi đè localRotation của nó, mà
+    // bộ giải IK chỉ xoay bắp tay và cẳng tay - không ai trả bàn tay về chỗ cũ. Nên cú
+    // xoay lúc đẩy CÒN NGUYÊN mãi mãi sau đó, bàn tay vẹo một góc lớn, da bị kéo giãn
+    // thành hình thù vô nghĩa. Phải chụp tư thế gốc rồi trả về mỗi khung hình.
+    private Quaternion _lHandRest = Quaternion.identity;
+    private Quaternion _rHandRest = Quaternion.identity;
+
+    // Tư thế GỐC của bốn xương tay. Xem ResetArmPose() để biết vì sao bắt buộc phải có.
+    private Quaternion _lUpperRest = Quaternion.identity, _lLowerRest = Quaternion.identity;
+    private Quaternion _rUpperRest = Quaternion.identity, _rLowerRest = Quaternion.identity;
+    private float _pushPalm;
 
     // Tư thế nghỉ ĐÃ CO cho vừa tầm với, đo một lần lúc dựng. BuildTargets dùng hai ô này
     // chứ không dùng thẳng leftHandRest/rightHandRest.
@@ -341,6 +551,56 @@ public class FirstPersonViewmodel : MonoBehaviour
         45f, 60f, 45f,   // út
     };
 
+    /// <summary>
+    /// Đầu ngón trỏ phải - chỗ tia laze phóng ra. Null nếu chưa dựng xong hoặc rig thiếu xương.
+    ///
+    /// Chỉ số 5 là đốt cuối ngón trỏ, theo đúng thứ tự khai trong RightFingerBones.
+    /// </summary>
+    public Transform RightIndexTip =>
+        _built && _rFingers != null && _rFingers.Length > 5 ? _rFingers[5] : null;
+
+    /// <summary>Vị trí nắm đấm phải. Null nếu viewmodel chưa dựng (tức không phải nhân vật mình).</summary>
+    public Transform RightFist => RightIndexTip != null ? RightIndexTip : (_built ? _rHand : null);
+
+    /// <summary>Hướng camera đang nhìn.</summary>
+    public Vector3 CameraForward => _camera != null ? _camera.forward : transform.forward;
+
+    /// <summary>
+    /// Đổi một điểm thuộc viewmodel ra điểm trong THẾ GIỚI trùng đúng chỗ đó TRÊN MÀN HÌNH.
+    ///
+    /// ⚠️ VÌ SAO KHÔNG DÙNG THẲNG position: viewmodel được vẽ bằng camera FOV 45, còn thế
+    /// giới vẽ bằng camera chính FOV 60. Cùng một toạ độ mà chiếu qua hai camera thì rơi
+    /// vào HAI CHỖ KHÁC NHAU trên màn hình - lệch khoảng 28% về phía tâm.
+    ///
+    /// Nên hiệu ứng nào xuất phát từ nắm đấm mà bay vào thế giới (quyền khí) thì phải lấy
+    /// điểm xuất phát kiểu này. Lấy thẳng position là luồng khí mọc ra từ một chỗ trống
+    /// cách nắm đấm cả gang tay trên màn hình.
+    ///
+    /// Cách đổi: hỏi camera viewmodel "điểm này nằm ở đâu trên màn hình, sâu bao nhiêu",
+    /// rồi hỏi camera chính "điểm nào nằm đúng chỗ đó, đúng độ sâu đó".
+    /// </summary>
+    public bool TryGetScreenAlignedWorldPoint(Transform t, out Vector3 world, float towardCenter = 0f)
+    {
+        world = default;
+        if (!_built || t == null || _viewmodelCam == null || _camera == null) return false;
+
+        Camera main = _camera.GetComponent<Camera>();
+        if (main == null) return false;
+
+        Vector3 vp = _viewmodelCam.WorldToViewportPoint(t.position);
+        if (vp.z <= 0.01f) return false;
+
+        // towardCenter: kéo toạ độ màn hình về tâm (0.5, 0.5) bấy nhiêu phần, giữ độ sâu.
+        if (towardCenter > 0f)
+        {
+            vp.x = Mathf.Lerp(vp.x, 0.5f, towardCenter);
+            vp.y = Mathf.Lerp(vp.y, 0.5f, towardCenter);
+        }
+
+        world = main.ViewportToWorldPoint(vp);
+        return true;
+    }
+
     private void Awake()
     {
         _movement = GetComponent<FPSMovement>();
@@ -372,6 +632,7 @@ public class FirstPersonViewmodel : MonoBehaviour
 
         BuildCamera();
         MeasureRest();
+        BuildGloveArcs();
 
         _built = true;
     }
@@ -436,11 +697,19 @@ public class FirstPersonViewmodel : MonoBehaviour
 
         if (_lUpper == null || _rUpper == null) { Destroy(copy); return false; }
 
-        CaptureFingers(anim, LeftFingerBones,  ref _lFingers, ref _lFingerRest,
-                       _lHand, -1f, ref _lCurlAxis, ref _lCurlSign);
-        CaptureFingers(anim, RightFingerBones, ref _rFingers, ref _rFingerRest,
-                       _rHand, +1f, ref _rCurlAxis, ref _rCurlSign);
+        if (_lHand  != null) _lHandRest  = _lHand.localRotation;
+        if (_rHand  != null) _rHandRest  = _rHand.localRotation;
+        if (_lUpper != null) _lUpperRest = _lUpper.localRotation;
+        if (_lLower != null) _lLowerRest = _lLower.localRotation;
+        if (_rUpper != null) _rUpperRest = _rUpper.localRotation;
+        if (_rLower != null) _rLowerRest = _rLower.localRotation;
 
+        CaptureFingers(anim, LeftFingerBones,  ref _lFingers, ref _lFingerRest,
+                       _lHand, -1f, ref _lCurlAxis, ref _lCurlSign, ref _lPalmLocal);
+        CaptureFingers(anim, RightFingerBones, ref _rFingers, ref _rFingerRest,
+                       _rHand, +1f, ref _rCurlAxis, ref _rCurlSign, ref _rPalmLocal);
+
+        DetachArms(anim, copy.transform);
         HideNonArmBones(anim);
         SetLayerRecursive(copy.transform, _layer);
 
@@ -544,7 +813,7 @@ public class FirstPersonViewmodel : MonoBehaviour
     private void CaptureFingers(Animator anim, HumanBodyBones[] table, ref Transform[] slot,
                                 ref Quaternion[] restSlot,
                                 Transform hand, float handSign,
-                                ref Vector3 axisLocal, ref float sign)
+                                ref Vector3 axisLocal, ref float sign, ref Vector3 palmLocal)
     {
         if (!enableFingers || hand == null) return;
 
@@ -600,6 +869,17 @@ public class FirstPersonViewmodel : MonoBehaviour
         sign = handSign * (flipFingerCurl ? -1f : 1f);
         axisLocal = hand.InverseTransformDirection(axisWorld);
 
+        // PHÁP TUYẾN LÒNG BÀN TAY, suy từ cùng bộ dữ liệu.
+        //
+        // Tích có hướng của (hướng ngón) và (trục ngang khớp) cho ra pháp tuyến của mặt
+        // bàn tay. Nó chỉ về phía MU BÀN TAY hay LÒNG BÀN TAY thì tuỳ tay trái hay phải -
+        // đúng cùng lý do đối xứng gương đã gặp ở chiều cuộn ngón, nên dùng lại handSign.
+        Vector3 palmWorld = Vector3.Cross(fingerDir, axisWorld) * -handSign;
+        if (palmWorld.sqrMagnitude > 0.000001f)
+        {
+            palmLocal = hand.InverseTransformDirection(palmWorld.normalized);
+        }
+
         Quaternion[] rest = new Quaternion[bones.Length];
         for (int i = 0; i < bones.Length; i++)
             rest[i] = bones[i] != null ? bones[i].localRotation : Quaternion.identity;
@@ -648,9 +928,11 @@ public class FirstPersonViewmodel : MonoBehaviour
             rFistWant = 0.1f;
         }
 
-        // TAY TRÁI chỉ phụ hoạ. Hút đạn là động tác hai tay nên nó cũng xoè ra, còn lại
-        // để nguyên nắm hờ.
-        float lFistWant = pulling ? 0.1f : idleCurl;
+        // TAY TRÁI phụ hoạ, và lúc rảnh thì HÉ MỞ chứ không nắm chặt như tay phải -
+        // xem ghi chú ở ô Alert Left Curl.
+        float lFistWant = alertLeftCurl;
+        if (_pushTimer > 0f)   lFistWant = 0f;
+        else if (pulling)      lFistWant = 0.1f;
 
         _rFist  = Mathf.MoveTowards(_rFist,  rFistWant,  fistSpeed * dt);
         _lFist  = Mathf.MoveTowards(_lFist,  lFistWant,  fistSpeed * dt);
@@ -666,6 +948,40 @@ public class FirstPersonViewmodel : MonoBehaviour
     {
         CurlHand(_lFingers, _lFingerRest, _lHand, _lCurlAxis, _lCurlSign, _lFist, _lPoint);
         CurlHand(_rFingers, _rFingerRest, _rHand, _rCurlAxis, _rCurlSign, _rFist, _rPoint);
+    }
+
+    /// <summary>
+    /// Xoay bàn tay TRÁI sao cho LÒNG BÀN TAY hướng về phía đang đẩy.
+    ///
+    /// Bộ giải IK chỉ lo bàn tay ĐẾN ĐÚNG CHỖ, hoàn toàn không quản nó úp hay ngửa -
+    /// hướng đó thừa hưởng từ cẳng tay. Nên tay có thể tới đúng vị trí mà lòng bàn tay
+    /// lại quay lên trời, nhìn như đang bê khay chứ không phải đang đẩy.
+    ///
+    /// Cách xoay dùng lại đúng mẹo của AimBone: đo pháp tuyến lòng bàn tay ĐANG có, rồi
+    /// xoay đúng phần chênh tới hướng mong muốn. Không cần biết quy ước trục của rig.
+    ///
+    /// Chạy SAU ApplyFingers vì xoay bàn tay là xoay theo cả chùm ngón - cuộn ngón trước
+    /// rồi xoay bàn sau thì ngón vẫn giữ nguyên thế cuộn, đúng thứ tự cần có.
+    /// </summary>
+    private void AimPalmForPush(float dt)
+    {
+        if (_lHand == null) return;
+
+        // Không phải tự trả bàn tay về gốc nữa - ResetArmPose() đã lo, cho cả sáu xương.
+        if (_lPalmLocal.sqrMagnitude < 0.000001f) return;
+
+        // Tắt dần chứ không cắt phụt: hết giờ đẩy mà bàn tay bật về tư thế cũ trong đúng
+        // một khung hình thì trông như lỗi hiển thị.
+        _pushPalm = Mathf.MoveTowards(_pushPalm, _pushTimer > 0f ? 1f : 0f, fistSpeed * dt);
+        if (_pushPalm <= 0.001f) return;
+
+        // Hướng đẩy, quy về thế giới. Cùng công thức với tư thế tay ở BuildTargets nên
+        // lòng bàn tay luôn vuông góc với đường tay đang vươn tới.
+        Vector3 want = _camera.TransformDirection(new Vector3(-pushSpread, 0.1f, 1f).normalized);
+        Vector3 palm = _lHand.TransformDirection(_lPalmLocal);
+
+        Quaternion full = Quaternion.FromToRotation(palm, want);
+        _lHand.rotation = Quaternion.Slerp(Quaternion.identity, full, _pushPalm) * _lHand.rotation;
     }
 
     private void CurlHand(Transform[] bones, Quaternion[] rest, Transform hand,
@@ -702,16 +1018,57 @@ public class FirstPersonViewmodel : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Tách hai cánh tay ra khỏi cột sống, gắn thẳng vào gốc viewmodel.
+    ///
+    /// ⚠️ VÌ SAO PHẢI TÁCH: đây là điều kiện để giấu được THÂN NGƯỜI.
+    ///
+    /// Bản sao viewmodel là một cơ thể đầy đủ, không phải cặp tay rời. Bản trước chỉ thu
+    /// nhỏ đầu và hai chân, còn hông - cột sống - ngực thì vẫn nguyên vẹn ngay dưới
+    /// camera. Nhìn thẳng thì chúng nằm dưới mép dưới nên không thấy; NGƯỚC XUỐNG thì
+    /// khối ngực đó lọt vào khung hình, và vì camera nằm bên trong nó nên ta nhìn thấy
+    /// MẶT TRONG của lồng ngực - đúng cảm giác "camera bị dồn trong người".
+    ///
+    /// Không thu nhỏ thẳng xương hông được, vì hai cánh tay là CON của nó: thu nhỏ hông
+    /// là tay teo theo. Đó là lỗi đã gặp hồi đầu, khi thu nhỏ Hips/Spine/Chest làm cả bộ
+    /// da suy biến thành một mảng kín màn hình.
+    ///
+    /// Tách ra rồi thì thu nhỏ hông vô hại: toàn bộ thân, đầu, hai chân biến mất trong
+    /// một nhát, còn hai cánh tay không còn liên quan gì tới nó nữa. Đây chính là cách
+    /// mọi game bắn súng làm - viewmodel của họ CHỈ CÓ hai cánh tay, không có thân.
+    ///
+    /// Dùng SetParent(..., true) để giữ nguyên vị trí và hướng trong thế giới, nên phép
+    /// tách này không dời cánh tay đi đâu cả. Bộ da bám theo ma trận THẾ GIỚI của xương
+    /// nên cũng không hề hấn gì.
+    /// </summary>
+    private void DetachArms(Animator anim, Transform root)
+    {
+        // Ưu tiên xương bả vai; rig nào không có thì lấy bắp tay trên.
+        Transform lArm = anim.GetBoneTransform(HumanBodyBones.LeftShoulder) ?? _lUpper;
+        Transform rArm = anim.GetBoneTransform(HumanBodyBones.RightShoulder) ?? _rUpper;
+
+        if (lArm != null) lArm.SetParent(root, true);
+        if (rArm != null) rArm.SetParent(root, true);
+    }
+
     private void HideNonArmBones(Animator anim)
     {
+        // Hông là gốc của mọi thứ còn lại sau khi đã tách tay ra: cột sống, ngực, cổ,
+        // đầu, hai chân. Thu nhỏ mỗi nó là sạch cả người.
+        Transform hips = anim.GetBoneTransform(HumanBodyBones.Hips);
+
+        if (hips != null)
+        {
+            hips.localScale = Vector3.one * 0.0001f;
+            return;
+        }
+
+        // Dự phòng khi rig không khai báo xương hông: giấu từng phần như bản cũ. Vẫn còn
+        // thân người, nhưng ít ra không lộ đầu và chân.
         HumanBodyBones[] hide =
         {
-            // Đầu: camera nằm ngay trong sọ.
             HumanBodyBones.Head, HumanBodyBones.Neck, HumanBodyBones.Jaw,
             HumanBodyBones.LeftEye, HumanBodyBones.RightEye,
-
-            // Hai chân: không bao giờ lọt vào khung hình viewmodel, mà để đó thì lủng lẳng
-            // dưới camera và có thể thò vào rìa màn hình lúc nhìn xuống.
             HumanBodyBones.LeftUpperLeg,  HumanBodyBones.RightUpperLeg,
             HumanBodyBones.LeftLowerLeg,  HumanBodyBones.RightLowerLeg,
             HumanBodyBones.LeftFoot,      HumanBodyBones.RightFoot,
@@ -736,19 +1093,35 @@ public class FirstPersonViewmodel : MonoBehaviour
     /// </summary>
     private void MeasureRest()
     {
-        _lRest = leftHandRest;
-        _rRest = rightHandRest;
+        _lRest = alertLeftHand;
+        _rRest = alertRightHand;
 
-        MeasureArm(_lUpper, _lLower, _lHand, ref _lShoulder, ref _lReach, ref _lRest);
-        MeasureArm(_rUpper, _rLower, _rHand, ref _rShoulder, ref _rReach, ref _rRest);
+        MeasureArm(_lUpper, _lLower, _lHand, ref _lShoulder, ref _lReach, ref _lRest,
+                   alertLeftDraw);
+        MeasureArm(_rUpper, _rLower, _rHand, ref _rShoulder, ref _rReach, ref _rRest,
+                   alertRightDraw);
 
         // Nâng sau khi đã co cho vừa tầm với, để phép co không kéo tụt lại.
         _lRest.y += handRaise;
         _rRest.y += handRaise;
+
+        // In ra SỐ THẬT của tư thế nghỉ.
+        //
+        // Chỉnh viewmodel bằng cách nhìn màn hình rồi đoán là cách chắc chắn sai: các ô
+        // toạ độ chỉ quyết định HƯỚNG, còn khoảng cách tới mắt - thứ quyết định tay to hay
+        // nhỏ trên màn hình - lại do ô Draw quyết. Hai thứ đó không nhìn ra được bằng mắt.
+        //
+        // Có dòng này thì mở Console là đọc được ngay tay nào cao hơn, tay nào gần hơn,
+        // thay vì thử từng số một.
+        Debug.Log($"<color=#66CCFF>[Viewmodel] Tư thế nghỉ (toạ độ camera):" +
+                  $"\nTRÁI  cao {_lRest.y:F3}m | cách mắt {_lRest.magnitude:F3}m | tầm với {_lReach:F3}m" +
+                  $"\nPHẢI  cao {_rRest.y:F3}m | cách mắt {_rRest.magnitude:F3}m | tầm với {_rReach:F3}m" +
+                  $"\nCách mắt CÀNG LỚN thì tay trên màn hình CÀNG NHỎ.</color>");
     }
 
     private void MeasureArm(Transform upper, Transform lower, Transform hand,
-                            ref Vector3 shoulder, ref float reach, ref Vector3 rest)
+                            ref Vector3 shoulder, ref float reach, ref Vector3 rest,
+                            float drawScale)
     {
         if (upper == null || lower == null || hand == null) return;
 
@@ -765,10 +1138,103 @@ public class FirstPersonViewmodel : MonoBehaviour
         float dist = armVec.magnitude;
         if (dist < 0.01f) return;
 
-        float want = reach * restReach01;
-        if (dist <= want) return;   // đã đủ co rồi thì để yên
+        // drawScale < 1 là tay này thu về gần người hơn tay kia - xem ô Alert Right Draw.
+        float want = reach * restReach01 * drawScale;
 
         rest = shoulder + armVec * (want / dist);
+    }
+
+    /// <summary>
+    /// Gắn tia điện lên găng. Mốc bám là CỔ TAY và NĂM ĐẦU NGÓN của mỗi bàn.
+    ///
+    /// Chỉ số 2, 5, 8, 11, 14 là đốt cuối của ngón cái, trỏ, giữa, áp út, út - theo đúng
+    /// thứ tự khai trong LeftFingerBones / RightFingerBones. Đổi thứ tự mảng đó thì phải
+    /// đổi cả mấy con số này.
+    /// </summary>
+    private void BuildGloveArcs()
+    {
+        if (!enableGloveArcs || _body == null || _magnet == null) return;
+
+        GameObject host = new GameObject("GloveArcs");
+        host.transform.SetParent(_camera, false);
+        host.layer = _layer;
+
+        GloveArcs arcs = host.AddComponent<GloveArcs>();
+        arcs.Init(_magnet,
+                  AnchorsOf(_lHand, _lFingers, _lPalmLocal),
+                  AnchorsOf(_rHand, _rFingers, _rPalmLocal),
+                  _layer);
+    }
+
+    [Tooltip("Điểm neo tia điện nhô ra khỏi xương về phía MU TAY bao nhiêu mét.\n\n" +
+             "⚠️ Bản đầu neo thẳng vào XƯƠNG cổ tay và đầu ngón. Xương nằm BÊN TRONG bàn " +
+             "tay, mà bàn tay lúc nghỉ lại đang NẮM - đầu ngón cuộn vào lòng. Nên mọi tia " +
+             "chạy xuyên trong lòng nắm đấm, bị da mu tay che kín, chỉ lộ ra phía lòng bàn " +
+             "tay. Mà ở góc nhìn thứ nhất, thứ ta nhìn thấy nhiều nhất lại chính là mu tay.\n\n" +
+             "Nhô điểm neo ra đúng bề mặt da thì tia bò TRÊN mu tay, luôn thấy được.")]
+    public float arcSurfaceOffset = 0.022f;
+
+    /// <summary>
+    /// Các điểm neo cho tia điện của một bàn tay.
+    ///
+    /// Gồm: giữa mu tay, bốn khớp đốt ngón (trỏ, giữa, áp út, út) - tất cả đều NHÔ RA mặt
+    /// mu tay; cộng thêm đầu ngón trỏ và ngón giữa để lúc bàn tay xoè ra (giữ vật, đẩy)
+    /// tia còn chạy dọc ra tới đầu ngón.
+    ///
+    /// Điểm neo là GameObject rỗng gắn làm CON của xương, nên ngón tay cuộn hay bàn tay
+    /// xoay kiểu gì nó cũng đi theo - không phải tính lại mỗi khung hình.
+    /// </summary>
+    private Transform[] AnchorsOf(Transform hand, Transform[] fingers, Vector3 palmLocal)
+    {
+        if (hand == null) return new Transform[0];
+
+        // Hướng MU TAY = ngược hướng lòng bàn tay. Lòng bàn tay đã đo sẵn lúc bắt xương
+        // ngón (và đã được kiểm chứng đúng chiều qua động tác đẩy xoè tay).
+        Vector3 dorsal = palmLocal.sqrMagnitude > 0.000001f
+                         ? -hand.TransformDirection(palmLocal).normalized
+                         : hand.up;
+
+        System.Collections.Generic.List<Transform> list =
+            new System.Collections.Generic.List<Transform>();
+
+        // Giữa mu tay: đi từ cổ tay về phía khớp ngón giữa gần nửa đường.
+        Transform midKnuckle = (fingers != null && fingers.Length > 6) ? fingers[6] : null;
+        Vector3 back = midKnuckle != null
+                       ? Vector3.Lerp(hand.position, midKnuckle.position, 0.45f)
+                       : hand.position;
+        list.Add(MakeAnchor(hand, back + dorsal * arcSurfaceOffset));
+
+        if (fingers != null)
+        {
+            // Bốn khớp đốt: đốt gốc của trỏ (3), giữa (6), áp út (9), út (12).
+            int[] knuckles = { 3, 6, 9, 12 };
+            foreach (int k in knuckles)
+            {
+                if (k < fingers.Length && fingers[k] != null)
+                    list.Add(MakeAnchor(fingers[k], fingers[k].position + dorsal * arcSurfaceOffset));
+            }
+
+            // Đầu ngón trỏ (5) và giữa (8), cũng nhô ra mặt trên.
+            int[] tips = { 5, 8 };
+            foreach (int k in tips)
+            {
+                if (k < fingers.Length && fingers[k] != null)
+                    list.Add(MakeAnchor(fingers[k], fingers[k].position + dorsal * arcSurfaceOffset * 0.6f));
+            }
+        }
+
+        return list.ToArray();
+    }
+
+    private static Transform MakeAnchor(Transform bone, Vector3 worldPos)
+    {
+        GameObject go = new GameObject("ArcAnchor");
+        go.transform.SetParent(bone, false);
+
+        // Đặt theo toạ độ THẾ GIỚI sau khi đã gắn làm con: Unity tự quy đổi ra toạ độ
+        // cục bộ, kể cả khi xương đang bị scale 1.2 - tự tính tay thì dễ lệch đúng chỗ đó.
+        go.transform.position = worldPos;
+        return go.transform;
     }
 
     private void BuildCamera()
@@ -857,9 +1323,17 @@ public class FirstPersonViewmodel : MonoBehaviour
         // cú đấm thật: bung nhanh, chạm đỉnh, thu về.
         // Nắm tay lại quanh cú đấm. Đấm bằng bàn tay xoè là thứ mắt bắt lỗi ngay.
         _punchFistTimer = punchFistHold;
-        _punchTimer = punchHold;
 
-        _rVelocity += new Vector3(-0.08f, -punchDrop, punchThrust) * poseStiffness * 0.06f;
+        // Tổng thời gian = rút tay + thọc ra. BuildTargets so _punchTimer với punchHold
+        // để biết đang ở pha nào, nên không cần biến đếm thứ hai.
+        _punchTimer = punchWindupHold + punchHold;
+
+        // Xung ĐI NGƯỢC, về phía sau. Nghe lạ nhưng đúng: nhịp đầu của cú đấm là RÚT
+        // TAY VỀ, nên xung phải giúp nó rút nhanh. Xung đẩy ra trước như bản cũ thì nó
+        // đánh nhau với pha rút tay và triệt tiêu mất cả hai.
+        // Xung đi DỌC ĐƯỜNG ĐẤM, không lệch ngang. Trước để x = +0.1 nên nắm đấm bị hất
+        // sang phải lúc rút rồi mới quăng vào trong - thêm một tầng quét ngang nữa.
+        _rVelocity += new Vector3(0.04f, -0.01f, -0.4f) * poseStiffness * 0.05f;
 
         // Tay trái hơi lùi lại để giữ thăng bằng - cơ thể thật luôn phản lực như vậy.
         _lVelocity += new Vector3(0f, 0.02f, -0.1f) * poseStiffness * 0.04f;
@@ -880,11 +1354,25 @@ public class FirstPersonViewmodel : MonoBehaviour
         _rVelocity += push;
         _lVelocity += push * 0.7f;
 
-        _fireTimer = fireHold;
+        _fireTimer = fireWindupHold + fireHold;
 
         // Hẹn nhịp giật ngược, tính từ lúc THẢ tư thế đẩy chứ không phải từ lúc bấm -
         // giật ngược trong khi tay còn đang giữ thế đẩy thì hai lực đè nhau, mất cả hai.
         _fireRecoilTimer = fireHold + fireRecoilDelay;
+    }
+
+    /// <summary>Đẩy vật đi bằng găng: tay TRÁI xoè bàn, dang ra ngoài và hất mạnh.</summary>
+    public void PlayPush()
+    {
+        if (!_built) return;
+
+        _pushTimer = fireWindupHold + pushHold;
+
+        // Xung VỪA PHẢI thôi. Trước đây để (-0.35, 0.08, 0.9) x 9.8 = vận tốc ngang 3.4
+        // m/s SANG TRÁI, cộng thêm cái đích vốn đã lệch trái - tay vọt hẳn ra ngoài khung
+        // hình. Giờ độ vươn do đích lo (xem poseOvershoot), xung chỉ còn là gia vị cho
+        // nhịp khởi động.
+        _lVelocity += new Vector3(-0.08f, 0.04f, 0.35f) * poseStiffness * 0.05f;
     }
 
     /// <summary>Bắn laze: tay trái vươn ra và giữ một nhịp.</summary>
@@ -919,6 +1407,7 @@ public class FirstPersonViewmodel : MonoBehaviour
 
         UpdateFists(dt);
         ApplyFingers();
+        AimPalmForPush(dt);
     }
 
     private void UpdateSway(float dt)
@@ -957,32 +1446,73 @@ public class FirstPersonViewmodel : MonoBehaviour
     {
         float speed01 = _movement != null ? Mathf.Clamp01(_movement.LocalWalkSpeed01) : 0f;
 
-        // Nhấp nhô theo bước chân, và thở nhẹ khi đứng yên. Trộn hai cái theo tốc độ nên
-        // lúc dừng lại nhịp chuyển mượt sang thở chứ không tắt phụt.
-        _bobPhase += dt * walkBobSpeed * Mathf.Max(speed01, 0.18f) * Mathf.PI * 2f;
+        // ⚠️ DÙNG CHUNG PHA VỚI CAMERA, KHÔNG TỰ ĐẾM.
+        //
+        // Tự đếm thì viewmodel chạy 5 nhịp/giây còn camera chạy 8 - hai nhịp chồng lên
+        // nhau thành phách 3 nhịp/giây, lúc cùng chiều lúc ngược chiều. Đó chính là cảnh
+        // tay rung lắc dữ dội khi đi bộ, và nó KHÔNG chữa được bằng cách hạ biên độ.
+        //
+        // Dùng chung pha thì hai bên đồng bộ tuyệt đối. Cũng lấy luôn tốc độ đã làm mượt
+        // bên đó, nên lúc bắt đầu và dừng lại tay không giật.
+        if (_shake != null && _shake.enableHeadBob)
+        {
+            _bobPhase = _shake.BobPhase;
+            speed01 = Mathf.Clamp01(_shake.SmoothedSpeed01);
+        }
+        else
+        {
+            _bobPhase += dt * walkBobSpeed * Mathf.Max(speed01, 0.18f) * Mathf.PI * 2f;
+        }
 
-        float amp = Mathf.Lerp(breatheAmount, walkBobAmount, speed01);
+        // Ba tỉ lệ dưới đây lấy theo tỉ lệ tay người thật khi đi: nhún dọc và lắc ngang
+        // đều nhỏ hơn hẳn biên độ đánh tay trước-sau.
+        float amp = Mathf.Lerp(breatheAmount, walkSwingReach * 0.18f, speed01);
 
         // Trục DỌC: nhún theo mỗi bước chân, nên chạy NHANH GẤP ĐÔI nhịp đánh tay -
         // một chu kỳ đánh tay có hai bước chân. Bỏ số 2 đi thì thành đi cà nhắc một bên.
         float bobY = Mathf.Sin(_bobPhase * 2f) * amp;
 
-        // Trục TRƯỚC-SAU: đánh tay. Đây mới là chuyển động người ta THẤY khi đi bộ.
-        // Chỉ có khi đang thật sự di chuyển, đứng yên thì không đánh tay.
-        float swing = Mathf.Sin(_bobPhase) * walkSwingAmount * speed01;
+        // Nhịp đánh tay chậm hơn nhịp bước chân - xem ô Walk Swing Rate.
+        _swingPhase = _bobPhase * walkSwingRate;
 
         // Trục NGANG: lắc nhẹ, cùng pha với đánh tay.
-        float lateral = Mathf.Cos(_bobPhase) * walkLateralAmount * speed01;
+        float lateral = Mathf.Cos(_swingPhase) * walkSwingReach * 0.2f * speed01;
 
-        // HAI TAY SO LE NHAU: tay trái ra trước thì tay phải ra sau.
+        // ĐÁNH TAY LÀ XOAY QUANH VAI, KHÔNG PHẢI TRƯỢT TỚI TRƯỢT LUI.
         //
-        // Đây là điểm mấu chốt. Cùng pha thì hai tay cùng đưa ra rồi cùng thu về, trông
-        // như đang bơi ếch chứ không phải đi bộ. Dấu trừ ở tay phải làm tất cả khác biệt.
-        _lTarget = _lRest + _sway
-                   + new Vector3(lateral, bobY, swing);
+        // ⚠️ Bản trước cộng một đoạn thẳng vào trục z, tức bàn tay trượt tới trượt lui
+        // NGANG TẦM MẮT. Trượt dọc trục nhìn thì trên màn hình gần như không thấy gì -
+        // đúng cái bệnh đã gặp ở cú đấm và cú hút.
+        //
+        // Tay người thật QUAY quanh khớp vai: ra trước là nhấc lên, ra sau là chúc hẳn
+        // xuống dưới. Chính vì thế mà nhìn xuống lúc đang đi, mỗi lúc ta chỉ thấy MỘT
+        // tay - tay kia đã khuất xuống dưới tầm nhìn.
+        //
+        // Xoay quanh trục X của camera cho ra đúng cung đó. Độ dài cánh tay giữ nguyên
+        // nên không cần lo IK kẹp.
+        // RƠI MỘT CHIỀU, KHÔNG DAO ĐỘNG HAI BÊN.
+        //
+        // dropL và dropR chạy trong khoảng 0 -> 1 và ngược pha nhau. Số 0 nghĩa là "đứng
+        // đúng tư thế nghỉ", số 1 nghĩa là "chúc xuống hết cung". Nên tay KHÔNG BAO GIỜ
+        // nhấc lên cao hơn chỗ nó đứng lúc rảnh - đúng như người đi bộ thật: buông tay
+        // xuống rồi đưa về, chứ không nhấc tay lên khỏi ngực.
+        //
+        // Nhân speed01 nên lúc đứng yên cung rơi bằng 0, tay về đúng tư thế cảnh giác mà
+        // không cần thêm đoạn chuyển nào.
+        float span = walkSwingReach * walkSwingDegPerMeter * speed01;
 
-        _rTarget = _rRest + _sway
-                   + new Vector3(-lateral, bobY, -swing);
+        float dropL = (1f - Mathf.Sin(_swingPhase)) * 0.5f * span;
+        float dropR = (1f + Mathf.Sin(_swingPhase)) * 0.5f * span;
+
+        Vector3 lArm = _lRest - _lShoulder;
+        Vector3 rArm = _rRest - _rShoulder;
+
+        // Góc DƯƠNG hạ tay xuống và ra sau. Hai tay ngược pha nên luôn có một tay ở đỉnh.
+        Vector3 lSwung = Quaternion.AngleAxis(dropL, Vector3.right) * lArm;
+        Vector3 rSwung = Quaternion.AngleAxis(dropR, Vector3.right) * rArm;
+
+        _lTarget = _lShoulder + lSwung + _sway + new Vector3(lateral, bobY, 0f);
+        _rTarget = _rShoulder + rSwung + _sway + new Vector3(-lateral, bobY, 0f);
 
         // --- ĐANG HÚT ĐẠN: kéo hai tay về ngực và tách rộng ---
         //
@@ -990,8 +1520,47 @@ public class FirstPersonViewmodel : MonoBehaviour
         // xung vào vận tốc như các cú đánh một nhịp. Cộng xung liên tục thì tay bay mất.
         if (_magnet != null && _magnet.IsPulling)
         {
-            _lTarget += new Vector3(-pullSpread, 0.05f, -pullDraw);
-            _rTarget += new Vector3(pullSpread, 0.05f, -pullDraw);
+            // GHÌ RUN: đổi độ vươn qua lại quanh mức chính, để tư thế không chết cứng.
+            float strain = Mathf.Sin(Time.time * pullStrainSpeed) * pullStrain;
+            float reachIn = Mathf.Max(0.15f, pullExtend01 + strain);
+
+            // Chếch RA NGOÀI và LÊN TRÊN, không phải lùi thẳng về sau. Hai tay vì thế
+            // nằm ngang tầm mặt và dang rộng - dịch chuyển thật trên màn hình, thay vì
+            // chỉ thụt lùi dọc trục nhìn như bản cũ.
+            Vector3 dirL = new Vector3(-(0.35f + pullSpread), 0.30f, 0.84f).normalized;
+            Vector3 dirR = new Vector3(0.35f + pullSpread, 0.30f, 0.84f).normalized;
+
+            if (_lReach > 0.01f) _lTarget = _lShoulder + dirL * (_lReach * reachIn) + _sway;
+            if (_rReach > 0.01f) _rTarget = _rShoulder + dirR * (_rReach * reachIn) + _sway;
+        }
+
+        // --- ĐANG "CẦM" VẬT: TAY PHẢI KHỐNG CHẾ, TAY TRÁI NGHỈ ---
+        // ⚠️ KHỐI NÀY PHẢI ĐỨNG TRƯỚC BA KHỐI ĐỘNG TÁC BÊN DƯỚI.
+        //
+        // Nó GÁN ĐÈ _rTarget chứ không cộng thêm, nên đặt sau là nó xoá sạch mọi tư thế
+        // đấm / bắn / laze vừa tính. Giữ vật là TRẠNG THÁI NỀN, ba cái kia là HÀNH ĐỘNG -
+        // hành động luôn thắng trạng thái, giống đúng thứ tự ưu tiên ở UpdateFists().
+        //
+        // Nhân vật không bưng cục đá trên tay - vô lý với một tảng đá hay cái bàn. Nó
+        // giữ vật LƠ LỬNG bằng từ trường, nên tay chìa về phía vật và xoè bàn ra.
+        //
+        // Hướng lấy từ VỊ TRÍ THẬT của vật chứ không gõ cứng: vật lơ lửng hơi lệch trái
+        // hay lệch phải thì tay cũng nghiêng theo, và người chơi thấy tay mình thật sự
+        // đang trỏ vào nó.
+        if (_magnet != null && _rReach > 0.01f)
+        {
+            MagneticObject held = _magnet.GetGrabbedObject();
+            if (held != null)
+            {
+                Vector3 objLocal = _camera.InverseTransformPoint(held.transform.position);
+                Vector3 toObj = objLocal - _rShoulder;
+
+                if (toObj.sqrMagnitude > 0.0001f)
+                {
+                    _rTarget = _rShoulder + toObj.normalized * (_rReach * controlExtend01)
+                               + _sway + new Vector3(0f, bobY * 0.4f, 0f);
+                }
+            }
         }
 
         // --- GIỮ TƯ THẾ ĐẤM ---
@@ -1002,23 +1571,73 @@ public class FirstPersonViewmodel : MonoBehaviour
         //
         // Không sợ vượt tầm tay: SolveArm tự kẹp lại ở tầm với, nên punchThrust to là ra
         // tay duỗi thẳng hết cỡ - đúng cái mình muốn cho một cú đấm.
+        // ⚠️ Đếm ngược NGOÀI phần kiểm _rReach. Để đồng hồ bên trong thì lỡ đo tầm tay
+        // hỏng (_rReach = 0) là nó không bao giờ giảm, và động tác kẹt lại vĩnh viễn.
         if (_punchTimer > 0f)
         {
             _punchTimer -= dt;
-            _rTarget += new Vector3(-0.06f, -punchDrop, punchThrust);
-            _lTarget += new Vector3(0f, 0.02f, -0.08f);   // tay trái lùi giữ thăng bằng
+
+            // MỘT TIA DUY NHẤT xuất phát từ MẮT, cho cả nhịp rút lẫn nhịp thọc. Chỉ khác
+            // ĐỘ DÀI, nên nắm đấm chạy trên một đường thẳng và giữ nguyên chỗ trên màn
+            // hình, chỉ to lên rồi nhỏ đi. Đó là cú thọc thẳng của mọi game bắn súng.
+            Vector3 aim = punchAim.sqrMagnitude > 0.0001f
+                          ? punchAim.normalized
+                          : Vector3.forward;
+
+            // Còn dư nhiều hơn punchHold nghĩa là vẫn đang ở nhịp RÚT TAY.
+            float dist = _punchTimer > punchHold ? punchWindupDist : punchStrikeDist;
+
+            _rTarget = aim * dist + _sway;
+
+            _lTarget += new Vector3(0f, 0.02f, -0.1f);   // tay trái lùi giữ thăng bằng
         }
 
-        // --- GIỮ TƯ THẾ BẮN ---
+        // --- GIỮ TƯ THẾ BẮN / ĐẨY ---
         //
-        // Nhẹ hơn cú đấm (0.55 lần) để hai động tác không giống hệt nhau: đấm là duỗi
-        // thẳng hết cỡ, bắn là đẩy hai tay ra nhưng khuỷu còn cong.
+        // GÁN ĐÈ, đo từ vai - xem ghi chú ở ô Fire Extend 01 để biết vì sao không cộng
+        // thêm vào tư thế hiện tại.
+        //
+        // Khác cú đấm ở hai điểm nên mắt phân biệt được ngay: đây là HAI TAY cùng đẩy,
+        // và chỉ vươn 92% nên khuỷu còn cong; cú đấm là MỘT TAY và duỗi thẳng hết cỡ.
         if (_fireTimer > 0f)
         {
             _fireTimer -= dt;
-            Vector3 shove = new Vector3(0f, 0.03f, firePush * 0.55f);
-            _rTarget += shove;
-            _lTarget += shove;
+
+            // Hơi chếch lên, vì đẩy một vật nặng thì tay đi từ dưới lên chứ không nằm ngang.
+            // Bớt chếch lên (0.14 -> 0.07): phần nào dồn vào trục Y là phần đó KHÔNG
+            // dồn ra trước được, mà tầm với thì cố định.
+            Vector3 shoveDir = new Vector3(0f, 0.07f, 1f).normalized;
+
+            // Rút và đẩy đi trên CÙNG MỘT ĐƯỜNG, chỉ khác độ dài - nên quỹ đạo là một
+            // đoạn thẳng vào rồi ra, không phải vòng cung.
+            float reachOut = _fireTimer > fireHold
+                             ? fireWindup01
+                             : fireExtend01 * poseOvershoot;
+
+            if (_rReach > 0.01f) _rTarget = _rShoulder + shoveDir * (_rReach * reachOut) + _sway;
+            if (_lReach > 0.01f) _lTarget = _lShoulder + shoveDir * (_lReach * reachOut) + _sway;
+        }
+
+        // --- GIỮ TƯ THẾ ĐẨY VẬT ---
+        //
+        // Chỉ TAY TRÁI, và dang ra ngoài. Ba điểm khác cú bắn để mắt phân biệt được:
+        // một tay thay vì hai, chếch ra ngoài thay vì thẳng trước mặt, và bàn tay xoè
+        // hết (lo ở UpdateFists) thay vì nắm hờ.
+        if (_pushTimer > 0f)
+        {
+            _pushTimer -= dt;
+
+            if (_lReach > 0.01f)
+            {
+                // x âm là ra ngoài, vì tay trái nằm bên trái.
+                Vector3 pushDir = new Vector3(-pushSpread, 0.05f, 1f).normalized;
+
+                float reachOut = _pushTimer > pushHold
+                                 ? fireWindup01
+                                 : pushExtend01 * poseOvershoot;
+
+                _lTarget = _lShoulder + pushDir * (_lReach * reachOut) + _sway;
+            }
         }
 
         // --- NHỊP GIẬT NGƯỢC SAU KHI BẮN ---
@@ -1044,29 +1663,6 @@ public class FirstPersonViewmodel : MonoBehaviour
             _rTarget += new Vector3(-0.04f, 0.03f, laserExtend * 0.55f);
         }
 
-        // --- ĐANG "CẦM" VẬT: TAY PHẢI KHỐNG CHẾ, TAY TRÁI NGHỈ ---
-        //
-        // Nhân vật không bưng cục đá trên tay - vô lý với một tảng đá hay cái bàn. Nó
-        // giữ vật LƠ LỬNG bằng từ trường, nên tay chìa về phía vật và xoè bàn ra.
-        //
-        // Hướng lấy từ VỊ TRÍ THẬT của vật chứ không gõ cứng: vật lơ lửng hơi lệch trái
-        // hay lệch phải thì tay cũng nghiêng theo, và người chơi thấy tay mình thật sự
-        // đang trỏ vào nó.
-        if (_magnet != null && _rReach > 0.01f)
-        {
-            MagneticObject held = _magnet.GetGrabbedObject();
-            if (held != null)
-            {
-                Vector3 objLocal = _camera.InverseTransformPoint(held.transform.position);
-                Vector3 toObj = objLocal - _rShoulder;
-
-                if (toObj.sqrMagnitude > 0.0001f)
-                {
-                    _rTarget = _rShoulder + toObj.normalized * (_rReach * controlExtend01)
-                               + _sway + new Vector3(0f, bobY * 0.4f, 0f);
-                }
-            }
-        }
     }
 
     /// <summary>
@@ -1112,15 +1708,55 @@ public class FirstPersonViewmodel : MonoBehaviour
         float speed01 = _movement != null ? Mathf.Clamp01(_movement.LocalWalkSpeed01) : 0f;
 
         // Nghiêng người sang hai bên theo bước chân, và gật nhẹ theo nhịp nhún.
-        float roll = Mathf.Sin(_bobPhase) * walkRollAmount * speed01;
-        float pitch = Mathf.Sin(_bobPhase * 2f) * walkRollAmount * 0.35f * speed01;
+        if (_shake != null && _shake.enableHeadBob) speed01 = Mathf.Clamp01(_shake.SmoothedSpeed01);
 
-        Quaternion pose = Quaternion.Euler(pitch, 0f, roll);
+        // Xoay cả khung, suy từ cùng một ô. Hệ số 11 độ trên mỗi mét cho ra 2.2 độ ở
+        // mức mặc định 0.2m - đúng con số đã dùng trước đây.
+        float rollDeg = walkSwingReach * 11f;
 
-        if (_shake == null || shakeFollow >= 0.999f)
+        // Nghiêng người theo nhịp ĐÁNH TAY, gật đầu theo nhịp BƯỚC CHÂN - hai nhịp khác
+        // nhau, đúng như cơ thể thật.
+        float roll = Mathf.Sin(_swingPhase) * rollDeg * speed01;
+        float pitch = Mathf.Sin(_bobPhase * 2f) * rollDeg * 0.35f * speed01;
+
+        // Đường cong của cú đấm: 0 -> 1 -> 0 trong suốt thời gian đấm, dùng chung cho cả
+        // phần chồm tới lẫn phần vặn người.
+        float punch01 = 0f;
+        float punchTotal = punchWindupHold + punchHold;
+
+        if (_punchTimer > 0f && punchTotal > 0.0001f)
+        {
+            punch01 = Mathf.Sin(Mathf.Clamp01(1f - _punchTimer / punchTotal) * Mathf.PI);
+        }
+
+        // Vặn sang TRÁI (yaw âm) để đưa vai phải ra trước - xem ghi chú ở ô Punch Twist.
+        Quaternion pose = Quaternion.Euler(pitch, -punchTwist * punch01, roll);
+
+        // Nở góc nhìn cho cánh tay vọt ra. Gán thẳng chứ không cộng dồn, nên hết cú đấm
+        // là nó tự về đúng viewmodelFov, không cần nhớ giá trị cũ.
+        if (_viewmodelCam != null)
+        {
+            _viewmodelCam.fieldOfView = viewmodelFov + punchFovPunch * punch01;
+        }
+
+        // CẢ THÂN CHỒM RA TRƯỚC KHI ĐẤM. Chỉ duỗi tay thì chỉ có cánh tay đấm; dời cả
+        // khung thì VAI cũng tiến lên, và đó mới là thứ mắt đọc thành "dồn sức vào cú đấm".
+        // Chồm người: cú đấm và cú bắn/đẩy dùng chung một chỗ dời, cộng lại được vì
+        // không bao giờ trùng nhau quá một nhịp.
+        float fireTotal = fireWindupHold + fireHold;
+        float pushTotal = fireWindupHold + pushHold;
+
+        float fire01 = _fireTimer > 0f && fireTotal > 0.0001f
+                       ? Mathf.Sin(Mathf.Clamp01(1f - _fireTimer / fireTotal) * Mathf.PI) : 0f;
+        float push01 = _pushTimer > 0f && pushTotal > 0.0001f
+                       ? Mathf.Sin(Mathf.Clamp01(1f - _pushTimer / pushTotal) * Mathf.PI) : 0f;
+
+        float lunge = punch01 * punchLunge + Mathf.Max(fire01, push01) * fireLunge;
+
+        if (!decoupleFromShake || _shake == null || shakeFollow >= 0.999f)
         {
             _body.localRotation = pose;
-            _body.localPosition = _bodyBasePos;
+            _body.localPosition = _bodyBasePos + new Vector3(0f, 0f, lunge);
             return;
         }
 
@@ -1142,11 +1778,47 @@ public class FirstPersonViewmodel : MonoBehaviour
         Vector3 off = _shake.PositionOffset;
         if (_camera.parent != null) off = _camera.parent.TransformDirection(off);
 
-        _body.localPosition = _bodyBasePos - _camera.InverseTransformDirection(off) * cancel;
+        _body.localPosition = _bodyBasePos + new Vector3(0f, 0f, lunge)
+                              - _camera.InverseTransformDirection(off) * cancel;
+    }
+
+    /// <summary>
+    /// Trả bốn xương tay và hai bàn tay về tư thế gốc trước mỗi lần giải IK.
+    ///
+    /// ⚠️ THIẾU CÁI NÀY THÌ TAY TỰ XOẮN DẦN, CÀNG ĐẤM NHIỀU CÀNG HỎNG.
+    ///
+    /// AimBone chỉ ép HƯỚNG của xương, hoàn toàn không nói gì về việc xương xoay quanh
+    /// trục của chính nó. Góc xoắn đó thừa hưởng từ khung hình trước, nên nó là một số
+    /// tự do trôi nổi.
+    ///
+    /// Và nó KHÔNG trôi ngẫu nhiên - nó trôi có hệ thống. Quaternion.FromToRotation cho
+    /// ra phép xoay ngắn nhất, mà xoay ngắn nhất đi vòng quanh một chu trình khép kín
+    /// trên mặt cầu thì để lại một góc xoắn thừa đúng bằng diện tích chu trình đó. Mỗi
+    /// cú đấm là một chu trình khép kín (nghỉ -> rút -> thọc -> nghỉ), nên MỖI CÚ ĐẤM
+    /// CỘNG THÊM một chút xoắn, không bao giờ tự trả lại.
+    ///
+    /// Đấm vài lần thì chưa thấy. Đấm nhiều lần thì cẳng tay xoắn hẳn đi, và bàn tay
+    /// cùng chùm ngón bị vặn theo - đúng cái "sau khi đấm nhiều lần thì tay phải bị lỗi
+    /// ngón tay".
+    ///
+    /// Trả về gốc thì tư thế mỗi khung hình chỉ còn phụ thuộc vào ĐÍCH, không phụ thuộc
+    /// lịch sử. Đây cũng đúng cách đã chữa cho ngón tay và cho bàn tay lúc đẩy.
+    /// </summary>
+    private void ResetArmPose()
+    {
+        if (_lUpper != null) _lUpper.localRotation = _lUpperRest;
+        if (_lLower != null) _lLower.localRotation = _lLowerRest;
+        if (_lHand  != null) _lHand.localRotation  = _lHandRest;
+
+        if (_rUpper != null) _rUpper.localRotation = _rUpperRest;
+        if (_rLower != null) _rLower.localRotation = _rLowerRest;
+        if (_rHand  != null) _rHand.localRotation  = _rHandRest;
     }
 
     private void ApplyIK()
     {
+        ResetArmPose();
+
         Vector3 pole = _camera.TransformDirection(elbowHint.normalized);
 
         SolveArm(_lUpper, _lLower, _lHand, _camera.TransformPoint(_lOffset),

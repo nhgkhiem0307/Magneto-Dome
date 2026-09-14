@@ -124,6 +124,16 @@ public class PlayerMagnetController : NetworkBehaviour
              "cũng lọt vào. Giới hạn theo góc chặn đúng chỗ đó lại.")]
     public float aimAssistAngle = 12f;
 
+    [Tooltip("Góc hỗ trợ riêng cho CỰ LY GẦN (trong tầm đấm). Rộng hơn hẳn góc ở trên.\n\n" +
+             "⚠️ Vì sao phải có góc riêng: giới hạn 12 độ ở trên đúng cho tầm xa nhưng vô " +
+             "dụng ở tầm đấm. Địch đứng cách 1.5m mà lệch sang bên 0.4m đã là 15 độ - trượt. " +
+             "Mà 0.4m ở khoảng cách đó thì hai người gần như đang chạm vào nhau.\n\n" +
+             "Góc lệch không phải thước đo tốt ở cự ly gần: cùng một khoảng lệch bên hông, " +
+             "càng lại gần thì góc càng phình to. 70 độ nghe rất rộng nhưng ở 1.5m nó chỉ " +
+             "ứng với khoảng 4m bề ngang - và bước quét này vốn đã bị chặn trong tầm đấm rồi.")]
+    [Range(10f, 120f)]
+    public float closeAssistAngle = 70f;
+
     [Header("Rung camera")]
     [Tooltip("Độ mạnh cú rung khi bắn vật đang cầm đi, thang 0..1. Đặt 0 để tắt.")]
     public float fireShakeTrauma = 0.4f;
@@ -163,6 +173,36 @@ public class PlayerMagnetController : NetworkBehaviour
     [Networked, OnChangedRender(nameof(OnMeleePerformed))]
     private int MeleeCount { get; set; }
 
+    /// <summary>
+    /// Đếm số lần VUNG TAY - khác hẳn MeleeCount là số lần ĐẤM TRÚNG.
+    ///
+    /// ⚠️ VÌ SAO PHẢI TÁCH RA (thêm 09/09):
+    /// HandleRightClickMelee() thoát ngay ở dòng đầu khi không tìm thấy mục tiêu, nên
+    /// MeleeCount chỉ tăng lúc đấm TRÚNG ai đó. Đấm vào không khí thì tuyệt đối không có
+    /// gì xảy ra: không tiếng, không rung camera, không animation, không cả cử động tay.
+    ///
+    /// Nghĩa là test một mình trong scene không có đối thủ thì KHÔNG BAO GIỜ thấy cú đấm.
+    /// Bắn laze thì thấy, vì quanh map lúc nào cũng có vật để bắn.
+    ///
+    /// Mọi game bắn súng đều tách hai thứ này: vung tay là thứ NGƯỜI ĐẤM luôn thấy, còn
+    /// tiếng đấm và rung camera là phản hồi CHỈ có khi chạm được vào ai.
+    /// </summary>
+    [Networked, OnChangedRender(nameof(OnMeleeSwing))]
+    private int MeleeSwingCount { get; set; }
+
+    /// <summary>
+    /// Chỗ vừa đấm trúng, và cú đó là đấm hay grapple.
+    ///
+    /// ⚠️ MeleeCount chỉ báo "vừa trúng", không nói trúng Ở ĐÂU - máy khác không có cách
+    /// nào biết mà vẽ quyền khí bay tới. Dùng TOẠ ĐỘ chứ không dùng ID như tia laze, vì
+    /// bù nhìn tập đấm (DummyMagnetTarget) là MonoBehaviour thường, không có ID mạng.
+    ///
+    /// Cần cờ grapple vì grapple CŨNG tăng MeleeCount. Không tách ra thì mỗi lần kéo áp
+    /// sát lại có một luồng quyền khí bay xa 8 mét, trông vô lý.
+    /// </summary>
+    [Networked] private Vector3 MeleeHitPoint { get; set; }
+    [Networked] private NetworkBool MeleeWasGrapple { get; set; }
+
     // Đếm số vật đã bắn đi, để rung camera đúng một lần mỗi phát.
     //
     // Vì sao phải [Networked] cho một hiệu ứng thuần cục bộ: FireGrabbedObject() nằm SAU
@@ -187,6 +227,29 @@ public class PlayerMagnetController : NetworkBehaviour
     // Hai nguồn ở hai vị trí khác nhau nên tai nghe ra được khoảng cách tới mục tiêu.
     [Networked, OnChangedRender(nameof(OnLaserFired))]
     private int LaserCount { get; set; }
+
+    /// <summary>
+    /// Vật vừa bị bắn laze, để mọi máy biết vẽ tia TỚI ĐÂU.
+    ///
+    /// ⚠️ Bộ đếm LaserCount chỉ nói "vừa bắn", không nói "trúng chỗ nào". Thiếu ô này thì
+    /// mỗi máy phải tự raycast lại, mà vật có thể đã nhúc nhích - hai máy vẽ tia đi hai
+    /// hướng khác nhau.
+    ///
+    /// Gửi ID thay vì toạ độ vì rẻ hơn (4 byte so với 12) và tia còn BÁM ĐƯỢC vật nếu nó
+    /// đang bay.
+    /// </summary>
+    [Networked] private NetworkBehaviourId LaserTargetId { get; set; }
+
+    /// <summary>
+    /// Đếm số lần ĐẨY vật đi bằng chuột trái (cùng dấu).
+    ///
+    /// ⚠️ Nhánh đẩy trong HandleLeftClickMagnet() trước đây KHÔNG có bộ đếm nào cả - nó
+    /// đặt vận tốc cho vật rồi return. Nên đây là hành động duy nhất của găng tay không
+    /// hề có phản hồi nào về phía người chơi: không tiếng, không rung, không cử động tay.
+    /// Mà đẩy vật lại chính là đòn tấn công cơ bản nhất của game.
+    /// </summary>
+    [Networked, OnChangedRender(nameof(OnObjectPushed))]
+    private int PushCount { get; set; }
 
     /// <summary>
     /// Đang giữ chuột hút một vật về tay.
@@ -371,6 +434,10 @@ public class PlayerMagnetController : NetworkBehaviour
 
         if (pressed.IsSet((int)InputButton.Melee) && MeleeCooldownTimer.ExpiredOrNotRunning(Runner))
         {
+            // Tăng TRƯỚC khi gọi, vì HandleRightClickMelee thoát ngay khi trượt. Đây là
+            // "đã vung tay", trúng hay trượt tính sau.
+            MeleeSwingCount++;
+
             HandleRightClickMelee(aimOrigin, aimDirection);
         }
     }
@@ -403,6 +470,10 @@ public class PlayerMagnetController : NetworkBehaviour
             if (justPressed)
             {
                 magObj.SetPolarity(currentGlovePolarity);
+
+                // Ghi mục tiêu TRƯỚC khi tăng bộ đếm. Fusion gửi cả gói trạng thái cùng
+                // một tick, nhưng đặt đúng thứ tự thì đọc code không phải đoán.
+                LaserTargetId = magObj.Id;
 
                 // Tiếng tia laze bắn ra từ găng. Đặt TRONG nhánh justPressed nên chỉ kêu
                 // đúng một lần lúc bấm xuống, không kêu liên tục khi giữ chuột.
@@ -445,6 +516,8 @@ public class PlayerMagnetController : NetworkBehaviour
             // bằng 1/5 và dừng ngay tại chỗ.
             targetRb.linearVelocity = pushDirection * pushSpeed;
             targetRb.angularVelocity = Vector3.zero;
+
+            PushCount++; // để tay người đẩy vung ra, xem OnObjectPushed
             return;
         }
 
@@ -543,8 +616,66 @@ public class PlayerMagnetController : NetworkBehaviour
     /// (DummyMagnetTarget) không nằm trong danh sách đó. Quét theo hình học thì người thật
     /// và bù nhìn đều bắt được, không phải viết hai đường riêng.
     /// </summary>
+    /// <summary>
+    /// Tìm đối thủ đang đứng trong tầm đấm, chọn người gần tâm ngắm nhất.
+    ///
+    /// Dùng góc rộng closeAssistAngle chứ không dùng aimAssistAngle: xem ghi chú ở ô đó.
+    /// </summary>
+    Transform FindClosestInSphere(Vector3 aimOrigin, Vector3 aimDirection)
+    {
+        Collider[] hits = Physics.OverlapSphere(aimOrigin, meleeRange);
+
+        Transform best = null;
+        float bestAngle = float.MaxValue;
+
+        foreach (Collider hit in hits)
+        {
+            if (hit == null) continue;
+            if (!hit.CompareTag("Player")) continue;
+            if (hit.transform == transform) continue;
+
+            Vector3 toTarget = hit.transform.position - aimOrigin;
+            if (toTarget.sqrMagnitude < 0.0001f) continue;
+
+            float angle = Vector3.Angle(aimDirection, toTarget);
+            if (angle > closeAssistAngle) continue;
+
+            // Không cho đấm xuyên tường. Bỏ qua vật cản là chính mục tiêu hoặc chính mình -
+            // tia xuất phát từ camera nên nó nằm ngay trong người mình.
+            if (Physics.Linecast(aimOrigin, hit.bounds.center, out RaycastHit blocker)
+                && blocker.transform != hit.transform
+                && blocker.transform != transform)
+            {
+                continue;
+            }
+
+            if (angle < bestAngle)
+            {
+                bestAngle = angle;
+                best = hit.transform;
+            }
+        }
+
+        return best;
+    }
+
     Transform FindMeleeTarget(Vector3 aimOrigin, Vector3 aimDirection)
     {
+        // BƯỚC 0 - CỰ LY CỰC GẦN, quét chồng lấn
+        //
+        // ⚠️ BẮT BUỘC PHẢI CÓ BƯỚC RIÊNG NÀY. Physics.SphereCastAll ở bước 2 KHÔNG BÁO
+        // những collider đã chồng lấn quả cầu NGAY TỪ ĐẦU đường quét. Quả cầu bán kính
+        // 1.2m xuất phát từ camera, nên mọi đối thủ đứng gần hơn 1.2m đều rơi đúng vào
+        // vùng mù đó - không bao giờ được trả về.
+        //
+        // Tức là hỗ trợ ngắm hỏng đúng ở khoảng cách mà cú đấm hay xảy ra nhất. Càng áp
+        // sát càng vô dụng, ngược hẳn với thứ người chơi mong đợi.
+        //
+        // OverlapSphere không có vùng mù đó vì nó hỏi "có gì đang nằm trong quả cầu này",
+        // không phải "quả cầu quét qua trúng gì".
+        Transform close = FindClosestInSphere(aimOrigin, aimDirection);
+        if (close != null) return close;
+
         // BƯỚC 1 - tia thẳng, ưu tiên tuyệt đối
         if (Physics.Raycast(aimOrigin, aimDirection, out RaycastHit precise, dashLockRange)
             && precise.collider.CompareTag("Player"))
@@ -629,6 +760,11 @@ public class PlayerMagnetController : NetworkBehaviour
             if (movement != null) movement.AddImpact(grappleDirection, grapplePullForce, false);
 
             MeleeCooldownTimer = TickTimer.CreateFromSeconds(Runner, meleeCooldown);
+
+            // Ghi TRƯỚC khi tăng bộ đếm, cùng khuôn với LaserTargetId.
+            MeleeHitPoint = TargetCenter(target);
+            MeleeWasGrapple = true;
+
             MeleeCount++;
             return;
         }
@@ -660,7 +796,22 @@ public class PlayerMagnetController : NetworkBehaviour
         }
 
         MeleeCooldownTimer = TickTimer.CreateFromSeconds(Runner, meleeCooldown);
+
+        MeleeHitPoint = TargetCenter(target);
+        MeleeWasGrapple = false;
+
         MeleeCount++;
+    }
+
+    /// <summary>Tâm thân người trúng đòn - để luồng khí đập vào ngực chứ không vào chân.</summary>
+    private static Vector3 TargetCenter(Transform t)
+    {
+        Collider c = t.GetComponentInChildren<Collider>();
+        // ⚠️ KHÔNG LẤY TÂM HỘP VA CHẠM. Hộp của CharacterController bọc từ chân tới đầu,
+        // nên tâm của nó rơi ngang HÔNG - luồng khí đập vào bụng dưới, trông thấp hẳn.
+        // Nhích lên 40% nửa chiều cao là tới ngực, đúng chỗ mắt chờ cú đấm trúng.
+        if (c != null) return c.bounds.center + Vector3.up * c.bounds.extents.y * 0.4f;
+        return t.position + Vector3.up * 1.4f;
     }
 
     // Đặt vật vào tay NGAY TẠI MÁY NÀY, mỗi khung hình, trên MỌI máy.
@@ -933,18 +1084,110 @@ public class PlayerMagnetController : NetworkBehaviour
         SetIgnoreCollisionWithPlayer(targetObj, true);
     }
 
-    // Chạy trên MỌI máy, đúng một lần cho mỗi cú cận chiến
+    // Chạy trên MỌI máy, đúng một lần cho mỗi lần VUNG TAY - kể cả vung trượt.
+    //
+    // Chỉ phần NHÌN THẤY ĐƯỢC nằm ở đây. Tiếng đấm và rung camera vẫn ở OnMeleePerformed,
+    // vì chúng là phản hồi của việc CHẠM được vào ai đó - đấm hụt mà vẫn nghe tiếng thịch
+    // và rung màn hình thì người chơi tưởng mình vừa trúng.
+    private void OnMeleeSwing()
+    {
+        // Animation đấm của thân người, thứ mà người khác nhìn thấy.
+        // Để trống ô Punch Trigger Param bên kia thì nó tự bỏ qua.
+        if (animatorDriver != null) animatorDriver.TriggerPunch();
+
+        // Vung tay trước mắt. Tự lọc: viewmodel chỉ tồn tại trên máy chủ nhân vật.
+        if (viewmodel != null) viewmodel.PlayPunch();
+
+        // VÒNG KHÍ NÉN Ở NẮM ĐẤM, mỗi lần vung tay - kể cả đấm trượt. Mọi máy đều thấy.
+        // Nhỏ và rất ngắn: nó chỉ báo "vừa tung cú đấm", phần kịch tính để dành cho lúc trúng.
+        Vector3 fist = GetFistOrigin(out int fistLayer, false);
+        CombatVFX.Flash(fist, GetPunchForward(), QiColor, 0.34f, 0.16f, fistLayer);
+    }
+
+    /// <summary>
+    /// Vẽ quyền khí (đấm) hoặc tia nối (grapple) tới chỗ vừa trúng.
+    ///
+    /// Không trễ nhịp theo động tác rút tay của viewmodel, dù nắm đấm lúc này còn đang lùi
+    /// về sát mặt. Lý do: nạn nhân BỊ HẤT VĂNG NGAY lúc trúng. Luồng khí mà đợi tay duỗi
+    /// ra mới bay thì nó tới nơi khi người ta đã văng đi mấy mét, đâm vào khoảng không.
+    /// Khớp với KẾT QUẢ quan trọng hơn khớp với động tác tay.
+    /// </summary>
+    private void PlayMeleeHitVfx()
+    {
+        Color c = QiColor;
+        Vector3 from = GetFistOrigin(out int _, true);
+        Vector3 to = MeleeHitPoint;
+
+        if ((to - from).sqrMagnitude < 0.0001f) return;
+
+        if (MeleeWasGrapple)
+        {
+            // Grapple: tia nối tay với đối thủ, như sợi xích từ trường kéo mình lao tới.
+            CombatVFX.Beam(from, to, c, 0.3f, 0.12f);
+            return;
+        }
+
+        CombatVFX.QiStrike(from, to, c);
+    }
+
+    /// <summary>
+    /// Điểm nắm đấm phải.
+    ///
+    /// worldAligned = true: dùng cho hiệu ứng bay vào THẾ GIỚI - xem ghi chú ở
+    /// FirstPersonViewmodel.TryGetScreenAlignedWorldPoint về chuyện hai camera lệch FOV.
+    /// worldAligned = false: dùng cho hiệu ứng DÍNH vào nắm đấm, vẽ chung layer với tay.
+    /// </summary>
+    private Vector3 GetFistOrigin(out int layer, bool worldAligned)
+    {
+        if (viewmodel != null)
+        {
+            Transform fist = viewmodel.RightFist;
+            if (fist != null)
+            {
+                // Kéo điểm xuất phát 25% về phía tâm màn hình. Nắm đấm nằm tít góc dưới bên
+                // phải, nên luồng khí mọc thẳng từ đó ra thì cả vệt nằm sát mép dưới khung
+                // hình - trông thấp và lệch. Kéo vào một chút thì vệt đi qua gần tâm ngắm,
+                // mà vòng khí nhỏ ở nắm đấm vẫn che được chỗ nối.
+                if (worldAligned && viewmodel.TryGetScreenAlignedWorldPoint(fist, out Vector3 w, 0.25f))
+                {
+                    layer = 0;
+                    return w;
+                }
+
+                layer = fist.gameObject.layer;
+                return fist.position;
+            }
+        }
+
+        layer = 0;
+
+        if (_cachedAnimator == null) _cachedAnimator = GetComponentInChildren<Animator>();
+        if (_cachedAnimator != null && _cachedAnimator.isHuman)
+        {
+            Transform hand = _cachedAnimator.GetBoneTransform(HumanBodyBones.RightHand);
+
+            // Nhích lên và ra trước: xương bàn tay nằm ở CỔ TAY, thấp và lùi so với nắm
+            // đấm mà người khác nhìn thấy.
+            if (hand != null) return hand.position + Vector3.up * 0.1f + transform.forward * 0.15f;
+        }
+
+        return transform.position + Vector3.up * 1.4f + transform.forward * 0.4f;
+    }
+
+    // Màu quyền khí: TRẮNG, không theo điện tích găng (chủ project chốt). Hơi ngả lạnh
+    // một chút - trắng tuyệt đối khi bị Bloom khuếch đại dễ ám vàng, trông như tia lửa hàn.
+    private static readonly Color QiColor = new Color(0.9f, 0.95f, 1f, 1f);
+
+    private Vector3 GetPunchForward()
+    {
+        if (viewmodel != null && viewmodel.RightFist != null) return viewmodel.CameraForward;
+        return transform.forward;
+    }
+
+    // Chạy trên MỌI máy, đúng một lần cho mỗi cú cận chiến TRÚNG ĐÍCH
     private void OnMeleePerformed()
     {
         AudioManager.MeleePunch(transform.position);
-
-        // Chạy luôn animation đấm. Dùng chung chỗ móc với tiếng đấm vì cả hai đều cần
-        // "đúng một lần mỗi cú, trên mọi máy" - điều kiện mà MeleeCount + OnChangedRender
-        // đã bảo đảm sẵn. Để trống ô Punch Trigger Param bên kia thì nó tự bỏ qua.
-        if (animatorDriver != null) animatorDriver.TriggerPunch();
-
-        // Vung tay tr\u01b0\u1edbc m\u1eaft. T\u1ef1 l\u1ecdc: viewmodel ch\u1ec9 t\u1ed3n t\u1ea1i tr\u00ean m\u00e1y ch\u1ee7 nh\u00e2n v\u1eadt.
-        if (viewmodel != null) viewmodel.PlayPunch();
 
         // Rung + giật camera của NGƯỜI ĐẤM.
         //
@@ -956,6 +1199,8 @@ public class PlayerMagnetController : NetworkBehaviour
             movement.ShakeCamera(meleeShakeTrauma);
             movement.KickCamera(meleeKickStrength);
         }
+
+        PlayMeleeHitVfx();
     }
 
     // Chạy trên MỌI máy, đúng một lần cho mỗi phát bắn.
@@ -971,6 +1216,16 @@ public class PlayerMagnetController : NetworkBehaviour
         if (viewmodel != null) viewmodel.PlayFire();
     }
 
+    // Chạy trên MỌI máy, đúng một lần cho mỗi cú đẩy vật.
+    private void OnObjectPushed()
+    {
+        if (viewmodel != null) viewmodel.PlayPush();
+
+        // Giật camera nhẹ hơn cú bắn vật cầm trên tay (0.6 lần): đẩy một vật ở xa thì
+        // phản lực dội về người ít hơn hẳn so với ném thứ đang cầm trong tay.
+        if (movement != null) movement.KickCamera(fireKickStrength * 0.6f);
+    }
+
     // Chạy trên MỌI máy, đúng một lần cho mỗi phát laze vào vật chưa có điện.
     //
     // Phát ở vị trí NGƯỜI BẮN chứ không phải vị trí vật trúng: đây là tiếng của cây súng,
@@ -980,7 +1235,87 @@ public class PlayerMagnetController : NetworkBehaviour
         AudioManager.Laser(transform.position);
 
         if (viewmodel != null) viewmodel.PlayLaser();
+
+        DrawLaserBeam();
     }
+
+    /// <summary>
+    /// Vẽ tia laze từ ngón trỏ tới vật vừa bị nạp điện.
+    ///
+    /// Chạy trên MỌI máy, vì OnChangedRender là vậy - và đúng như mong muốn: tia laze là
+    /// thứ tất cả mọi người phải thấy, không riêng người bắn.
+    /// </summary>
+    private void DrawLaserBeam()
+    {
+        if (Runner == null) return;
+        if (!Runner.TryFindBehaviour(LaserTargetId, out MagneticObject target)) return;
+        if (target == null) return;
+
+        Vector3 from = GetLaserOrigin();
+        int originLayer = _laserOriginLayer;
+        Vector3 to = target.transform.position;
+
+        // Màu theo điện tích VỪA NẠP, nên nhìn tia là biết vừa nạp âm hay dương. Đây là
+        // thông tin có ích chứ không chỉ trang trí: người chơi cần biết vật kia giờ mang
+        // dấu gì để quyết định hút hay đẩy.
+        Color c = CombatVFX.PolarityColor(target.currentPolarity);
+
+        // CHỚP SÁNG TRƯỚC, TIA SAU.
+        //
+        // Thiếu chớp sáng thì tia laze tự nhiên xuất hiện giữa không khí, không rõ từ đâu
+        // ra - mắt không nối được bàn tay với thứ vừa bắn. Cục sáng ở ngay đầu ngón tay
+        // chính là cái mắt cần để tin rằng chính bàn tay đó đã phóng ra tia.
+        // TRUYỀN LAYER CỦA CHỖ PHÓNG TIA.
+        //
+        // Với chính mình, tia phóng từ đầu ngón của VIEWMODEL - mà viewmodel nằm trên
+        // layer riêng và được vẽ bằng camera Overlay riêng. Cục sáng để ở layer mặc định
+        // thì camera chính vẽ nó TRƯỚC, rồi camera viewmodel vẽ bàn tay ĐÈ LÊN - cục sáng
+        // biến mất sạch.
+        //
+        // Cho nó cùng layer với bàn tay thì hai thứ được vẽ chung một lượt, và chiều sâu
+        // mới so sánh được với nhau.
+        CombatVFX.Flash(from, (to - from), c, 0.5f, 0.22f, originLayer);
+
+        CombatVFX.Beam(from, to, c);
+    }
+
+    /// <summary>
+    /// Điểm phóng tia. Ba mức, rơi dần khi mức trên không có.
+    ///
+    /// Với chính mình thì lấy ĐẦU NGÓN TRỎ của viewmodel - mà tư thế chỉ trỏ đó đã được
+    /// dựng sẵn cho động tác bắn laze, nên tia phóng ra đúng từ ngón đang chỉ. Với người
+    /// khác thì lấy xương bàn tay phải của mô hình thật.
+    /// </summary>
+    private Vector3 GetLaserOrigin()
+    {
+        if (viewmodel != null)
+        {
+            Transform tip = viewmodel.RightIndexTip;
+            if (tip != null)
+            {
+                _laserOriginLayer = tip.gameObject.layer;
+                return tip.position;
+            }
+        }
+
+        _laserOriginLayer = gameObject.layer;
+
+        if (_cachedAnimator == null) _cachedAnimator = GetComponentInChildren<Animator>();
+
+        if (_cachedAnimator != null && _cachedAnimator.isHuman)
+        {
+            Transform hand = _cachedAnimator.GetBoneTransform(HumanBodyBones.RightHand);
+            if (hand != null) return hand.position;
+        }
+
+        // Không có xương nào dùng được thì bắn từ ngang ngực, còn hơn bắn từ dưới chân.
+        return transform.position + Vector3.up * 1.4f + transform.forward * 0.3f;
+    }
+
+    private Animator _cachedAnimator;
+
+    // Layer của chỗ vừa phóng tia. Xem ghi chú ở DrawLaserBeam.
+    private int _laserOriginLayer;
 
     /// <summary>
     /// Rút Chai Xăng Tẩy Chế ra tay. Lần bấm chuột trái kế tiếp vào một vật thường
