@@ -25,9 +25,19 @@ public class RadialMenuController : MonoBehaviour
 
         public RectTransform slotRect;   // để phóng to khi rê chuột tới
         public CanvasGroup canvasGroup;  // để làm mờ khi hết hàng
-        public Image slotImage;          // nền ô, dùng để đổi tông màu
+        public Image slotImage;          // nền ô (wedge), dùng để ĐỔI SPRITE theo trạng thái
         public Image iconImage;          // icon lấy từ ItemData
         public TMP_Text countText;       // số lượng còn lại
+
+        [Header("Sprite Swap cho nền ô")]
+        [Tooltip("Trạng thái bình thường - còn hàng, không rê chuột tới. VD: wedge_topleft_normal")]
+        public Sprite bgNormal;
+
+        [Tooltip("Đang rê chuột tới VÀ còn hàng. VD: wedge_topleft_selected")]
+        public Sprite bgSelected;
+
+        [Tooltip("Đã hết hàng. VD: wedge_topleft_empty")]
+        public Sprite bgEmpty;
     }
 
     [Header("UI")]
@@ -40,13 +50,34 @@ public class RadialMenuController : MonoBehaviour
     [Tooltip("Kéo 4 ItemData của các món tiêu hao vào đây để lấy icon. Thứ tự không quan trọng.")]
     public List<ItemData> itemDataSource = new List<ItemData>();
 
+    [Header("Hub ở giữa vòng tròn")]
+    [Tooltip("Text tên món đang rê chuột tới. Đặt bên trong hub ở giữa radial menu.\n" +
+             "Không rê vào ô nào thì tự để trống.")]
+    public TMP_Text hubNameText;
+
+    [Tooltip("Text số lượng, ghi dạng 'x2'. Hết hàng thì tự để TRỐNG (không ghi 'x0').")]
+    public TMP_Text hubCountText;
+
+    [Tooltip("Màu chữ khi món đó CÒN dùng được. Mặc định #2BE8FF (xanh lơ phát sáng).")]
+    public Color hubAvailableColor = new Color(0.1686f, 0.9098f, 1f, 1f);
+
+    [Tooltip("Độ mờ của tên món khi ĐÃ HẾT hàng. Lúc đó chữ giữ đúng màu bạn đặt sẵn " +
+             "trong Inspector của ô text, chỉ bị mờ bớt đi.")]
+    [Range(0f, 1f)]
+    public float hubEmptyAlpha = 0.45f;
+
     [Header("Hiệu ứng thị giác")]
     public float hoverScale = 1.25f;
     public float scaleSpeed = 15f;
+
+    [Tooltip("Độ mờ của ICON khi hết hàng. (Nền ô không dùng độ mờ nữa - nó đã có sprite " +
+             "riêng cho trạng thái hết hàng.)")]
     public float dimmedAlpha = 0.4f;
+
+    [Tooltip("Độ mờ của cả ô khi KHÔNG rê chuột tới.")]
     public float normalAlpha = 0.85f;
 
-    [Header("Tông màu")]
+    [Header("Tông màu ICON")]
     public Color normalColor = Color.white;
     public Color dimmedColor = new Color(0.4f, 0.4f, 0.4f, 1f);
 
@@ -59,9 +90,17 @@ public class RadialMenuController : MonoBehaviour
     private bool _isMenuOpen;
     private int _selectedIndex = -1;
 
+    // Màu gốc của ô tên món, chụp lại lúc khởi động.
+    //
+    // Phải lưu lại vì mỗi khung hình menu mở là màu chữ bị ghi đè (sáng lên khi còn hàng),
+    // nên đọc hubNameText.color lúc đó chỉ ra màu của khung hình trước, không còn là
+    // "màu mặc định" bạn đặt trong Inspector nữa.
+    private Color _hubNameBaseColor = Color.white;
+
     void Start()
     {
         if (radialMenuUI != null) radialMenuUI.SetActive(false);
+        if (hubNameText != null) _hubNameBaseColor = hubNameText.color;
         ApplyIcons();
     }
 
@@ -157,23 +196,100 @@ public class RadialMenuController : MonoBehaviour
 
             if (slot.countText != null) slot.countText.text = quantity.ToString();
 
-            // 1. Độ mờ
+            // 1. Độ mờ CẢ Ô - giờ chỉ để làm nổi ô đang rê chuột tới.
+            //
+            // Trước đây hết hàng thì dìm alpha cả ô xuống dimmedAlpha. Không dùng cách đó
+            // nữa vì giờ mỗi ô đã có hẳn một sprite riêng cho trạng thái hết hàng
+            // (wedge_..._empty): dìm mờ cả ô thì chính cái ảnh vừa đổi sang cũng mờ theo,
+            // công vẽ ảnh riêng thành ra phí. Việc "báo cho người chơi biết đã hết" giờ do
+            // sprite nền + icon bị dìm màu đảm nhiệm.
             if (slot.canvasGroup != null)
             {
-                float targetAlpha = isAvailable ? (isHovered ? 1f : normalAlpha) : dimmedAlpha;
+                float targetAlpha = isHovered ? 1f : normalAlpha;
                 slot.canvasGroup.alpha = Mathf.Lerp(slot.canvasGroup.alpha, targetAlpha, Time.deltaTime * scaleSpeed);
             }
 
-            // 2. Tông màu - hết hàng thì xám đi
+            // 2. Nền ô: ĐỔI SPRITE theo trạng thái, không đổi màu nữa.
+            //
+            // Ba trạng thái: hết hàng -> bgEmpty, đang rê tới -> bgSelected, còn lại -> bgNormal.
+            // Chỉ gán khi sprite thực sự khác: gán lại mỗi khung hình sẽ bắt Unity dựng lại
+            // toàn bộ lưới của Canvas, phí công vô ích ở một UI mỗi giây đổi vài lần.
             if (slot.slotImage != null)
             {
-                Color targetColor = isAvailable ? normalColor : dimmedColor;
-                slot.slotImage.color = Color.Lerp(slot.slotImage.color, targetColor, Time.deltaTime * scaleSpeed);
+                Sprite targetSprite = isAvailable
+                    ? (isHovered ? slot.bgSelected : slot.bgNormal)
+                    : slot.bgEmpty;
+
+                if (targetSprite != null && slot.slotImage.sprite != targetSprite)
+                {
+                    slot.slotImage.sprite = targetSprite;
+                }
             }
 
-            // 3. Phóng to ô đang chọn
+            // 3. Icon: dìm màu khi hết hàng.
+            //
+            // Phần dìm màu chuyển từ NỀN sang ICON - nền đã có sprite riêng lo việc đó rồi,
+            // còn icon thì chỉ có một ảnh duy nhất nên vẫn cần dìm bằng màu.
+            if (slot.iconImage != null)
+            {
+                Color targetColor = isAvailable
+                    ? normalColor
+                    : new Color(dimmedColor.r, dimmedColor.g, dimmedColor.b, dimmedAlpha);
+
+                slot.iconImage.color = Color.Lerp(slot.iconImage.color, targetColor, Time.deltaTime * scaleSpeed);
+            }
+
+            // 4. Phóng to ô đang chọn
             Vector3 targetScale = isHovered ? Vector3.one * hoverScale : Vector3.one;
             slot.slotRect.localScale = Vector3.Lerp(slot.slotRect.localScale, targetScale, Time.deltaTime * scaleSpeed);
+        }
+
+        UpdateHub(inventory);
+    }
+
+    /// <summary>
+    /// Cập nhật hub ở giữa vòng tròn: tên món và số lượng của ô ĐANG RÊ CHUỘT TỚI.
+    ///
+    /// Lưu ý khác với các ô xung quanh: hub bám theo _selectedIndex thô, KHÔNG xét còn hàng
+    /// hay không. Rê vào một món đã hết thì vẫn phải đọc được tên nó - nếu để trống thì
+    /// người chơi tưởng chuột chưa trỏ trúng ô nào.
+    /// </summary>
+    private void UpdateHub(InventorySystem inventory)
+    {
+        if (hubNameText == null && hubCountText == null) return;
+
+        // Đang quanh quẩn giữa tâm (vùng huỷ chọn) -> hub để trống
+        if (_selectedIndex < 0 || _selectedIndex >= slots.Count)
+        {
+            if (hubNameText != null) hubNameText.text = "";
+            if (hubCountText != null) hubCountText.text = "";
+            return;
+        }
+
+        RadialSlotUI slot = slots[_selectedIndex];
+        int quantity = inventory.GetConsumableCount(slot.consumableType);
+        bool isAvailable = quantity > 0;
+
+        if (hubNameText != null)
+        {
+            ItemData data = FindItemData(slot.consumableType);
+            hubNameText.text = (data != null && !string.IsNullOrEmpty(data.itemName))
+                ? data.itemName
+                : slot.consumableType.ToString(); // chưa gán ItemData thì đỡ bằng tên enum
+
+            // Còn dùng được -> màu sáng #2BE8FF. Hết -> giữ nguyên màu gốc bạn đặt trong
+            // Inspector, chỉ mờ bớt đi (_hubNameBaseColor lưu lại từ lúc Start).
+            hubNameText.color = isAvailable
+                ? hubAvailableColor
+                : new Color(_hubNameBaseColor.r, _hubNameBaseColor.g, _hubNameBaseColor.b, hubEmptyAlpha);
+        }
+
+        if (hubCountText != null)
+        {
+            // Hết hàng thì KHÔNG ghi gì. Ghi "x0" vừa thừa vừa dễ bị liếc nhầm thành "còn 0
+            // nhưng vẫn bấm được".
+            hubCountText.text = isAvailable ? $"x{quantity}" : "";
+            hubCountText.color = hubAvailableColor;
         }
     }
 
