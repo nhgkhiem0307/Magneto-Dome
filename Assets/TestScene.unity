@@ -71618,7 +71618,7 @@ MonoBehaviour:
   outerRadius: 300
   topBelowSurface: 2.5
   thickness: 45
-  puffCount: 350
+  puffCount: 400
   puffSizeNear: 48
   puffSizeFar: 150
   customPuffTexture: {fileID: 2800000, guid: 20d5c69ee493ce448a9feb58214ddba8, type: 3}
@@ -79505,6 +79505,18 @@ PrefabInstance:
       propertyPath: m_AnchorMin.x
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 5821981084691228523, guid: 15a3605a00fcb734391f1a4a97d6ed92, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5821981084691228523, guid: 15a3605a00fcb734391f1a4a97d6ed92, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5821981084691228523, guid: 15a3605a00fcb734391f1a4a97d6ed92, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6727694212634410132, guid: 15a3605a00fcb734391f1a4a97d6ed92, type: 3}
       propertyPath: m_Name
       value: SettingsPanel
@@ -79513,6 +79525,10 @@ PrefabInstance:
       propertyPath: m_OnClick.m_PersistentCalls.m_Calls.Array.data[0].m_Target
       value: 
       objectReference: {fileID: 1999666726}
+    - target: {fileID: 7686450463255220001, guid: 15a3605a00fcb734391f1a4a97d6ed92, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
