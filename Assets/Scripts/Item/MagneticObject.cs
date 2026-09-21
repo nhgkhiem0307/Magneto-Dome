@@ -957,6 +957,20 @@ public class MagneticObject : NetworkBehaviour
             return;
         }
 
+        // Trúng ĐỒNG ĐỘI của người bắn: coi như đâm vào tường.
+        //
+        // Không nạp điện, không đẩy - xem PlayerHealth.AreTeammates. Và đạn DỪNG luôn,
+        // không xuyên qua họ để trúng địch phía sau: đồng đội đứng chắn đường bắn là lỗi
+        // đứng chỗ của đội mình, không phải thứ được thưởng.
+        //
+        // Đặt SAU nhánh TNT ở trên: TNT đâm vào đồng đội vẫn nổ như đâm vào tường, chỉ là
+        // sóng nổ trong Explode() cũng bỏ qua đồng đội của người ném.
+        if (collision.collider.CompareTag("Player") && IsShootersTeammate(collision.collider.gameObject))
+        {
+            ResetBulletState();
+            return;
+        }
+
         // Trúng đối thủ
         if (collision.collider.CompareTag("Player"))
         {
@@ -1090,6 +1104,10 @@ public class MagneticObject : NetworkBehaviour
             // ra khỏi tay là nổ ngay trong mặt, vì lúc đó quả TNT vẫn còn sát người.
             if (shooterOwner != null && hit.gameObject == shooterOwner.gameObject) continue;
 
+            // Bay ngang qua đồng đội cũng không kích nổ - không thì ném TNT qua vai đồng
+            // đội đứng phía trước là nổ ngay giữa đội mình.
+            if (IsShootersTeammate(hit.gameObject)) continue;
+
             // Người đã rơi khỏi đảo vẫn còn collider cho tới lúc hồi sinh - đừng để họ
             // kích nổ quả bay ngang qua.
             PlayerHealth health = hit.GetComponent<PlayerHealth>();
@@ -1217,6 +1235,15 @@ public class MagneticObject : NetworkBehaviour
         _windOn = want;
     }
 
+    /// <summary>
+    /// Người này có phải ĐỒNG ĐỘI của người đã bắn vật này không. Chưa ai bắn thì false.
+    /// Chính người bắn cũng trả về false - luật cho người bắn nằm ở từng chỗ riêng.
+    /// </summary>
+    private bool IsShootersTeammate(GameObject other)
+    {
+        return shooterOwner != null && PlayerHealth.AreTeammates(shooterOwner.gameObject, other);
+    }
+
     void Explode()
     {
         Debug.Log("<color=red><b>TNT BARREL EXPLODED!</b></color>");
@@ -1263,7 +1290,13 @@ public class MagneticObject : NetworkBehaviour
             }
 
             // 2. Sát thương và Lực văng cho Player / Dummy (CharacterController)
-            if (hit.CompareTag("Player"))
+            //
+            // Đồng đội của người ném: không nạp điện, không hất. Còn CHÍNH người ném thì
+            // VẪN dính sóng nổ như trước - ném TNT sát mặt vẫn phải trả giá.
+            //
+            // TNT không có người ném (nổ vì bị vật khác đâm vào khi chưa ai bắn nó) thì
+            // IsShootersTeammate luôn false: nó là bẫy của map, ai đứng gần tự chịu.
+            if (hit.CompareTag("Player") && !IsShootersTeammate(hit.gameObject))
             {
                 PlayerHealth health = hit.GetComponent<PlayerHealth>();
                 if (health != null && !playersDamaged.Contains(health))

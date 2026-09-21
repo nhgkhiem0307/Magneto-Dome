@@ -287,8 +287,10 @@ public class HUDController : MonoBehaviour
         if (heavyAmmoText != null)
             heavyAmmoText.text = inventory.CountOfType(MagneticObject.ObjectType.Heavy).ToString();
 
+        // Ô thứ ba đếm đúng loại mà phím C rút ra - hiện đang tạm là TNT, xem
+        // PlayerHotbarController.ThirdSlotType. Đọc chung một chỗ để HUD và phím không lệch nhau.
         if (spikeAmmoText != null)
-            spikeAmmoText.text = inventory.CountOfType(MagneticObject.ObjectType.Spike).ToString();
+            spikeAmmoText.text = inventory.CountOfType(PlayerHotbarController.ThirdSlotType).ToString();
     }
 
     // --- BUFF ---

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// Biển mây bao quanh hòn đảo lơ lửng.
@@ -221,6 +222,38 @@ public class CloudBank : MonoBehaviour
     [Tooltip("Biên độ cụm mây dập dềnh lên xuống, mét.")]
     public float bobAmount = 1.2f;
 
+    [Header("Lòng chảo mây")]
+    [Tooltip("Bên TRONG bán kính đảo, nóc mây phải nằm sâu dưới mặt đảo ít nhất bấy nhiêu mét.\n\n" +
+             "⚠️ ĐÂY LÀ THỨ CHỮA 'THẤY CẠNH MÂY TRÊN ĐẢO'. Trước đây ô Top Below Surface chỉ " +
+             "quy định TÂM cụm mây, mà một cụm cao 55m thì nửa trên của nó vươn lên +25m - " +
+             "xuyên thẳng qua mặt đảo. Nới vòng trong cũng vô ích, vì từng cụm nhỏ còn bị " +
+             "lệch ngẫu nhiên tới 116m theo mọi hướng, kể cả hướng vào trong.\n\n" +
+             "Giờ mọi cụm được đặt theo MÉP TRÊN, và mép trên đó bị giới hạn theo khoảng " +
+             "cách tới tâm đảo - trong đảo thì chìm hẳn, ở mép thì ôm sát vách, ra xa thì " +
+             "được dâng lên. Mây dưới đảo vẫn còn nguyên, người rơi vẫn chìm vào mây.")]
+    public float underIslandDepth = 12f;
+
+    [Tooltip("Ở rìa ngoài cùng, nóc mây được phép dâng CAO HƠN mặt đảo bấy nhiêu mét.\n\n" +
+             "Đây là thứ giữ cảm giác ĐẢO NẰM GIỮA BIỂN MÂY: mây phía xa dâng lên bao quanh, " +
+             "đảo như ngồi trong một lòng chảo. Dâng dần theo bình phương khoảng cách, nên " +
+             "gần mép gần như phẳng, càng xa càng dốc lên.\n\n" +
+             "Không che trận đánh: mây ở cách xa trên 100m, mà mọi giao tranh đều trên đảo. " +
+             "Đặt 0 nếu muốn biển mây phẳng lì.")]
+    public float farRise = 12f;
+
+    [Tooltip("Bật soft particles: mây tan dần khi chạm vào vách đảo thay vì bị cắt thành một " +
+             "đường thẳng.\n\n" +
+             "⚠️ Mỗi cụm mây là một tấm phẳng. Cắm vào địa hình thì GPU vẽ phần phía trên mặt " +
+             "đất và bỏ phần bên dưới - chỗ bị cắt thành một đường sắc cạnh. Mà chỗ mây gặp " +
+             "vách lại chính là chỗ tạo cảm giác 'đảo trên mây', nên đường cắt đó rất lộ.\n\n" +
+             "Cần Depth Texture. Script tự bật nó cho camera người chơi, không cần sửa URP " +
+             "asset. Tốn thêm một chút hiệu năng để đọc depth.")]
+    public bool softParticles = true;
+
+    [Tooltip("Mây bắt đầu tan khi còn cách bề mặt khác bấy nhiêu mét. Lớn thì chỗ giao mềm " +
+             "và rộng, nhỏ thì sát và gọn.")]
+    public float softFadeDistance = 6f;
+
     // ==================== TRẠNG THÁI ====================
 
     private Mesh _mesh;
@@ -324,6 +357,24 @@ public class CloudBank : MonoBehaviour
         _material.mainTexture = tex;
         if (_material.HasProperty("_BaseMap")) _material.SetTexture("_BaseMap", tex);
         if (_material.HasProperty("_BaseColor")) _material.SetColor("_BaseColor", Color.white);
+
+        // SOFT PARTICLES. Đặt ở đây chứ không ở BuildMaterialOnce, để bật/tắt trong
+        // Inspector là ăn ngay (OnValidate gọi dựng lại).
+        //
+        // Phải tự tính _SoftParticleFadeParams: vật liệu tạo bằng code không có giao
+        // diện Inspector của URP, mà chính giao diện đó mới là thứ tính ô này. Thiếu nó
+        // thì bật từ khoá cũng vô dụng - shader đọc (0, 0) và không tan gì cả. Công thức
+        // chép đúng từ ParticleGUI.cs của URP: (gần, 1 / (xa - gần)).
+        bool soft = softParticles && softFadeDistance > 0.01f;
+
+        _material.SetFloat("_SoftParticlesEnabled", soft ? 1f : 0f);
+        _material.SetFloat("_SoftParticlesNearFadeDistance", 0f);
+        _material.SetFloat("_SoftParticlesFarFadeDistance", soft ? softFadeDistance : 1f);
+        _material.SetVector("_SoftParticleFadeParams",
+                            soft ? new Vector4(0f, 1f / softFadeDistance, 0f, 0f) : Vector4.zero);
+
+        if (soft) _material.EnableKeyword("_SOFTPARTICLES_ON");
+        else _material.DisableKeyword("_SOFTPARTICLES_ON");
 
         _renderer.sharedMaterial = _material;
     }
@@ -518,13 +569,35 @@ public class CloudBank : MonoBehaviour
             float jitter = (Random.value - 0.5f) * thickness * depthVariance;
             float depth = Mathf.Clamp(centerDepth[c] + jitter, 0f, thickness);
 
-            _puffPos[i] = centers[c]
-                        + new Vector3(Mathf.Cos(oa) * off, 0f, Mathf.Sin(oa) * off)
-                        + new Vector3(0f, -topBelowSurface - depth, 0f);
-
             // Cụm con nhỏ hơn tâm khối, và chênh nhau nhiều - vài cụm to làm thân, nhiều
-            // cụm nhỏ làm bướu quanh mép.
+            // cụm nhỏ làm bướu quanh mép. Phải biết cỡ TRƯỚC khi đặt độ cao, vì độ cao giờ
+            // tính theo mép trên của cụm.
             _puffSize[i] = baseSize * Random.Range(0.45f, 1.15f);
+
+            float px = centers[c].x + Mathf.Cos(oa) * off;
+            float pz = centers[c].z + Mathf.Sin(oa) * off;
+
+            // CHẶN TỪNG CỤM, KHÔNG CHỈ TÂM KHỐI.
+            //
+            // Vòng trong chỉ quyết định chỗ đặt tâm khối; cụm con lệch ngẫu nhiên thì chui
+            // thẳng vào giữa đảo. Không cho cụm nào lọt vào sâu hơn 70% vòng trong: dưới đó
+            // thì nó bị thân đảo che kín từ mọi phía, vẽ ra chỉ tốn overdraw vô ích.
+            float pr = Mathf.Sqrt(px * px + pz * pz);
+            float minR = inner * 0.7f;
+            if (pr < minR)
+            {
+                float k = pr > 0.001f ? minR / pr : 0f;
+                if (pr > 0.001f) { px *= k; pz *= k; }
+                else { px = Mathf.Cos(oa) * minR; pz = Mathf.Sin(oa) * minR; }
+                pr = minR;
+            }
+
+            // ĐẶT THEO MÉP TRÊN: nóc cụm (tâm + nửa chiều cao + biên độ dập dềnh) không bao
+            // giờ vượt quá trần của vùng đó. Hệ số 0.85 vì trong ô ảnh còn một viền trong
+            // suốt - mép mây thật nằm thấp hơn mép tấm một chút.
+            float visibleHalf = _puffSize[i] * 0.5f * 0.85f + bobAmount;
+
+            _puffPos[i] = new Vector3(px, CeilingAt(pr) - visibleHalf - depth, pz);
             _puffPhase[i] = Random.value * Mathf.PI * 2f;
 
             int grid = Mathf.Max(1, puffAtlasGrid);
@@ -577,6 +650,33 @@ public class CloudBank : MonoBehaviour
         Random.state = saved;
         _builtCount = n;
         _builtGrid = puffAtlasGrid;
+    }
+
+    /// <summary>
+    /// Nóc mây được phép cao tới đâu, tuỳ khoảng cách R tới tâm đảo. Hình lòng chảo.
+    ///
+    ///   R trong vòng trong      : chìm hẳn, -underIslandDepth
+    ///   vòng trong -> mép đảo   : dâng dần lên -topBelowSurface  (ôm sát vách)
+    ///   mép đảo -> rìa ngoài    : dâng tiếp lên +farRise          (lòng chảo)
+    /// </summary>
+    private float CeilingAt(float r)
+    {
+        float inR = islandRadius * innerFactor;
+        float rim = Mathf.Max(inR + 0.01f, islandRadius);
+
+        if (r <= inR) return -underIslandDepth;
+
+        if (r <= rim)
+        {
+            float t = (r - inR) / (rim - inR);
+            t = t * t * (3f - 2f * t);
+            return Mathf.Lerp(-underIslandDepth, -topBelowSurface, t);
+        }
+
+        // Bình phương: sát mép gần như phẳng, càng xa càng dốc - mép đảo vẫn là chỗ mây
+        // ôm vách, không bị dâng lên che vách.
+        float k = Mathf.Clamp01((r - rim) / Mathf.Max(1f, outerRadius - rim));
+        return Mathf.Lerp(-topBelowSurface, farRise, k * k);
     }
 
     private void BuildMesh()
@@ -749,6 +849,16 @@ public class CloudBank : MonoBehaviour
         if (_camera != null && _camera.isActiveAndEnabled) return _camera;
 
         _camera = Camera.main;
+
+        // Soft particles đọc _CameraDepthTexture. Asset PC hiện đã bật sẵn Depth Texture,
+        // nhưng asset Mobile thì TẮT - đổi quality level là mây bị cắt cạnh trở lại mà
+        // không ai hiểu vì sao. Bật thẳng trên camera cho chắc, chỉ lúc đang chạy game để
+        // khỏi gắn component lạ vào camera của Scene view.
+        if (_camera != null && softParticles && Application.isPlaying)
+        {
+            UniversalAdditionalCameraData data = _camera.GetUniversalAdditionalCameraData();
+            if (data != null) data.requiresDepthOption = CameraOverrideOption.On;
+        }
 
 #if UNITY_EDITOR
         if (_camera == null && !Application.isPlaying)

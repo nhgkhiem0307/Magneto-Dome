@@ -70,6 +70,8 @@ public class GloveArcs : MonoBehaviour
     // ==================== TRẠNG THÁI ====================
 
     private PlayerMagnetController _magnet;
+    private PlayerHealth _health;
+    private bool _shown = true;
     private Transform[] _anchorsL, _anchorsR;
     private LineRenderer[] _arcs;    // quầng màu, dày
     private LineRenderer[] _cores;   // ruột trắng nóng, mảnh
@@ -94,6 +96,7 @@ public class GloveArcs : MonoBehaviour
                      Transform[] anchorsLeft, Transform[] anchorsRight, int layer)
     {
         _magnet = magnet;
+        _health = magnet != null ? magnet.GetComponent<PlayerHealth>() : null;
         _anchorsL = anchorsLeft;
         _anchorsR = anchorsRight;
 
@@ -208,6 +211,24 @@ public class GloveArcs : MonoBehaviour
     {
         if (!_ready || _magnet == null) return;
 
+        // --- Chết thì tắt hết tia ---
+        //
+        // ⚠️ PlayerHealth.ApplyAliveState() tắt renderer khi chết, nhưng nó chỉ tắt những
+        // renderer có sẵn LÚC NHÂN VẬT SINH RA. Tia điện được dựng SAU đó và gắn vào camera,
+        // nên không nằm trong danh sách - bàn tay biến mất mà tia vẫn lơ lửng trên màn hình.
+        // Tự hỏi chủ nhân còn sống không thì khỏi phụ thuộc vào danh sách của ai khác.
+        bool alive = _health == null || _health.IsAlive;
+        if (alive != _shown)
+        {
+            _shown = alive;
+            SetAllVisible(alive);
+
+            // Hồi sinh thì đừng loé sáng: điện tích có thể đã đổi trong lúc chết, nhưng
+            // đó không phải lúc người chơi vừa bấm phím nên không cần xác nhận gì.
+            if (alive) _lastPolarity = _magnet.currentGlovePolarity;
+        }
+        if (!alive) return;
+
         // --- Đổi điện tích thì loé lên ---
         MagneticObject.Polarity now = _magnet.currentGlovePolarity;
         if (now != _lastPolarity)
@@ -243,6 +264,19 @@ public class GloveArcs : MonoBehaviour
         for (int i = 0; i < _arcs.Length; i++)
         {
             DrawArc(i, c, power);
+        }
+    }
+
+    private void SetAllVisible(bool visible)
+    {
+        // Chỉ cần TẮT. Lúc bật lại thì DrawArc() tự bật từng tia - kể cả tia nào đang tạm
+        // tắt vì mất điểm neo cũng được nó xử lý đúng.
+        if (visible) return;
+
+        for (int i = 0; i < _arcs.Length; i++)
+        {
+            if (_arcs[i] != null) _arcs[i].enabled = false;
+            if (_cores[i] != null) _cores[i].enabled = false;
         }
     }
 

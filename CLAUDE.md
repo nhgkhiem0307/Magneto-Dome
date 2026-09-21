@@ -91,7 +91,7 @@ Assets/
     │   ├── PlayerMagnetController.cs    # Nạp điện, hút/đẩy, cận chiến, cầm/bắn vật thể
     │   ├── PlayerHealth.cs              # Máu (chưa có giáp)
     │   ├── InventorySystem.cs           # Túi đồ: lưu GameObject thật đã bị ẩn đi
-    │   ├── PlayerHotbarController.cs    # Z/X/C rút đạn Normal/Heavy/Spike từ túi
+    │   ├── PlayerHotbarController.cs    # Z/X/C rút đạn Normal/Heavy/TNT (tạm) từ túi
     │   ├── RadialMenuController.cs      # UI vòng tròn giữ Tab, chọn theo góc chuột
     │   └── PlayerInteract.cs
     ├── Item/
@@ -134,7 +134,7 @@ GDD sẽ được sửa lại cho khớp code sau, không phải ngược lại.
 | Chuột trái | Vật trung tính → nạp điện. Vật đã có điện → **cùng dấu = ĐẨY**, **trái dấu = HÚT về tay** |
 | Chuột phải | Tay trống → cận chiến. Đang cầm vật → **bắn vật đi** |
 | `V` | Tung hứng vật đang cầm lên không |
-| `Z` / `X` / `C` | Rút đạn Normal / Heavy / Spike từ túi ra tay |
+| `Z` / `X` / `C` | Rút đạn Normal / Heavy / **TNT** từ túi ra tay. *(Ô `C` tạm là TNT từ 19/09 vì map chưa có vật Spike — đổi lại ở `PlayerHotbarController.ThirdSlotType`)* |
 | `Tab` (giữ) | Mở Radial Menu, xoay chuột chọn, thả phím để dùng |
 | `B` | Mở Shop (chỉ trong Buy Phase) — *chưa làm* |
 
@@ -210,6 +210,20 @@ Nếu nhân hệ số cho cả Dash thì người sắp thua sẽ lướt xa g�
 
 ⚠️ Knockback khi trúng đạn **trước 09/08 KHÔNG TỒN TẠI** — va chạm chỉ trừ máu rồi thôi.
 Nếu thấy nhân vật không bị đẩy khi trúng đạn thì kiểm tra nhánh `CompareTag("Player")` trước tiên.
+
+**🚫 KHÔNG CÓ SÁT THƯƠNG ĐỒNG ĐỘI** *(chốt 19/09)*. Lý do chính: hết giờ thì đội có
+**tổng điện tích thấp hơn** thắng, nên đánh trúng đồng đội là tự cộng điểm xấu cho đội mình.
+Mọi chỗ đi qua một hàm duy nhất `PlayerHealth.AreTeammates()`:
+
+| Đòn | Trúng đồng đội |
+|---|---|
+| Đấm / Grapple / hỗ trợ ngắm | Bỏ qua đồng đội khi **chọn mục tiêu** (`PlayerMagnetController.IsTeammate`) |
+| Đạn | Dừng lại như đâm tường, không nạp điện, không đẩy, **không xuyên qua** |
+| TNT nổ / kích nổ gần | Bỏ qua đồng đội của **người ném**. Chính người ném **vẫn dính** sóng nổ |
+| TNT **chưa ai ném** | Không thuộc phe nào → trúng tất cả, như bẫy của map |
+
+`AreTeammates(a, a)` trả **false** — bản thân không phải đồng đội. Đừng "sửa" thành true,
+sẽ vô tình đổi luật người ném TNT tự dính nổ. Bù nhìn (không có `PlayerHealth`) luôn là địch.
 
 **Buff sát thương toàn cục:** `PlayerHealth.chargeGainMultiplier` (1.5) nhân **mọi** lượng điện
 nhận vào, ngay đầu `TakeDamage()` trước cả giáp. Muốn chỉnh độ sát thương chung thì sửa ô này,

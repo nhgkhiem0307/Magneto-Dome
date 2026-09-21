@@ -92,6 +92,32 @@ public class PlayerHealth : NetworkBehaviour
     // 0 = Đỏ, 1 = Xanh. Host gán lúc spawn, dựa theo đội đã chọn trong phòng chờ.
     [Networked] public int Team { get; set; }
 
+    /// <summary>
+    /// Hai nhân vật có cùng phe không. Dùng để TẮT SÁT THƯƠNG ĐỒNG ĐỘI (chốt 19/09).
+    ///
+    /// VÌ SAO TẮT: luật thắng khi hết giờ là đội có TỔNG ĐIỆN TÍCH THẤP HƠN thắng - bắn
+    /// trúng đồng đội là tự cộng điểm xấu cho đội mình, không có gì chiến thuật cả. Đạn
+    /// lại là bàn ghế nảy lung tung, còn hỗ trợ ngắm của cú đấm quét rộng 70° - đứng cạnh
+    /// nhau đánh chung là trúng nhầm liên tục.
+    ///
+    /// Trả về FALSE khi a và b là CÙNG MỘT người: bản thân mình không phải "đồng đội".
+    /// Luật cho chính mình (ví dụ bị sóng nổ TNT của mình hất) là chuyện riêng, được xử lý
+    /// ở từng chỗ - hàm này không được vô tình đổi luật đó.
+    ///
+    /// Thiếu PlayerHealth (bù nhìn tập bắn) thì coi là KHÔNG cùng phe - bù nhìn luôn là
+    /// mục tiêu hợp lệ.
+    /// </summary>
+    public static bool AreTeammates(GameObject a, GameObject b)
+    {
+        if (a == null || b == null || a == b) return false;
+
+        PlayerHealth ha = a.GetComponent<PlayerHealth>();
+        PlayerHealth hb = b.GetComponent<PlayerHealth>();
+        if (ha == null || hb == null) return false;
+
+        return ha.Team == hb.Team;
+    }
+
     // Còn sống trong round này hay đã bị loại.
     // Chết KHÔNG despawn nhân vật, chỉ "tắt" nó đi - xem OnAliveChanged.
     [Networked, OnChangedRender(nameof(OnAliveChanged))]

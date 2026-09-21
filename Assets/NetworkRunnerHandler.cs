@@ -15,7 +15,35 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     public static string LocalPlayerName = "Player";
 
     // Nhớ tên giữa các lần chơi, giống cách âm lượng và độ nhạy chuột đang làm.
-    private const string KeyPlayerName = "player_name";
+    private static string KeyPlayerName => "player_name" + CloneSuffix();
+
+    /// <summary>
+    /// Bản clone ParrelSync lưu tên dưới một khoá RIÊNG.
+    ///
+    /// ⚠️ VÌ SAO: PlayerPrefs trong Editor nằm trong Registry của Windows, xếp theo tên
+    /// project - mà bản clone trùng tên project với bản chính. Nên hai bên đọc chung một
+    /// ô: sửa tên ở clone là bản chính cũng bị đổi theo, vào phòng thấy hai người trùng
+    /// tên, không biết cửa sổ nào là ai.
+    ///
+    /// Thêm tên THƯ MỤC clone vào khoá (Magneto-Dome_clone_0, _clone_1...) để nhiều clone
+    /// cũng mỗi cái một tên. Bản chính và bản build giữ khoá cũ "player_name" - tên người
+    /// chơi đã lưu từ trước không bị mất.
+    ///
+    /// Bọc #if UNITY_EDITOR vì thư viện ParrelSync chỉ có trong Editor; thiếu dòng này
+    /// thì Build ra bản chơi sẽ báo lỗi không tìm thấy ParrelSync.
+    /// </summary>
+    private static string CloneSuffix()
+    {
+#if UNITY_EDITOR
+        if (ParrelSync.ClonesManager.IsClone())
+        {
+            string projectFolder = System.IO.Path.GetFileName(
+                System.IO.Path.GetDirectoryName(Application.dataPath));
+            return "_" + projectFolder;
+        }
+#endif
+        return "";
+    }
 
     [Header("Room Player Prefab")]
     public RoomPlayer roomPlayerPrefab;
@@ -281,9 +309,9 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             SetErrorMessage(_pendingMenuMessage);
             _pendingMenuMessage = "";
         }
-        else if (statusErrorText != null)
+        else
         {
-            statusErrorText.text = "";
+            SetErrorMessage("");
         }
     }
 
@@ -423,7 +451,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
         try
         {
-            if (statusErrorText != null) statusErrorText.text = "";
+            SetErrorMessage("");
             EnsureRunnerExists();
 
             // B1: vào Lobby để XEM danh sách. Đây chỉ là xem, chưa vào phòng nào cả.
@@ -601,7 +629,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
         try
         {
-            if (statusErrorText != null) statusErrorText.text = "";
+            SetErrorMessage("");
             EnsureRunnerExists();
 
             if (await EnsureInLobby())
@@ -627,7 +655,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
         try
         {
-            if (statusErrorText != null) statusErrorText.text = "";
+            SetErrorMessage("");
             EnsureRunnerExists();
 
             _currentRoomCode = GenerateRoomCode();
@@ -673,7 +701,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     // --- 3. VÀO PHÒNG BẰNG MÃ ---
     public async void OnClickJoinByCode()
     {
-        if (statusErrorText != null) statusErrorText.text = "";
+        SetErrorMessage("");
 
         // Kiểm ô nhập TRƯỚC khi bật cờ bận: đây chỉ là kiểm tra tại chỗ, chưa đụng tới
         // mạng. Bật cờ rồi mới return thì cờ bị kẹt ở true.
@@ -701,7 +729,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
         try
         {
-            if (statusErrorText != null) statusErrorText.text = "";
+            SetErrorMessage("");
             EnsureRunnerExists();
             _currentRoomCode = code;
 
@@ -982,9 +1010,23 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         }
     }
 
+    /// <summary>
+    /// Hiện (hoặc xoá, nếu truyền chuỗi rỗng) dòng thông báo lỗi ở menu.
+    ///
+    /// ⚠️ PHẢI BẬT CẢ OBJECT, không chỉ ghi chữ. StatusErrorText trong MenuScene đang để
+    /// TẮT sẵn, và trước 19/09 hàm này chỉ ghi .text - ghi chữ vào object tắt thì chạy
+    /// bình thường nhưng không ai thấy. Kết quả là MỌI thông báo ở menu đều câm: "Host
+    /// left the game", "Room not found", "Connection lost"...
+    ///
+    /// Tự bật/tắt theo nội dung thì ai để object bật hay tắt trong scene cũng đúng.
+    /// Mọi chỗ xoá thông báo cũng phải đi qua đây với chuỗi rỗng, để object được tắt theo.
+    /// </summary>
     private void SetErrorMessage(string message)
     {
-        if (statusErrorText != null) statusErrorText.text = message;
+        if (statusErrorText == null) return;
+
+        statusErrorText.text = message;
+        statusErrorText.gameObject.SetActive(!string.IsNullOrEmpty(message));
     }
 
     // --- FUSION CALLBACKS ---
@@ -1279,8 +1321,14 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             data.Buttons.Set((int)InputButton.HotbarSpike, Input.GetKey(hotbar.spikeKey));
         }
 
-        // CHỈ ĐỂ TEST - XOÁ TRƯỚC KHI NỘP BÀI
+        // CHỈ ĐỂ TEST: phím K tự sát, để thử vòng lặp round một mình.
+        //
+        // Chỉ chạy trong Unity Editor (kể cả bản clone ParrelSync), bản build thì biến
+        // mất hẳn - người chấm lỡ tay bấm K sẽ không chết oan. Giữ lại thay vì xoá để
+        // vẫn test được. Đầu nhận lệnh trong PlayerMagnetController cũng bọc y hệt.
+#if UNITY_EDITOR
         data.Buttons.Set((int)InputButton.DebugSuicide, Input.GetKey(KeyCode.K));
+#endif
 
         input.Set(data);
     }

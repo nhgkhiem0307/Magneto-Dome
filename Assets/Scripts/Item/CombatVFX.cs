@@ -28,8 +28,11 @@ public static class CombatVFX
     /// Có nó thì phân biệt được HAI trường hợp rất khác nhau nhưng nhìn giống hệt: "móc
     /// sự kiện không chạy" và "chạy rồi nhưng vẽ ra không thấy". Không có log thì chỉ
     /// biết là 'không thấy gì' và phải đoán mò.
+    ///
+    /// Đã TẮT cho bản nộp: mỗi cú đấm, phát bắn đều in một dòng, bản build ghi hết vào
+    /// file Player.log. Hiệu ứng lại không hiện thì bật lên true để dò.
     /// </summary>
-    public static bool logVFX = true;
+    public static bool logVFX = false;
 
     /// <summary>
     /// Vật liệu cộng sáng dùng chung cho MỌI hiệu ứng ở đây.

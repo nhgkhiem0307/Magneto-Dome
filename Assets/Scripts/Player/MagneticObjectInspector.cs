@@ -50,6 +50,11 @@ public class MagneticObjectInspector : MonoBehaviour
     [Tooltip("Bảng chữ nổi cao hơn ĐỈNH vật bao nhiêu mét.")]
     public float labelHeightOffset = 0.35f;
 
+    [Tooltip("Thời gian (giây) để bảng chữ trượt tới độ cao mới khi đỉnh vật thay đổi.\n\n" +
+             "Vật đang bay thì lộn vòng, đỉnh của nó lên xuống liên tục. Không làm mượt thì " +
+             "bảng chữ giật theo từng vòng lộn. 0 = bám cứng, không làm mượt.")]
+    public float labelHeightSmoothTime = 0.12f;
+
     [Tooltip("(Tuỳ chọn) Nền phía sau bảng chữ. Nếu gán, nền sẽ ĐỔI MÀU theo loại vật.\n\n" +
              "Đây mới là thứ cho nhận diện tức thì: một mảng màu to đọc được bằng thị giác " +
              "ngoại vi, còn chữ thì bắt buộc phải nhìn thẳng vào mới đọc nổi.")]
@@ -96,6 +101,14 @@ public class MagneticObjectInspector : MonoBehaviour
     private Transform _camera;
     private FPSMovement _movement;
     private float _nextScanTime;
+
+    // Phần thân (mesh) của vật đang soi, để đo đỉnh. Tìm một lần khi đổi mục tiêu.
+    private Renderer _targetBody;
+
+    // Đỉnh vật cao hơn tâm (pivot) bao nhiêu mét, đã làm mượt.
+    private float _labelHeight;
+    private float _labelHeightVelocity;
+    private bool _snapLabel;
 
     private void Awake()
     {
@@ -148,6 +161,10 @@ public class MagneticObjectInspector : MonoBehaviour
         _highlighted = null;
 
         Current = found;
+
+        // Vật mới -> bảng chữ NHẢY thẳng tới đỉnh vật mới, không trượt từ vật cũ sang.
+        _targetBody = Current != null ? FindBody(Current) : null;
+        _snapLabel = true;
 
         if (Current != null)
         {
@@ -213,14 +230,58 @@ public class MagneticObjectInspector : MonoBehaviour
         if (labelRoot.gameObject.activeSelf != show) labelRoot.gameObject.SetActive(show);
         if (!show) return;
 
-        // Đo bằng GetBoundingRadius() chứ không dùng renderer.bounds.
+        // ĐẶT THEO ĐỈNH THẬT CỦA VẬT, rồi làm mượt riêng phần độ cao.
         //
-        // bounds là hộp bao theo trục THẾ GIỚI nên nó phình ra co vào khi vật xoay -
-        // bảng chữ sẽ nhấp nhô lên xuống theo từng vòng quay của vật đang bay.
-        // GetBoundingRadius tính từ localBounds nên không đổi dù vật xoay kiểu gì.
-        float radius = Current.GetBoundingRadius();
+        // ⚠️ Trước đây dùng GetBoundingRadius() - nhưng đó là nửa ĐƯỜNG CHÉO hộp bao, không
+        // phải nửa chiều cao. Cái bàn 3m x 3m x 0.1m có nửa đường chéo 2.1m trong khi chỉ
+        // cao 5cm, nên bảng chữ bay lơ lửng hơn 2 mét trên mặt bàn. Vật tròn thì đường
+        // chéo xấp xỉ chiều cao nên lại đúng - đó là lý do lúc đúng lúc sai.
+        //
+        // Ở đây dùng renderer.bounds là ĐÚNG, khác với bẫy số 9 ở CLAUDE.md: bẫy đó nói về
+        // ĐO KÍCH THƯỚC (bounds phình khi vật xoay nên cỡ đo được sai). Còn ở đây ta cần
+        // ĐỈNH theo trục thế giới - chính xác là thứ bounds cho ra. Phần phình co khi vật
+        // lộn vòng thì do SmoothDamp bên dưới nuốt đi.
+        float top = TopAbovePivot();
 
-        labelRoot.position = Current.transform.position + Vector3.up * (radius + labelHeightOffset);
+        if (_snapLabel || labelHeightSmoothTime <= 0f)
+        {
+            _labelHeight = top;
+            _labelHeightVelocity = 0f;
+            _snapLabel = false;
+        }
+        else
+        {
+            _labelHeight = Mathf.SmoothDamp(_labelHeight, top, ref _labelHeightVelocity,
+                                            labelHeightSmoothTime);
+        }
+
+        // Chỉ làm mượt ĐỘ CAO, còn vị trí ngang vẫn bám cứng theo vật - không thì vật bay
+        // nhanh sẽ bỏ bảng chữ lại phía sau.
+        labelRoot.position = Current.transform.position + Vector3.up * (_labelHeight + labelHeightOffset);
+    }
+
+    /// <summary>Đỉnh vật cao hơn tâm (pivot) của nó bao nhiêu mét, theo trục thế giới.</summary>
+    private float TopAbovePivot()
+    {
+        if (_targetBody == null) return Current.GetBoundingRadius();
+
+        return _targetBody.bounds.max.y - Current.transform.position.y;
+    }
+
+    /// <summary>
+    /// Tìm phần THÂN của vật - mesh thật, không phải hiệu ứng.
+    ///
+    /// Không dùng GetComponentInChildren&lt;Renderer&gt;() thẳng: MagneticObject tự gắn thêm
+    /// TrailRenderer (vệt đạn, vệt gió) lúc vật bay, và hàm đó có thể trả về vệt đuôi thay
+    /// vì thân vật. Hộp bao của vệt đuôi kéo dài theo cả đường bay, đỉnh của nó vô nghĩa.
+    /// </summary>
+    private static Renderer FindBody(MagneticObject obj)
+    {
+        foreach (Renderer r in obj.GetComponentsInChildren<Renderer>())
+        {
+            if (r is MeshRenderer || r is SkinnedMeshRenderer) return r;
+        }
+        return null;
     }
 
     private void OnDisable()

@@ -104,6 +104,21 @@ public class RadialMenuController : MonoBehaviour
         ApplyIcons();
     }
 
+    // Settings mở ra thì Radial Menu tự đóng - chỉ một bảng trên màn hình tại một thời điểm.
+    void OnEnable() { SettingsUI.Opened += OnSettingsOpened; }
+    void OnDisable() { SettingsUI.Opened -= OnSettingsOpened; }
+
+    private void OnSettingsOpened()
+    {
+        // Truyền null = HUỶ, không dùng món nào. Người chơi bấm Esc là muốn thoát ra,
+        // chứ không phải xác nhận món đang rê chuột tới - dùng mất một bình thuốc chỉ vì
+        // bấm Esc thì rất ức chế.
+        //
+        // Sau đó thả Tab ra cũng không sao: nhánh GetKeyUp bên dưới chỉ chạy khi menu
+        // còn mở, mà menu đã đóng rồi.
+        if (_isMenuOpen) CloseMenu(null);
+    }
+
     void Update()
     {
         InventorySystem inventory = GetLocalInventory();

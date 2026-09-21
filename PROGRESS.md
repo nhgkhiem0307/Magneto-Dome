@@ -1,7 +1,7 @@
 # TIẾN ĐỘ — Magneto-Dome
 
 > Ghi cho session sau. Đọc file này trước, rồi đọc [CLAUDE.md](CLAUDE.md) để nắm đặc tả và quy tắc.
-> **Cập nhật:** 01/09/2026 · **Deadline:** ~16/09/2026 (còn ~15 ngày)
+> **Cập nhật:** 19/09/2026 · **Deadline:** 25/09/2026 (còn 6 ngày)
 
 ---
 
@@ -19,7 +19,8 @@ việc còn lại gần như chỉ là kéo thả trong Unity và test.
 | ~~3~~ | ~~Gán 5 icon vào `ItemData`~~ | — | ✅ **XONG** — cả 5 file đều đã có `itemIcon` |
 | ~~4~~ | ~~Dựng Shop UI + Radial Menu~~ | — | ✅ **XONG** — còn mỗi ô  bỏ trống |
 | ~~5~~ | ~~Thêm **nút mở Settings** ở MenuScene~~ | — | ✅ **XONG** *(kiểm 31/08)* — xem bên dưới |
-| 6 | Gán 2 ô âm thanh: `sfxRoundWin`, `sfxRoundLose` | AudioManager (MenuScene) | Thắng/thua round im lặng |
+| 6 | Gán 2 ô âm thanh: `sfxRoundWin`, `sfxRoundLose` | AudioManager (MenuScene) | Thắng/thua round im lặng. ⚠️ *(19/09)* Project **chưa có file** nào cho việc này — phải tải về trước |
+| 14 | **Icon cho game** *(19/09)* | Player Settings → Icon | `.exe` và taskbar đang hiện logo Unity mặc định — người chấm thấy đầu tiên |
 
 ### 🟡 Nên làm
 
@@ -28,7 +29,7 @@ việc còn lại gần như chỉ là kéo thả trong Unity và test.
 | ~~7~~ | ~~Cắt `Nature/Textures` 194MB~~ | ✅ **XONG** — thư mục đã xoá và chưa từng vào git |
 | 8 | `knockbackText` trên HUDController | Hiện hệ số `x2.4`, đang bỏ trống |
 | 9 | Trang trí nốt: bụi, hoa, đá bay lơ lửng dưới đảo | Công cụ `EnvironmentScatter` đã sẵn |
-| 13 | **Bảng chữ soi vật đặt sai chỗ với vật quá to / quá nhỏ** | Xem mục riêng ngay dưới |
+| ~~13~~ | ~~Bảng chữ soi vật đặt sai chỗ với vật quá to / quá nhỏ~~ | ✅ **XONG 19/09** — chọn hướng 2: `renderer.bounds.max.y` + `SmoothDamp` riêng độ cao. Chưa test |
 
 #### 🔍 Việc 13 — bảng chữ soi vật bố trí chưa ổn *(ghi nhận 01/09, chưa sửa)*
 
@@ -63,7 +64,7 @@ Hướng thứ hai kèm làm mượt (`Lerp` vị trí) có lẽ là đúng nh�
 
 | # | Việc | Vì sao đợi |
 |---|---|---|
-| 10 | **Xoá phím debug `K`** — 3 chỗ: `NetworkInputData.cs`, `NetworkRunnerHandler.OnInput()`, `PlayerMagnetController.FixedUpdateNetwork()` | Còn cần để test vòng round một mình |
+| ~~10~~ | ~~Xoá phím debug `K`~~ | ✅ **19/09** — không xoá mà bọc `#if UNITY_EDITOR` ở cả đầu gửi (`OnInput`) lẫn đầu nhận (`PlayerMagnetController`). Bản build không còn phím K, Editor vẫn test được |
 | 11 | Đặt lại `Points To Win = 5` nếu có hạ để test | |
 | 12 | Build cuối, **bỏ tick** `Development Build` | |
 

@@ -36,6 +36,17 @@ public class ShopUI : MonoBehaviour
         if (shopPanel != null) shopPanel.SetActive(false);
     }
 
+    // Settings mở ra thì Shop tự đóng - chỉ một bảng trên màn hình tại một thời điểm.
+    // Đăng ký ở OnEnable/OnDisable chứ không ở Start, để object bị huỷ lúc đổi scene
+    // thì tự huỷ đăng ký theo, không để lại lời gọi tới một object đã chết.
+    void OnEnable() { SettingsUI.Opened += OnSettingsOpened; }
+    void OnDisable() { SettingsUI.Opened -= OnSettingsOpened; }
+
+    private void OnSettingsOpened()
+    {
+        if (_isOpen) CloseShop();
+    }
+
     void Update()
     {
         ShopManager shop = GetLocalShop();
@@ -60,7 +71,11 @@ public class ShopUI : MonoBehaviour
         if (Input.GetKeyDown(shopKey) && inBuyPhase)
         {
             if (_isOpen) CloseShop();
-            else OpenShop(shop);
+
+            // Đang có bảng khác mở (Settings, Radial Menu) thì không mở đè lên.
+            // Chuột đang được thả tự do nghĩa là có bảng nào đó đang chiếm nó - cùng
+            // cách Radial Menu dùng, nên thêm bảng mới sau này cũng tự được tính vào.
+            else if (!SettingsUI.IsOpen && !NetworkRunnerHandler.IsCursorFree()) OpenShop(shop);
         }
 
         if (_isOpen) RefreshTexts(shop);

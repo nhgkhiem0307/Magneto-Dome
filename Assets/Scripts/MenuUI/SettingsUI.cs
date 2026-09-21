@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 /// <summary>
@@ -19,6 +20,23 @@ public class SettingsUI : MonoBehaviour
 
     [Tooltip("Phím mở/đóng nhanh. Để None nếu chỉ muốn mở bằng nút bấm.")]
     public KeyCode toggleKey = KeyCode.Escape;
+
+    /// <summary>
+    /// Settings có đang mở không. ShopUI hỏi cái này để không mở đè lên Settings.
+    ///
+    /// Để static vì mỗi scene chỉ có đúng một SettingsUI, và các bảng khác không cần
+    /// kéo thả tham chiếu tới nó - thêm bảng mới cũng khỏi đụng Inspector.
+    /// </summary>
+    public static bool IsOpen { get; private set; }
+
+    /// <summary>
+    /// Báo cho mọi bảng khác (Shop, Radial Menu) biết Settings vừa mở, để chúng tự đóng.
+    ///
+    /// Settings đứng trên cùng: Esc là phím "thoát khỏi mọi thứ", nên mở nó ra thì
+    /// dọn sạch màn hình. Dùng sự kiện thay vì để Settings tự gọi từng bảng, để
+    /// SettingsUI không phải biết trong game có những bảng nào.
+    /// </summary>
+    public static event System.Action Opened;
 
     [Header("Âm lượng")]
     public Slider masterSlider;
@@ -77,9 +95,31 @@ public class SettingsUI : MonoBehaviour
     [Tooltip("Nút RỜI TRẬN, chỉ có nghĩa trong scene gameplay.\n\n" +
              "Gán nút vào đây thì script TỰ ẨN nó khi đang ở menu - cùng một SettingsPanel " +
              "dùng cho cả hai scene, mà ở menu thì 'rời trận' không có nghĩa gì.\n\n" +
-             "Nhớ kéo CANVAS (không phải panel) vào ô On Click của nút, chọn hàm " +
-             "SettingsUI.LeaveMatch.")]
+             "KHÔNG cần On Click - code tự nối nút này vào LeaveMatch. Để trống ô này " +
+             "thì code tự tìm object tên LeaveButton trong Settings Panel.")]
     public Button leaveMatchButton;
+
+    [Header("Nút bấm - code tự nối, KHÔNG cần On Click")]
+    [Tooltip("Nút ĐÓNG bảng Settings.\n\n" +
+             "⚠️ VÌ SAO CODE TỰ NỐI THAY VÌ KÉO THẢ ON CLICK: SettingsUI nằm trên Canvas của " +
+             "SCENE, còn các nút nằm trong PREFAB SettingsPanel - mà prefab thì không được " +
+             "tham chiếu tới object của scene. Nên ô On Click trong prefab luôn TRỐNG, mỗi " +
+             "scene phải tự nối lại, và đã quên đúng chỗ đó: MenuScene nút Close không làm " +
+             "gì, TestScene hai nút Xác nhận / Huỷ không làm gì.\n\n" +
+             "Code tự nối thì thêm scene mới cũng chạy, không ai phải nhớ gì. Ô trống thì " +
+             "code tự tìm object tên CloseButton (bên ngoài LeaveConfirmPanel).")]
+    public Button closeButton;
+
+    [Tooltip("Nút HUỶ trong bảng xác nhận rời trận - chỉ tắt bảng xác nhận, KHÔNG đóng Settings. " +
+             "Để trống thì code tự tìm object tên CloseButton nằm BÊN TRONG LeaveConfirmPanel.")]
+    public Button leaveCancelButton;
+
+    // Tên object trong prefab SettingsPanel, dùng khi ô tham chiếu để trống.
+    // ĐỔI TÊN object trong prefab thì phải đổi ở đây - hoặc gán tay vào ô cho chắc.
+    private const string NameLeaveButton = "LeaveButton";
+    private const string NameCloseButton = "CloseButton";
+    private const string NameConfirmPanel = "LeaveConfirmPanel";
+    private const string NameConfirmButton = "Confirmbtn";
 
     // Danh sách độ phân giải máy hỗ trợ, đã lọc trùng
     private readonly List<Resolution> _resolutions = new List<Resolution>();
@@ -96,10 +136,23 @@ public class SettingsUI : MonoBehaviour
 
     void Start()
     {
+        // Biến static sống qua cả lúc đổi scene. Rời trận khi Settings đang mở thì nó còn
+        // kẹt ở true sang scene mới, và Shop sẽ không bao giờ mở được nữa.
+        IsOpen = false;
+
+        ResolveMissingReferences();
         BuildResolutionList();
         LoadCurrentValues();
         HookEvents();
+        HookButtons();
 
+        // Tắt CẢ bảng xác nhận, không chỉ bảng Settings.
+        //
+        // ⚠️ Trong prefab, LeaveConfirmPanel đang để Active = BẬT. Nó là con của Settings
+        // nên lúc đầu bị ẩn theo - nhưng lần ĐẦU mở Settings thì nó hiện đè lên ngay, vì
+        // chưa có gì tắt nó đi. Ở MenuScene còn tệ hơn: ô leaveConfirmPanel trống nên Close()
+        // không bao giờ tắt được nó, bảng "rời trận" hiện đè MỖI LẦN mở Settings.
+        if (leaveConfirmPanel != null) leaveConfirmPanel.SetActive(false);
         if (settingsPanel != null) settingsPanel.SetActive(false);
     }
 
@@ -162,6 +215,10 @@ public class SettingsUI : MonoBehaviour
         LoadCurrentValues();
         settingsPanel.SetActive(true);
 
+        // Mở Settings thì luôn bắt đầu ở bảng chính, không bao giờ ở bảng xác nhận.
+        if (leaveConfirmPanel != null) leaveConfirmPanel.SetActive(false);
+        _leaveCountdown = 0f;
+
         // Chỉ hiện nút Rời Trận khi đang thật sự ở trong trận.
         //
         // Xét mỗi lần MỞ bảng chứ không xét một lần lúc khởi tạo: cùng một object
@@ -172,6 +229,15 @@ public class SettingsUI : MonoBehaviour
         }
 
         CursorLock.Request(this);
+
+        IsOpen = true;
+        Opened?.Invoke();
+    }
+
+    void OnDestroy()
+    {
+        // Cùng lý do như ở Start: đổi scene thì bảng bị huỷ mà không đi qua Close().
+        IsOpen = false;
     }
 
     /// <summary>
@@ -272,6 +338,7 @@ public class SettingsUI : MonoBehaviour
         _leaveCountdown = 0f;
 
         settingsPanel.SetActive(false);
+        IsOpen = false;
 
         // Trả chuột lại. CursorLock tự lo phần còn lại: chỉ khoá khi KHÔNG còn bảng nào
         // đang mở, và luôn thả tự do khi đang ở menu (chưa có nhân vật).
@@ -391,6 +458,107 @@ public class SettingsUI : MonoBehaviour
         slider.minValue = 0f;
         slider.maxValue = 1f;
         slider.value = value;
+    }
+
+    /// <summary>
+    /// Ô tham chiếu nào để trống thì tự tìm theo TÊN trong Settings Panel.
+    ///
+    /// Ô đã gán tay thì luôn được ưu tiên - tìm theo tên chỉ là lưới đỡ. Làm cả hai thay vì
+    /// chỉ tìm theo tên, vì tên object là thứ rất dễ bị ai đó đổi mà không biết có code
+    /// phụ thuộc vào nó.
+    /// </summary>
+    private void ResolveMissingReferences()
+    {
+        if (settingsPanel == null) return;
+
+        Transform root = settingsPanel.transform;
+
+        if (leaveConfirmPanel == null)
+        {
+            Transform t = FindDeep(root, NameConfirmPanel, null);
+            if (t != null) leaveConfirmPanel = t.gameObject;
+        }
+
+        Transform confirmRoot = leaveConfirmPanel != null ? leaveConfirmPanel.transform : null;
+
+        // Prefab có HAI object tên CloseButton: một ở bảng chính, một trong bảng xác nhận.
+        // Nên nút Đóng tìm ở NGOÀI bảng xác nhận, nút Huỷ tìm ở TRONG.
+        if (leaveMatchButton == null) leaveMatchButton = FindButton(root, NameLeaveButton, confirmRoot);
+        if (closeButton == null) closeButton = FindButton(root, NameCloseButton, confirmRoot);
+
+        if (confirmRoot != null)
+        {
+            if (leaveConfirmButton == null) leaveConfirmButton = FindButton(confirmRoot, NameConfirmButton, null);
+            if (leaveCancelButton == null) leaveCancelButton = FindButton(confirmRoot, NameCloseButton, null);
+            if (leaveConfirmText == null) leaveConfirmText = FindLooseText(confirmRoot);
+        }
+
+        if (closeButton == null)
+        {
+            Debug.LogWarning("[SETTINGS] Không tìm thấy nút Đóng. Gán tay vào ô Close Button, " +
+                             "không thì chỉ đóng được Settings bằng phím " + toggleKey + ".", this);
+        }
+    }
+
+    /// <summary>
+    /// Nối nút vào hàm bằng code, và TẮT mọi On Click cũ đặt trong Inspector.
+    ///
+    /// Phải tắt On Click cũ, không thì một cú bấm gọi hàm HAI LẦN: một lần từ Inspector,
+    /// một lần từ code. Tắt đi cũng vô hiệu luôn lời gọi SAI còn sót trong prefab - nút
+    /// Xác nhận đang gọi nhầm LeaveMatch, tức mở lại bảng và đếm lại 3 giây mãi mãi.
+    ///
+    /// SetPersistentListenerState lúc chạy chỉ đổi bản trong bộ nhớ, không ghi vào prefab
+    /// hay scene - hết Play là mọi thứ trong Inspector y nguyên.
+    /// </summary>
+    private void HookButtons()
+    {
+        Bind(closeButton, Close);
+        Bind(leaveMatchButton, LeaveMatch);
+        Bind(leaveConfirmButton, ConfirmLeaveMatch);
+        Bind(leaveCancelButton, CancelLeaveMatch);
+    }
+
+    private static void Bind(Button button, UnityAction action)
+    {
+        if (button == null) return;
+
+        for (int i = 0; i < button.onClick.GetPersistentEventCount(); i++)
+        {
+            button.onClick.SetPersistentListenerState(i, UnityEventCallState.Off);
+        }
+
+        // Gỡ trước rồi mới gắn, để lỡ Start chạy lại (bật tắt object) cũng không gắn trùng.
+        button.onClick.RemoveListener(action);
+        button.onClick.AddListener(action);
+    }
+
+    private static Transform FindDeep(Transform root, string name, Transform exclude)
+    {
+        foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+        {
+            if (t.name != name) continue;
+            if (exclude != null && t.IsChildOf(exclude)) continue;
+            return t;
+        }
+        return null;
+    }
+
+    private static Button FindButton(Transform root, string name, Transform exclude)
+    {
+        Transform t = FindDeep(root, name, exclude);
+        return t != null ? t.GetComponent<Button>() : null;
+    }
+
+    /// <summary>Dòng chữ của bảng xác nhận: chữ đầu tiên KHÔNG nằm trong nút nào.</summary>
+    private static TMP_Text FindLooseText(Transform root)
+    {
+        foreach (TMP_Text text in root.GetComponentsInChildren<TMP_Text>(true))
+        {
+            // Bỏ chữ trên nút (chữ "Confirm", "Cancel") - thứ cần là dòng lời nhắc.
+            if (text.GetComponentInParent<Button>(true) != null) continue;
+            return text;
+        }
+        return null;
     }
 
     private void HookEvents()

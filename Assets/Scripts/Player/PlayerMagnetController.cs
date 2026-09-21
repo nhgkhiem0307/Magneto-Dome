@@ -340,11 +340,16 @@ public class PlayerMagnetController : NetworkBehaviour
 
         // --- 0. CÁC TRƯỜNG HỢP BỊ KHOÁ THAO TÁC ---
 
-        // CHỈ ĐỂ TEST - XOÁ TRƯỚC KHI NỘP BÀI. Phím K tự sát để thử vòng lặp round một mình.
+        // CHỈ ĐỂ TEST: phím K tự sát để thử vòng lặp round một mình. Chỉ có trong Editor.
+        //
+        // Bọc cả ở đầu NHẬN (Host), không chỉ đầu gửi: lỡ có ai sửa bản build để gửi
+        // lệnh này thì Host của bản build cũng không có dòng code nào thực hiện nó.
+#if UNITY_EDITOR
         if (HasStateAuthority && pressed.IsSet((int)InputButton.DebugSuicide) && health != null)
         {
             health.Die();
         }
+#endif
 
         // Đã bị loại khỏi round thì không đánh đấm gì được nữa
         if (health != null && !health.IsAlive) return;
@@ -634,6 +639,11 @@ public class PlayerMagnetController : NetworkBehaviour
             if (!hit.CompareTag("Player")) continue;
             if (hit.transform == transform) continue;
 
+            // Đồng đội không phải mục tiêu. Góc hỗ trợ ở đây rộng tới 70°, nên đồng đội
+            // đứng sát bên thường lại là người "gần tâm ngắm nhất" - nhắm vào địch mà cú
+            // đấm bẻ sang đồng đội. Xem PlayerHealth.AreTeammates.
+            if (IsTeammate(hit.transform)) continue;
+
             Vector3 toTarget = hit.transform.position - aimOrigin;
             if (toTarget.sqrMagnitude < 0.0001f) continue;
 
@@ -659,6 +669,12 @@ public class PlayerMagnetController : NetworkBehaviour
         return best;
     }
 
+    /// <summary>Người này có phải đồng đội của mình không (mình thì không tính).</summary>
+    private bool IsTeammate(Transform other)
+    {
+        return other != null && PlayerHealth.AreTeammates(gameObject, other.gameObject);
+    }
+
     Transform FindMeleeTarget(Vector3 aimOrigin, Vector3 aimDirection)
     {
         // BƯỚC 0 - CỰ LY CỰC GẦN, quét chồng lấn
@@ -677,8 +693,10 @@ public class PlayerMagnetController : NetworkBehaviour
         if (close != null) return close;
 
         // BƯỚC 1 - tia thẳng, ưu tiên tuyệt đối
+        // Tia trúng thẳng đồng đội thì bỏ qua, xuống bước 2 tìm địch quanh đó.
         if (Physics.Raycast(aimOrigin, aimDirection, out RaycastHit precise, dashLockRange)
-            && precise.collider.CompareTag("Player"))
+            && precise.collider.CompareTag("Player")
+            && !IsTeammate(precise.transform))
         {
             return precise.transform;
         }
@@ -702,6 +720,9 @@ public class PlayerMagnetController : NetworkBehaviour
             // Không tự ngắm chính mình. Quả cầu quét bắt đầu ngay trong người nên
             // collider của bản thân gần như chắc chắn nằm trong danh sách trả về.
             if (candidate.transform == transform) continue;
+
+            // Không grapple về phía đồng đội.
+            if (IsTeammate(candidate.transform)) continue;
 
             Vector3 toTarget = candidate.transform.position - aimOrigin;
 

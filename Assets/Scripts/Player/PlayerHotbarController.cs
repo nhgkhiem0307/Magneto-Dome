@@ -14,6 +14,18 @@ public class PlayerHotbarController : NetworkBehaviour
     public KeyCode heavyKey = KeyCode.X;
     public KeyCode spikeKey = KeyCode.C;
 
+    /// <summary>
+    /// Ô thứ ba (phím C, số đạn thứ ba trên HUD) chứa loại vật nào.
+    ///
+    /// ⚠️ TẠM THỜI LÀ TNT, không phải Spike: map chưa có vật Spike nào, còn TNT cất vào túi
+    /// thì trước đây KHÔNG phím nào rút ra được - nằm chết trong túi, chiếm chỗ tới hết round.
+    ///
+    /// Có vật Spike rồi thì đổi dòng này về Spike là xong, HUDController đọc chung ô này.
+    /// Tên biến spikeKey / spikeAmmoText / HotbarSpike cố ý GIỮ NGUYÊN: đổi tên field public
+    /// là Unity quên sạch giá trị đã gán trong Inspector.
+    /// </summary>
+    public const MagneticObject.ObjectType ThirdSlotType = MagneticObject.ObjectType.TNT;
+
     [Networked] private NetworkButtons PreviousButtons { get; set; }
 
     private InventorySystem inventory;
@@ -45,7 +57,7 @@ public class PlayerHotbarController : NetworkBehaviour
 
         if (pressed.IsSet((int)InputButton.HotbarNormal)) TryRetrieveAmmo(MagneticObject.ObjectType.Normal);
         if (pressed.IsSet((int)InputButton.HotbarHeavy)) TryRetrieveAmmo(MagneticObject.ObjectType.Heavy);
-        if (pressed.IsSet((int)InputButton.HotbarSpike)) TryRetrieveAmmo(MagneticObject.ObjectType.Spike);
+        if (pressed.IsSet((int)InputButton.HotbarSpike)) TryRetrieveAmmo(ThirdSlotType);
     }
 
     private void TryRetrieveAmmo(MagneticObject.ObjectType type)
