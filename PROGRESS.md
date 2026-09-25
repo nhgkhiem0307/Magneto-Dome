@@ -1,7 +1,26 @@
 # TIẾN ĐỘ — Magneto-Dome
 
 > Ghi cho session sau. Đọc file này trước, rồi đọc [CLAUDE.md](CLAUDE.md) để nắm đặc tả và quy tắc.
-> **Cập nhật:** 19/09/2026 · **Deadline:** 25/09/2026 (còn 6 ngày)
+> **Cập nhật:** 23/09/2026 · **Deadline:** 25/09/2026 (còn 2 ngày)
+
+> ### 🔥 CÒN ĐÚNG NHỮNG VIỆC NÀY (rà lại trực tiếp trong file ngày 25/09)
+> | # | Việc | Ai làm |
+> |---|---|---|
+> | 1 | **Viết báo cáo** — chưa có chữ nào. Rủi ro lớn nhất | Chủ project |
+> | 2 | **Chơi trọn một trận 2 máy** | Chủ project |
+> | 3 | **Icon game** (Player Settings → Default Icon) — đang là logo Unity | 5 phút |
+> | 4 | Ô **`knockbackText`** trên HUD còn trống — hệ số văng `x2.4` không hiện | 10 phút |
+> | 5 | **18 ô ⬜ trong CREDITS** — chủ yếu nguồn 18 file âm thanh. Có file CC-BY mà không ghi tác giả là vi phạm giấy phép thật | Chủ project |
+> | 6 | *(tuỳ chọn)* 2 câu giọng `Charge critical.` / `Ten seconds.` — code đã móc sẵn, chỉ thiếu file | Xem [VOICE_BRIEF.md](VOICE_BRIEF.md) |
+> | 7 | *(tuỳ chọn)* Trang trí đảo bằng `EnvironmentScatter`, ~1 tiếng | Chủ project |
+> | 8 | Build cuối: **bỏ tick `Development Build`** | Chủ project |
+>
+> **Đã xong 25/09:** nerf lực đẩy 25% · round 5 phút, chiếm khu 60 giây · bất tử 2 giây
+> sau hồi sinh (kèm nhấp nháy) · đồng hồ đỏ + đập nhịp 10 giây cuối · cầm đá không còn
+> che màn hình · sửa lỗi hiện hai mã phòng · giọng thông báo ElevenLabs · CREDITS sửa lại
+> cho đúng nguồn giọng.
+>
+> **Đã xong 23/09:** phiên bản `1.0.0` · CREDITS bổ sung Fantasy Skybox.
 
 ---
 

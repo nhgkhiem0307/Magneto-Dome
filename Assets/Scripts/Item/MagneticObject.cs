@@ -310,8 +310,13 @@ public class MagneticObject : NetworkBehaviour
     /// máy nào cũng biết ai đang cầm vật nào (qua GrabbedObjectId) nên tự thu nhỏ được.
     /// </summary>
     /// <param name="targetSize">Cạnh dài nhất sau khi thu, tính bằng mét.</param>
+    /// <param name="targetThickness">
+    /// Bề ngang tối đa (cạnh dài NHÌ) sau khi thu. Đây là thứ quyết định vật che bao nhiêu
+    /// phần màn hình: cái cây dài mà mảnh thì không vướng, tảng đá ba chiều bằng nhau thì
+    /// che kín tầm nhìn dù cùng một "cạnh dài nhất". Để 0 để bỏ qua ràng buộc này.
+    /// </param>
     /// <param name="onlyShrink">Bật thì vật vốn đã nhỏ hơn cỡ chuẩn sẽ được giữ nguyên, không phóng to lên.</param>
-    public void ApplyHeldScale(float targetSize, bool onlyShrink)
+    public void ApplyHeldScale(float targetSize, float targetThickness, bool onlyShrink)
     {
         if (targetSize <= 0f) return;
 
@@ -334,6 +339,27 @@ public class MagneticObject : NetworkBehaviour
         if (largestSide <= 0.0001f) return; // vật không có hình, bỏ qua
 
         float ratio = targetSize / largestSide;
+
+        // RÀNG BUỘC THỨ HAI: BỀ NGANG.
+        //
+        // Chỉ ép cạnh dài nhất là chưa đủ, vì vật dẹt và vật vuông che màn hình khác hẳn
+        // nhau dù cùng một cạnh dài nhất:
+        //   cây  3m x 0.3m x 0.3m -> thu còn 1.2m thì bề ngang 0.12m, mảnh như que
+        //   đá   1m x 0.9m x 0.9m -> thu còn 1.2m thì vẫn là khối vuông ngay trước mũi
+        //
+        // Nên đo thêm cạnh dài NHÌ (bề ngang thật của vật) và lấy hệ số thu nhỏ hơn
+        // trong hai ràng buộc. Vật dài mảnh không bị ảnh hưởng vì ràng buộc cạnh dài
+        // nhất của nó vốn đã chặt hơn.
+        if (targetThickness > 0f)
+        {
+            float secondSide = worldSize.x + worldSize.y + worldSize.z - largestSide
+                               - Mathf.Min(worldSize.x, Mathf.Min(worldSize.y, worldSize.z));
+
+            if (secondSide > 0.0001f)
+            {
+                ratio = Mathf.Min(ratio, targetThickness / secondSide);
+            }
+        }
 
         // Vốn đã nhỏ hơn cỡ chuẩn thì để yên, đừng phóng to hòn sỏi thành tảng đá
         if (onlyShrink && ratio >= 1f) return;

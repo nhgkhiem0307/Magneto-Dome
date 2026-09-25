@@ -5800,8 +5800,8 @@ MonoBehaviour:
   voMatchPoint: {fileID: 8300000, guid: 0b7711aa19a5ef94386f3c17255ecc5f, type: 3}
   voOvertime: {fileID: 8300000, guid: d28234a904773be42aebae4c75854ccc, type: 3}
   voVictory: {fileID: 8300000, guid: 15ec9f0404417114788ea166b77f7fc9, type: 3}
-  voDefeat: {fileID: 8300000, guid: 53413d0317cfe2546991e478b434ce2f, type: 3}
-  voiceVolume: 1.415
+  voDefeat: {fileID: 8300000, guid: 141a84b820054b74e9068bf635d51ce2, type: 3}
+  voiceVolume: 1.15
   roundWonSpeed: 0.92
   radioFilter: 1
   radioHighPass: 380

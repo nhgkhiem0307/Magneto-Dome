@@ -82,6 +82,18 @@ public class PlayerMagnetController : NetworkBehaviour
     [Tooltip("Cạnh dài nhất của vật sau khi thu nhỏ, tính bằng mét. Mọi vật cầm lên đều về cỡ này.")]
     public float heldObjectSize = 0.6f;
 
+    [Tooltip("Bề NGANG tối đa của vật cầm trên tay, tính bằng mét. Đây là ô chữa lỗi " +
+             "'cầm đá thì che hết màn hình, cầm cây thì không sao'.\n\n" +
+             "⚠️ VÌ SAO CẦN THÊM Ô NÀY: ô trên chỉ thu CẠNH DÀI NHẤT về một cỡ. Cái cây dài " +
+             "3m x dày 0.3m thu về dài 1.2m thì bề ngang chỉ còn 0.12m - mảnh như que, che " +
+             "gần như không đáng kể. Nhưng tảng đá thì ba chiều gần bằng nhau, nên thu cạnh " +
+             "dài nhất về 1.2m là ra một khối vuông 1.2m lơ lửng ngay trước mũi.\n\n" +
+             "Cùng một con số 'cạnh dài nhất' mà vật dẹt và vật vuông che màn hình khác nhau " +
+             "một trời một vực - thứ quyết định độ che là BỀ NGANG, không phải chiều dài.\n\n" +
+             "Code lấy hệ số thu NHỎ HƠN trong hai ô, nên vật dài mảnh vẫn giữ nguyên như " +
+             "cũ, chỉ vật mập mới bị thu thêm. Để 0 là tắt, quay về cách cũ.")]
+    public float heldObjectThickness = 0.55f;
+
     [Tooltip("Bật: vật vốn đã nhỏ hơn cỡ trên thì giữ nguyên. Tắt: mọi vật đều về đúng một cỡ.")]
     public bool onlyShrinkLargeObjects = true;
 
@@ -863,7 +875,7 @@ public class PlayerMagnetController : NetworkBehaviour
         if (_visuallyHeld != held)
         {
             _visuallyHeld = held;
-            held.ApplyHeldScale(heldObjectSize, onlyShrinkLargeObjects);
+            held.ApplyHeldScale(heldObjectSize, heldObjectThickness, onlyShrinkLargeObjects);
         }
 
         held.transform.position = holdPoint.position;

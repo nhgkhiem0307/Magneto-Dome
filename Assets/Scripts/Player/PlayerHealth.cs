@@ -33,6 +33,34 @@ public class PlayerHealth : NetworkBehaviour
              "nổ TNT, và mọi nguồn sát thương thêm vào sau này.")]
     public float chargeGainMultiplier = 1.5f;
 
+    [Tooltip("Vừa hồi sinh thì được MIỄN NHIỄM bấy nhiêu giây: không nhiễm điện, không bị " +
+             "đẩy. Đặt 0 để tắt.\n\n" +
+             "⚠️ PHẢI CHẶN CẢ LỰC ĐẨY, không chỉ chặn nhiễm điện. Trong game này cái chết " +
+             "đến từ VỊ TRÍ chứ không từ lượng điện - miễn nhiễm mà vẫn bị đẩy thì người " +
+             "canh sẵn điểm hồi sinh chỉ cần một cú đấm là hất bạn xuống vực ngay lúc bạn " +
+             "chưa kịp nhìn thấy gì. Chặn nửa vời còn tệ hơn không chặn, vì nó tạo cảm " +
+             "giác được bảo vệ mà thực ra không.\n\n" +
+             "2 giây đủ để định hướng và chạy khỏi điểm hồi sinh, ngắn để không ai lợi " +
+             "dụng làm lá chắn xông vào đánh.")]
+    public float spawnProtectDuration = 2f;
+
+    [Tooltip("Số lần nhấp nháy mỗi giây trong lúc miễn nhiễm. 0 = không nhấp nháy.\n\n" +
+             "⚠️ KHÔNG PHẢI TRANG TRÍ. Miễn nhiễm mà không ai nhìn thấy thì sinh ra hai " +
+             "hiểu lầm cùng lúc: người vừa hồi sinh không biết mình đang được bảo vệ nên " +
+             "vẫn chạy trốn, còn người đánh thì đấm mãi không ăn và tưởng game lỗi.\n\n" +
+             "Nhấp nháy là quy ước cả làng game dùng cho trạng thái này, không cần giải " +
+             "thích ai cũng hiểu.")]
+    public float spawnProtectBlinkRate = 8f;
+
+    [Tooltip("Nhiễm điện vượt bao nhiêu phần thì giọng thông báo cảnh báo 'Charge critical'. " +
+             "0.8 = 80%. Đặt 0 để tắt.\n\n" +
+             "Ở mức này một cú chạm đã hất bạn đi xa gấp khoảng 4 lần lúc sạch điện, tức " +
+             "đứng gần rìa vực là chết. Đây là thông tin quan trọng nhất của chế độ Quá Tải " +
+             "mà game hiện chỉ nói bằng một thanh màu ở góc màn hình - giữa lúc đánh nhau " +
+             "thì không ai liếc xuống đó.")]
+    [Range(0f, 1f)]
+    public float chargeCriticalRatio = 0.8f;
+
     [Header("Cảm giác khi ăn đòn")]
     [Tooltip("Ăn một đòn nặng bấy nhiêu điểm điện thì choáng ở mức tối đa.\n\n" +
              "Đòn nhẹ hơn thì choáng ít hơn theo tỉ lệ. Con số này tính SAU khi đã nhân " +
@@ -89,6 +117,14 @@ public class PlayerHealth : NetworkBehaviour
     /// </summary>
     public float KnockbackMultiplier => Mathf.Lerp(1f, knockbackAtMaxCharge, ChargeRatio);
 
+    // Đồng hồ miễn nhiễm sau hồi sinh. [Networked] vì Host là bên chặn sát thương, nhưng
+    // máy nào cũng cần đọc được để hiện dấu hiệu trên HUD sau này nếu muốn.
+    [Networked] public TickTimer SpawnProtectTimer { get; set; }
+
+    /// <summary>Đang trong thời gian miễn nhiễm sau hồi sinh hay không.</summary>
+    public bool IsSpawnProtected => SpawnProtectTimer.IsRunning
+                                    && !SpawnProtectTimer.Expired(Runner);
+
     // 0 = Đỏ, 1 = Xanh. Host gán lúc spawn, dựa theo đội đã chọn trong phòng chờ.
     [Networked] public int Team { get; set; }
 
@@ -144,6 +180,7 @@ public class PlayerHealth : NetworkBehaviour
 
     private CharacterController controller;
     private Renderer[] cachedRenderers;
+    private bool _wasBlinking;
 
     // Lấy sẵn để khỏi GetComponent mỗi lần trúng đòn. Dùng để rung camera khi ăn đòn.
     private FPSMovement movement;
@@ -202,6 +239,9 @@ public class PlayerHealth : NetworkBehaviour
 
         // Đã bị loại rồi thì không nhiễm thêm nữa
         if (!IsAlive) return;
+
+        // Vừa hồi sinh -> miễn nhiễm. Lực đẩy được chặn riêng ở FPSMovement.AddImpact().
+        if (IsSpawnProtected) return;
 
         // Nhân hệ số NGAY TỪ ĐẦU, trước cả giáp. Nghĩa là đòn mạnh hơn thì giáp cũng
         // phải gánh nhiều hơn, thay vì giáp chặn được y như cũ rồi mới nhân phần thừa.
@@ -300,6 +340,11 @@ public class PlayerHealth : NetworkBehaviour
         CurrentCharge = 0f;
         IsAlive = true;
 
+        // Miễn nhiễm một nhịp ngắn để kịp định hướng và rời điểm hồi sinh.
+        SpawnProtectTimer = spawnProtectDuration > 0f
+            ? TickTimer.CreateFromSeconds(Runner, spawnProtectDuration)
+            : TickTimer.None;
+
         // Theo GDD: hết round là giáp bị xoá sạch, bất kể còn nguyên hay đã vỡ.
         // Muốn có giáp ở round sau thì phải mua lại.
         CurrentArmor = 0f;
@@ -339,6 +384,37 @@ public class PlayerHealth : NetworkBehaviour
     // Chạy mỗi khi CurrentCharge đổi giá trị.
     // Mở Console ở cả 2 cửa sổ ParrelSync là đối chiếu được ngay: hai bên cùng một
     // con số thì điện tích đã đồng bộ đúng.
+    /// <summary>
+    /// Nhấp nháy nhân vật trong lúc miễn nhiễm sau hồi sinh.
+    ///
+    /// Đặt ở Render() vì hàm này chạy trên MỌI máy và theo tốc độ khung hình - đúng hai
+    /// thứ cần cho một hiệu ứng nhìn. Đặt ở FixedUpdateNetwork thì nhấp nháy giật cục
+    /// theo nhịp mạng, mà lại chỉ chạy ở nơi có quyền mô phỏng.
+    /// </summary>
+    public override void Render()
+    {
+        bool blinking = IsAlive && IsSpawnProtected && spawnProtectBlinkRate > 0f;
+
+        if (!blinking)
+        {
+            // Vừa hết miễn nhiễm -> trả renderer về đúng trạng thái sống/chết. Thiếu dòng
+            // này thì nhân vật có thể đứng lại ở nửa nhịp ĐANG TẮT và tàng hình vĩnh viễn.
+            if (_wasBlinking) ApplyAliveState();
+            _wasBlinking = false;
+            return;
+        }
+
+        _wasBlinking = true;
+
+        bool visible = ((int)(Time.time * spawnProtectBlinkRate * 2f) & 1) == 0;
+
+        if (cachedRenderers == null) return;
+        foreach (Renderer r in cachedRenderers)
+        {
+            if (r != null) r.enabled = visible;
+        }
+    }
+
     private void OnChargeChanged()
     {
         string who = HasInputAuthority
@@ -351,6 +427,20 @@ public class PlayerHealth : NetworkBehaviour
         if (CurrentCharge > _lastKnownCharge)
         {
             AudioManager.Hit(transform.position);
+
+            // CẢNH BÁO QUÁ TẢI - chỉ cho chính chủ, và chỉ ĐÚNG LÚC VỪA VƯỢT ngưỡng.
+            //
+            // Phải xét cả hai mốc (trước dưới ngưỡng, sau trên ngưỡng), không thì mỗi lần
+            // trúng đòn tiếp theo lại đọc lại câu đó, thành ra cằn nhằn suốt round.
+            // Xả điện tụt xuống dưới ngưỡng rồi nhiễm lại thì cảnh báo lần nữa - đúng ý.
+            if (HasInputAuthority && chargeCriticalRatio > 0f)
+            {
+                float threshold = maxCharge * chargeCriticalRatio;
+                if (_lastKnownCharge < threshold && CurrentCharge >= threshold)
+                {
+                    AudioManager.ChargeCritical();
+                }
+            }
 
             // Choáng theo đúng lượng điện vừa nạp vào, không phải một mức cố định.
             PlayHitFeedback(CurrentCharge - _lastKnownCharge);

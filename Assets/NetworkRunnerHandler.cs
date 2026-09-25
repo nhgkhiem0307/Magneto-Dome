@@ -514,7 +514,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
             if (!result.Ok)
             {
-                _currentRoomCode = "";
+                ClearRoomCode();
                 SetErrorMessage("Could not join a match!");
                 return;
             }
@@ -597,6 +597,21 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     /// ⚠️ Random.Range(int, int) LOẠI TRỪ số cuối, nên phải để 100000 mới ra được 99999.
     /// Bản cũ ghi 99999 nên mã 99999 không bao giờ sinh ra - vô hại nhưng vẫn là sai.
     /// </summary>
+    /// <summary>
+    /// Quên mã phòng hiện tại VÀ xoá nó khỏi màn hình.
+    ///
+    /// ⚠️ Phải gọi mỗi khi rời phòng. Thiếu bước này thì ô chữ giữ nguyên mã của phòng
+    /// TRƯỚC: mở lại bảng tạo phòng là thấy mã cũ nằm sẵn ở đó, bấm tạo xong nó mới đổi
+    /// sang mã mới - nhìn như game hiện hai mã liên tiếp và không biết tin mã nào.
+    /// </summary>
+    private void ClearRoomCode()
+    {
+        _currentRoomCode = "";
+
+        if (yourRoomIDText != null) yourRoomIDText.text = "Room ID: -----";
+        if (roomTitleText != null) roomTitleText.text = "ROOM: ----- (0/4)";
+    }
+
     private string GenerateRoomCode()
     {
         // 20 lần là quá đủ: có 90000 mã mà phòng thì chỉ vài chục, xác suất trượt cả 20
@@ -658,13 +673,19 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             SetErrorMessage("");
             EnsureRunnerExists();
 
-            _currentRoomCode = GenerateRoomCode();
-            if (yourRoomIDText != null) yourRoomIDText.text = "Room ID: " + _currentRoomCode;
+            // ⚠️ KHÔNG ghi mã lên màn hình ở đây, chỉ ghi SAU KHI phòng tạo xong.
+            //
+            // Bản cũ ghi ngay tại dòng này, trước cả khi gọi StartGame. Hai hậu quả:
+            //   1. Tạo phòng thất bại thì một mã KHÔNG CÓ THẬT vẫn nằm trên màn hình,
+            //      người chơi đọc cho bạn bè và không ai vào được.
+            //   2. Cùng với việc mã cũ không được xoá lúc rời phòng, người chơi thấy
+            //      mã cũ nhấp nháy rồi mới đổi sang mã mới - đúng lỗi đã báo 25/09.
+            string newCode = GenerateRoomCode();
 
             var result = await _networkRunner.StartGame(new StartGameArgs()
             {
                 GameMode = GameMode.Host,
-                SessionName = _currentRoomCode,
+                SessionName = newCode,
                 PlayerCount = 4,
                 // Phòng CUSTOM là phòng riêng, chỉ vào được bằng đúng mã - không cho lộ
                 // ra ngoài. IsVisible=false vừa giấu nó khỏi Room List (JoinSessionLobby
@@ -678,6 +699,14 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
             if (result.Ok)
             {
+                // Lấy mã từ CHÍNH PHIÊN VỪA TẠO chứ không dùng lại biến của mình: đây là
+                // nguồn sự thật duy nhất, nên mã hiện trên màn hình chắc chắn là mã người
+                // khác gõ vào sẽ vào đúng phòng này.
+                _currentRoomCode = _networkRunner.SessionInfo != null
+                                   && !string.IsNullOrEmpty(_networkRunner.SessionInfo.Name)
+                    ? _networkRunner.SessionInfo.Name
+                    : newCode;
+
                 ShowPanel(roomLobbyPanel);
 
                 // yourRoomIDText nằm trong createRoomPanel, panel vừa bị ẩn đi ở dòng
@@ -689,6 +718,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             }
             else
             {
+                ClearRoomCode();
                 SetErrorMessage("Could not create room!");
             }
         }
@@ -750,6 +780,10 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             }
             else
             {
+                // Vào phòng hỏng thì quên luôn mã vừa gõ, đừng để nó nằm lại trên màn hình
+                // như thể đang ở trong phòng đó.
+                ClearRoomCode();
+
                 SetErrorMessage("Room not found or already full!");
                 ShowPanel(mainButtonsPanel);
 
@@ -875,6 +909,10 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
             // Runner cũ đã chết, cờ phải trả về false để lần tạo/vào phòng sau còn chạy được.
             _runnerIsDown = false;
+
+            // Rời phòng là quên mã. Không quên thì mã cũ còn nằm trên màn hình và nhấp
+            // nháy ra trước mã mới ở lần tạo phòng sau.
+            ClearRoomCode();
 
             ShowPanel(mainButtonsPanel);
         }

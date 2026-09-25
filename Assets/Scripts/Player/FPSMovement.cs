@@ -835,6 +835,16 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         // tự làm mình choáng thì vô lý.
         if (scaleByCharge)
         {
+            // VỪA HỒI SINH -> KHÔNG ĂN CÚ ĐẨY NÀO TỪ BÊN NGOÀI.
+            //
+            // Chặn ở đây chứ không ở PlayerHealth: cái chết trong game này đến từ VỊ TRÍ,
+            // nên thứ nguy hiểm khi vừa sống lại là bị hất xuống vực, không phải bị nạp
+            // điện. Chặn nhiễm điện mà vẫn cho đẩy thì miễn nhiễm chẳng bảo vệ được gì.
+            //
+            // Nằm trong nhánh scaleByCharge nên Dash và Grapple của chính mình vẫn chạy
+            // bình thường - vừa hồi sinh vẫn lướt đi được ngay.
+            if (health != null && health.IsSpawnProtected) return;
+
             ApplyStun();
 
             // HỆ SỐ TOÀN CỤC. Nhân ở đây thì phủ hết MỌI nguồn đẩy từ bên ngoài chỉ bằng

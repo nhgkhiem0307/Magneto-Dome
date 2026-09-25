@@ -56,6 +56,18 @@ public class HUDController : MonoBehaviour
     [Header("Vòng đấu")]
     public TMP_Text phaseText;
     public TMP_Text timerText;
+
+    [Tooltip("Còn bao nhiêu giây pha chiến đấu thì đồng hồ chuyển sang trạng thái gấp: " +
+             "đổi màu, đập theo nhịp, và đọc câu 'Ten seconds.' nếu có gán giọng.")]
+    public float timerUrgentSeconds = 10f;
+
+    [Tooltip("Màu đồng hồ khi sắp hết giờ.")]
+    public Color timerUrgentColor = new Color(1f, 0.28f, 0.2f);
+
+    // Trạng thái của đồng hồ gấp - xem ApplyTimerUrgency().
+    private bool _timerWasUrgent;
+    private bool _tenSecondWarned;
+    private Color _timerBaseColor = Color.white;
     public TMP_Text redScoreText;
     public TMP_Text blueScoreText;
     public TMP_Text roundNumberText;
@@ -478,7 +490,62 @@ public class HUDController : MonoBehaviour
 
             // Pha chiến đấu không giới hạn thời gian nên không có gì để đếm
             timerText.text = remaining.HasValue ? Mathf.CeilToInt(remaining.Value).ToString() : "";
+
+            ApplyTimerUrgency(gm, remaining);
         }
+    }
+
+    /// <summary>
+    /// Sắp hết giờ pha chiến đấu thì đồng hồ chuyển đỏ và đập theo nhịp, kèm một câu
+    /// thông báo bằng giọng.
+    ///
+    /// ⚠️ VÌ SAO CẦN: round giờ dài 5 PHÚT. Suốt từng ấy thời gian chẳng ai nhìn đồng hồ,
+    /// nên nếu hết giờ ập đến không báo trước thì đội đang dẫn tiến độ chỉ cần trốn, còn
+    /// đội thua thì không biết lúc nào phải liều. Mười giây cuối là lúc quyết định liều
+    /// hay không - phải nói cho người chơi biết họ đang ở trong mười giây đó.
+    ///
+    /// Tính tại chỗ trên từng máy, KHÔNG đồng bộ gì thêm: PhaseTimer vốn đã là [Networked]
+    /// nên mọi máy tự đọc ra cùng một con số. Đúng nguyên tắc chung của project.
+    /// </summary>
+    private void ApplyTimerUrgency(GameManager gm, float? remaining)
+    {
+        bool urgent = gm.Phase == GameManager.GamePhase.Combat
+                      && remaining.HasValue
+                      && remaining.Value <= timerUrgentSeconds;
+
+        if (!urgent)
+        {
+            // Ra khỏi pha chiến đấu thì nạp lại lời hứa "sẽ báo" cho round sau.
+            if (gm.Phase != GameManager.GamePhase.Combat) _tenSecondWarned = false;
+
+            if (_timerWasUrgent)
+            {
+                timerText.color = _timerBaseColor;
+                timerText.transform.localScale = Vector3.one;
+                _timerWasUrgent = false;
+            }
+            return;
+        }
+
+        if (!_timerWasUrgent)
+        {
+            // Nhớ màu gốc ở LẦN ĐẦU chuyển sang gấp, không phải lúc khởi tạo: ai đó đổi
+            // màu đồng hồ trong Inspector thì vẫn đúng, không bị trả về màu cứng trong code.
+            _timerBaseColor = timerText.color;
+            _timerWasUrgent = true;
+        }
+
+        if (!_tenSecondWarned)
+        {
+            _tenSecondWarned = true;
+            AudioManager.TenSeconds();
+        }
+
+        timerText.color = timerUrgentColor;
+
+        // Đập một nhịp mỗi giây, khớp với từng con số nhảy.
+        float pulse = 1f + 0.18f * Mathf.Abs(Mathf.Sin(remaining.Value * Mathf.PI));
+        timerText.transform.localScale = Vector3.one * pulse;
     }
 
     private string GetPhaseName(GameManager.GamePhase phase)

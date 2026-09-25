@@ -214,6 +214,17 @@ public class CloudBank : MonoBehaviour
     [Range(0f, 1f)]
     public float depthVariance = 0.25f;
 
+    [Tooltip("Mỗi cụm được phép loãng hơn mức chung bao nhiêu phần. 0 = mọi cụm đặc như nhau.\n\n" +
+             "⚠️ ĐÂY LÀ NGUỒN LỆCH MÀU KHÓ ĐOÁN NHẤT, và trước 24/09 nó bị VIẾT CHẾT trong " +
+             "code (mỗi cụm bốc ngẫu nhiên 82%-100% độ đặc) nên không ai chỉnh được từ " +
+             "Inspector.\n\n" +
+             "Vì sao nó đổi MÀU chứ không chỉ đổi độ đặc: cụm loãng thì nền TRỜI XANH phía " +
+             "sau lộ qua nhiều hơn, nên nó ngả xanh và xỉn hơn cụm bên cạnh - dù hai cụm " +
+             "được gán cùng một màu. Nhìn ra thì thấy cả mảng mây lốm đốm chỗ đậm chỗ nhạt.\n\n" +
+             "Để 0 thì biển mây phẳng và đều như sơn; 0.08-0.12 vẫn tự nhiên mà không lốm đốm.")]
+    [Range(0f, 0.6f)]
+    public float alphaVariance = 0.18f;
+
     [Tooltip("Tốc độ cả biển mây xoay quanh tâm đảo, độ mỗi giây. Rất chậm.\n\n" +
              "Có chuyển động thì mây mới sống. Nhưng phải chậm tới mức người chơi không " +
              "chỉ ra được nó đang quay - nhanh hơn là thành cái đĩa xoay, lộ ngay là giả.")]
@@ -612,7 +623,9 @@ public class CloudBank : MonoBehaviour
             float dt = Mathf.Pow(depth01, 1.4f) * depthShading;
             Color c2 = Color.Lerp(topColor, bottomColor, dt);
 
-            float alpha = opacity * Random.Range(0.82f, 1f);
+            // Độ đặc riêng của cụm này. Chênh lệch ở đây hiện ra thành chênh lệch MÀU,
+            // vì cụm loãng để lộ nền trời xanh phía sau - xem ô Alpha Variance.
+            float alpha = opacity * Random.Range(1f - alphaVariance, 1f);
 
             // ĐỘ DỐC NẮNG NGAY TRÊN BỐN ĐỈNH CỦA TẤM.
             //

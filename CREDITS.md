@@ -3,7 +3,7 @@
 Khai báo toàn bộ asset, thư viện và công cụ không do tác giả tự làm.
 Chép mục này vào báo cáo đồ án.
 
-> **Cập nhật 01/09/2026.** Đã rà lại toàn bộ thư mục `Assets/` và đối chiếu với file
+> **Cập nhật 23/09/2026.** Đã rà lại toàn bộ thư mục `Assets/` và đối chiếu với file
 > README/license nằm sẵn trong từng bộ asset.
 >
 > - ✅ = đã xác minh được **bằng bằng chứng trong chính project**
@@ -33,6 +33,7 @@ Chép mục này vào báo cáo đồ án.
 | `Resources/Environment/Island/` | **Meshy AI** *(sinh bằng AI)* | ⬜ | Model đảo bay. Xem mục 5 |
 | `Resources/Environment/Rocks and Boulders 2/` | ⬜ *(nghi Unity Asset Store)* | ⬜ | Tên thư mục trùng với một bộ asset trên Asset Store — mở lại Package Manager → My Assets để xem tên tác giả |
 | `Resources/Environment/Tree9/` | ⬜ | ⬜ | Cây trên map |
+| `Resources/Environment/Fantasy Skybox FREE/` | **Render Knight** ✅ | Unity Asset Store — gói **FREE** ✅ | Bầu trời của cả bản đồ (`FS000_Day_03`). File `Readme.txt` trong thư mục ghi rõ tác giả, website `render-knight.com` và link Asset Store |
 | `Resources/Environment/Nature/` | ⬜ **← ưu tiên tìm lại** | ⬜ | Cỏ, hoa, bụi. Xem cảnh báo bên dưới |
 
 > ⚠️ **`Nature/` là mục rủi ro nhất.** Hai thư mục con tên
@@ -65,6 +66,32 @@ khớp 100%, không phải qua auto-rig, không có rủi ro retarget lệch.
 
 ---
 
+## 3b. Giọng thông báo trong trận — `Resources/Audio/Voice/`
+
+8 file: `buy phase`, `combat`, `round won`, `round lost`, `match point`, `overtime`,
+`victory`, `defeat`.
+
+| Hạng mục | Nguồn | Giấy phép |
+|---|---|---|
+| **Lời thoại** | Chủ project tự viết | — |
+| **Giọng đọc** | **ElevenLabs** (sinh bằng AI) | ⬜ Gói miễn phí: **BẮT BUỘC ghi nguồn**, chỉ dùng phi thương mại |
+
+> ⚠️ **Đây là giọng AI, không phải người thu — phải nói rõ trong báo cáo.** Gói miễn phí
+> của ElevenLabs yêu cầu ghi nguồn, nên đây không phải chuyện "nên ghi cho lịch sự" mà là
+> **điều kiện của giấy phép**. Không ghi là dùng sai giấy phép.
+>
+> ⬜ Mở lại trang ElevenLabs, xem đang ở gói nào rồi chép đúng câu ghi nguồn họ yêu cầu
+> vào báo cáo. Câu thường dùng: *"Voices generated using ElevenLabs."*
+>
+> ⬜ Nếu giọng lấy từ **Voice Library** (giọng thu từ người thật rồi nhân bản) thì xem
+> trang giọng đó có yêu cầu ghi tên người cho mượn giọng không.
+
+**Bản chỉ đạo giọng** *(prompt, thông số, lời thoại từng câu)* lưu ở [VOICE_BRIEF.md](VOICE_BRIEF.md)
+— tài liệu này cũng là thứ đáng đưa vào báo cáo: nó cho thấy giọng được đặt theo một
+thiết kế nhân vật cụ thể, không phải bấm bừa ra rồi dùng.
+
+---
+
 ## 4. Âm thanh — 18 file, `Resources/Audio/`
 
 ⬜ **Toàn bộ mục này cần bạn điền.** Không có cách nào tra ngược nguồn từ file âm thanh.
@@ -94,13 +121,21 @@ Ghi rõ ở đây vì đây là **điểm cộng cho bạn**, đừng để lẫ
 
 | Hạng mục | Bằng chứng |
 |---|---|
-| **`Resources/UI kit/`** — 30 sprite, 16 icon, 5 mockup màn hình | ✅ Có thư mục `tools/` chứa `gen_sprites.py`, `gen_icons.py`, `gen_mockups.py`, `gen_styleguide.py`, `gen_lib.py` — toàn bộ sinh ra bằng script, không tải về |
+| **`Resources/UI kit/`** — 30 sprite, 16 icon, 5 mockup màn hình *(một số sprite đã chỉnh màu lại bằng tay sau khi sinh)* | ✅ Có thư mục `tools/` chứa `gen_sprites.py`, `gen_icons.py`, `gen_mockups.py`, `gen_styleguide.py`, `gen_lib.py` — toàn bộ sinh ra bằng script, không tải về |
 | **`Resources/Gear shop radial kit/`** — icon Shop, Radial Menu, HUD, marker đồng đội | ✅ Có `gen_holo_sprites.py`, `gen_ammo_icons.py`, `gen_hud_assets.py`, `gen_ally_marker.py`, `gen_holo_mockups.py` |
 | Toàn bộ mã nguồn trong `Assets/Scripts/` | Xem mục 6 |
+| Lời thoại 8 câu giọng thông báo | ✅ Chủ project tự viết. Còn GIỌNG ĐỌC là của ElevenLabs — xem mục 3b |
 | Thiết kế gameplay, bản đồ, cân bằng số liệu | Tự làm |
+| **`Assets/Textures/CloudPuffs.png`** — ảnh mây cho biển mây quanh đảo (`CloudBank.cs`) | ⚠️ **Tự tạo nhưng DẪN XUẤT** — xem cảnh báo ngay dưới |
 
 > Hai bộ UI ở trên **tự sinh bằng chương trình**, nên vừa không vướng bản quyền, vừa là thứ
 > đáng nói trong báo cáo: bạn viết công cụ để sinh asset thay vì đi tải.
+
+> ⚠️ **`CloudPuffs.png` phải nói rõ là ảnh DẪN XUẤT, đừng ghi là "tự vẽ".** Nó được cắt ra
+> từ chính ảnh bầu trời **Fantasy Skybox FREE** (tách từng đám mây bằng thuật toán loang
+> vùng, chuyển sang thang xám rồi làm mềm rìa), nên bản quyền gốc vẫn thuộc Render Knight.
+> Gói FREE cho dùng trong game, kể cả sửa đổi — điều bị cấm là **bán lại chính bộ asset**.
+> Nướng vào game thì hợp lệ, nhưng khai là do mình vẽ thì sai sự thật.
 
 **Ngoại lệ trong mục này:** font **Poppins** (`Resources/UI kit/Font/`) là của Google Fonts,
 giấy phép **SIL Open Font License (OFL)** — miễn phí kể cả dùng thương mại. Đây là font đi

@@ -344,6 +344,7 @@ MonoBehaviour:
   kickBackDistance: 0.09
   kickStiffness: 280
   kickDamping: 26
+  hitFeedbackScale: 2.2
   disorientMaxAngle: 7
   disorientRollBias: 2.2
   disorientFrequency: 2.6
@@ -5483,7 +5484,7 @@ MonoBehaviour:
   meleePushForce: 200
   meleeCooldown: 0.35
   heldObjectSize: 1.2
-  onlyShrinkLargeObjects: 1
+  onlyShrinkLargeObjects: 0
   heavyBlockSlowFactor: 0.5
   heavyBlockDamageFactor: 0.5
   spikeDamageMultiplier: 2
@@ -5492,6 +5493,7 @@ MonoBehaviour:
   grapplePullForce: 250
   aimAssistRadius: 1.2
   aimAssistAngle: 12
+  closeAssistAngle: 70
   fireShakeTrauma: 4
   fireKickStrength: 2
   meleeShakeTrauma: 1
@@ -5536,6 +5538,7 @@ MonoBehaviour:
   mass: 3
   drag: 5
   maxVerticalImpact: 12
+  knockbackMultiplier: 0.975
   _SpawnYaw: 0
   _WalkSpeed01: 0
   _IsGrounded:
@@ -5740,6 +5743,7 @@ MonoBehaviour:
   labelTypeText: {fileID: 7931578843924869395}
   labelChargeText: {fileID: 3009393781422643557}
   labelHeightOffset: 0.35
+  labelHeightSmoothTime: 0.12
   labelBackground: {fileID: 0}
   labelBackgroundAlpha: 0.55
   normalColor: {r: 0.85, g: 0.85, b: 0.9, a: 1}
@@ -5776,6 +5780,7 @@ MonoBehaviour:
   restReach01: 0.68
   decoupleFromShake: 1
   shakeFollow: 0.4
+  enableGloveArcs: 1
   enableFingers: 1
   idleCurl: 1
   controlExtend01: 0.82
@@ -5796,13 +5801,13 @@ MonoBehaviour:
   poseDamping: 20
   poseOvershoot: 1.55
   punchThrust: 0.1
-  punchExtend01: 1
   punchLunge: 0.07
-  punchRise: 0.15
+  punchAim: {x: 0.16, y: -0.1, z: 1}
+  punchWindupDist: 0.2
+  punchStrikeDist: 0.62
   punchTwist: 13
   punchFovPunch: 7
   punchWindupHold: 0.1
-  punchWindup01: 0.42
   punchHold: 0.13
   firePush: 0.6
   fireRecoil: 0.22
@@ -5821,6 +5826,7 @@ MonoBehaviour:
   pullStrain: 0.045
   pullStrainSpeed: 9
   pullSpread: 0.1
+  arcSurfaceOffset: 0.022
 --- !u!1 &6264108880301330700
 GameObject:
   m_ObjectHideFlags: 0

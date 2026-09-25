@@ -45,6 +45,65 @@ public class AudioManager : MonoBehaviour
     public AudioClip sfxRoundWin;
     public AudioClip sfxRoundLose;
 
+    // ==================== GIỌNG THÔNG BÁO ====================
+    //
+    // Nhân vật ở đây là "AI điều khiển đấu trường", không phải MC thể thao: đọc bình thản,
+    // không reo mừng, không tiếc nuối. Cảm xúc thắng thua để cho nhạc và hiệu ứng lo.
+    //
+    // Giọng đi qua NGUỒN PHÁT RIÊNG (_voiceSource) chứ không dùng chung với tiếng giao
+    // diện, vì nó cần bộ lọc "loa vô tuyến" - dùng chung thì tiếng bấm nút và tiếng mua
+    // hàng cũng bị rè theo.
+
+    [Header("Giọng thông báo")]
+    [Tooltip("Sinh sẵn trong Assets/Audio/VO/ bằng gen_vo.ps1. Để trống ô nào thì câu đó " +
+             "im lặng, không lỗi.")]
+    public AudioClip voBuyPhase;      // "Buy phase. Arm yourself."
+    public AudioClip voCombat;        // "Combat engaged."
+    public AudioClip voRoundWon;      // "Round won."
+    public AudioClip voRoundLost;     // "Round lost."
+    public AudioClip voMatchPoint;    // "Match point."
+    public AudioClip voOvertime;      // "Overtime."
+    public AudioClip voVictory;       // "Victory."
+    public AudioClip voDefeat;        // "Defeat."
+
+    [Tooltip("Hai câu TUỲ CHỌN, để trống thì im lặng, không lỗi. Tạo thêm trên ElevenLabs " +
+             "bằng đúng giọng cũ rồi kéo vào là chạy.")]
+    public AudioClip voChargeCritical;   // "Charge critical."  - điện tích vượt ngưỡng nguy hiểm
+    public AudioClip voTenSeconds;       // "Ten seconds."      - sắp hết giờ pha chiến đấu
+
+    [Tooltip("Âm lượng riêng của giọng, nhân thêm vào âm lượng hiệu ứng chung.\n\n" +
+             "Để nhỉnh hơn 1 một chút: giọng nói phải nghe rõ ĐÈ LÊN tiếng nổ, không thì " +
+             "đúng lúc hỗn chiến - lúc cần nghe nhất - lại không nghe ra chữ gì.")]
+    [Range(0f, 2f)]
+    public float voiceVolume = 1.15f;
+
+    [Tooltip("Tốc độ đọc riêng của câu 'Round won.' — 1 là giữ nguyên, nhỏ hơn là chậm lại.\n\n" +
+             "⚠️ CHẬM LẠI THÌ GIỌNG CŨNG TRẦM XUỐNG. Unity chỉ có một núm điều khiển cho cả " +
+             "tốc độ lẫn cao độ, giống hệt việc quay đĩa than chậm lại. 0.92 là chậm 8%, " +
+             "tương đương hạ hơn một nửa cung - nghe dày và bệ vệ hơn, thường là hợp với " +
+             "nhân vật này. Xuống dưới 0.85 thì bắt đầu nghe ra là bị kéo chậm.\n\n" +
+             "Muốn chậm mà KHÔNG trầm đi thì phải tạo lại câu đó: gõ 'Round... won.' có ba " +
+             "chấm ở giữa, máy sẽ tự đọc chậm và ngắt đúng chỗ.")]
+    [Range(0.7f, 1.2f)]
+    public float roundWonSpeed = 0.92f;
+
+    [Header("Lọc giọng thành loa vô tuyến")]
+    [Tooltip("Cắt bớt tiếng trầm và tiếng siêu cao, thêm chút rè - nghe như loa thông báo " +
+             "trong đấu trường chứ không như máy đọc chữ.\n\n" +
+             "Đây là thứ biến khiếm khuyết của giọng máy thành CHỦ Ý: tai người nghe loa " +
+             "méo thì không còn so sánh nó với giọng người thật nữa.")]
+    public bool radioFilter = true;
+
+    [Tooltip("Cắt bỏ tần số dưới mức này (Hz). Cao thì giọng mỏng và 'điện thoại' hơn.")]
+    public float radioHighPass = 380f;
+
+    [Tooltip("Cắt bỏ tần số trên mức này (Hz). Thấp thì càng giống loa cũ.")]
+    public float radioLowPass = 4800f;
+
+    [Tooltip("Độ rè. Nhẹ thôi - mạnh quá thì không nghe ra chữ.")]
+    [Range(0f, 1f)]
+    public float radioDistortion = 0.22f;
+
     [Header("Giao diện")]
     public AudioClip sfxButtonClick;
     public AudioClip sfxBuy;          // mua hàng thành công
@@ -63,6 +122,20 @@ public class AudioManager : MonoBehaviour
 
     private AudioSource _musicSource;
     private AudioSource _uiSource;
+
+    // Nguồn phát giọng thông báo và hàng đợi của nó - xem PlayVoice().
+    private AudioSource _voiceSource;
+
+    // Mỗi câu trong hàng đợi mang theo tốc độ đọc riêng của nó, vì tốc độ phải được đặt
+    // ĐÚNG LÚC câu đó bắt đầu phát - đặt sớm thì câu đang phát dở bị đổi giọng giữa chừng.
+    private struct VoiceItem
+    {
+        public AudioClip Clip;
+        public float Speed;
+    }
+
+    private readonly System.Collections.Generic.Queue<VoiceItem> _voiceQueue
+        = new System.Collections.Generic.Queue<VoiceItem>();
 
     void Awake()
     {
@@ -87,6 +160,8 @@ public class AudioManager : MonoBehaviour
         _uiSource.playOnAwake = false;
         _uiSource.spatialBlend = 0f;
 
+        BuildVoiceSource();
+
         LoadVolumes();
 
         // TỰ ĐỔI NHẠC THEO SCENE (thêm 16/08).
@@ -100,6 +175,77 @@ public class AudioManager : MonoBehaviour
 
         // Sự kiện trên KHÔNG bắn cho scene đang mở sẵn lúc này, nên phải tự gọi một lần.
         ApplyMusicForScene(SceneManager.GetActiveScene().name);
+    }
+
+    /// <summary>
+    /// Dựng nguồn phát riêng cho giọng, kèm bộ lọc loa vô tuyến.
+    ///
+    /// Dựng bằng code chứ không bắt kéo thả trong Unity: ba bộ lọc phải nằm ĐÚNG THỨ TỰ
+    /// trên cùng một object và chỉ được ăn vào nguồn giọng. Đặt tay thì rất dễ gắn nhầm
+    /// vào object chung và làm rè cả nhạc nền.
+    ///
+    /// ⚠️ Bộ lọc của Unity ăn vào MỌI AudioSource nằm trên CÙNG GameObject, nên giọng
+    /// phải ở một object con riêng - để chung với nhạc và tiếng giao diện là rè hết.
+    /// </summary>
+    private void BuildVoiceSource()
+    {
+        GameObject host = new GameObject("VoiceSource");
+        host.transform.SetParent(transform, false);
+
+        _voiceSource = host.AddComponent<AudioSource>();
+        _voiceSource.playOnAwake = false;
+        _voiceSource.loop = false;
+        _voiceSource.spatialBlend = 0f;   // nghe đều, không theo vị trí trong thế giới
+
+        if (!radioFilter) return;
+
+        AudioHighPassFilter high = host.AddComponent<AudioHighPassFilter>();
+        high.cutoffFrequency = radioHighPass;
+
+        AudioLowPassFilter low = host.AddComponent<AudioLowPassFilter>();
+        low.cutoffFrequency = radioLowPass;
+
+        AudioDistortionFilter dist = host.AddComponent<AudioDistortionFilter>();
+        dist.distortionLevel = radioDistortion;
+    }
+
+    /// <summary>
+    /// Phát một câu thông báo. Đang có câu khác thì XẾP HÀNG chờ, không cắt ngang.
+    ///
+    /// Vì sao phải xếp hàng: có lúc hai câu đến gần như cùng lúc - ví dụ vào pha mua đồ
+    /// ("Buy phase") của round quyết định ("Match point"). Phát chồng thì hai giọng đè
+    /// lên nhau và không nghe ra câu nào cả.
+    /// </summary>
+    private void PlayVoice(AudioClip clip, float speed = 1f)
+    {
+        if (clip == null || _voiceSource == null) return;
+
+        _voiceQueue.Enqueue(new VoiceItem { Clip = clip, Speed = speed });
+        if (!_voiceSource.isPlaying) PlayNextVoice();
+    }
+
+    private void PlayNextVoice()
+    {
+        if (_voiceQueue.Count == 0) return;
+
+        VoiceItem item = _voiceQueue.Dequeue();
+
+        _voiceSource.clip = item.Clip;
+        _voiceSource.volume = MasterVolume * SfxVolume * voiceVolume;
+
+        // pitch của Unity điều khiển CẢ tốc độ lẫn cao độ cùng lúc, không tách được.
+        _voiceSource.pitch = Mathf.Clamp(item.Speed, 0.5f, 2f);
+
+        _voiceSource.Play();
+    }
+
+    private void Update()
+    {
+        // Câu vừa dứt thì lấy câu kế tiếp trong hàng đợi.
+        if (_voiceSource != null && !_voiceSource.isPlaying && _voiceQueue.Count > 0)
+        {
+            PlayNextVoice();
+        }
     }
 
     private void OnDestroy()
@@ -216,10 +362,54 @@ public class AudioManager : MonoBehaviour
     public static void Explosion(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxExplosion, pos, 1.2f); }
     public static void ConvertTNT(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxConvertTNT, pos); }
 
-    public static void BuyPhase() { if (Instance != null) Instance.PlayFlat(Instance.sfxBuyPhase); }
-    public static void RoundStart() { if (Instance != null) Instance.PlayFlat(Instance.sfxRoundStart); }
-    public static void RoundWin() { if (Instance != null) Instance.PlayFlat(Instance.sfxRoundWin); }
-    public static void RoundLose() { if (Instance != null) Instance.PlayFlat(Instance.sfxRoundLose); }
+    // Mỗi mốc của trận phát HAI thứ: tiếng hiệu (chuông, còi...) rồi tới giọng đọc.
+    // Ô nào để trống thì phần đó im, nên gán một trong hai cũng chạy được.
+    public static void BuyPhase()
+    {
+        if (Instance == null) return;
+        Instance.PlayFlat(Instance.sfxBuyPhase);
+        Instance.PlayVoice(Instance.voBuyPhase);
+    }
+
+    public static void RoundStart()
+    {
+        if (Instance == null) return;
+        Instance.PlayFlat(Instance.sfxRoundStart);
+        Instance.PlayVoice(Instance.voCombat);
+    }
+
+    public static void RoundWin()
+    {
+        if (Instance == null) return;
+        Instance.PlayFlat(Instance.sfxRoundWin);
+        Instance.PlayVoice(Instance.voRoundWon, Instance.roundWonSpeed);
+    }
+
+    public static void RoundLose()
+    {
+        if (Instance == null) return;
+        Instance.PlayFlat(Instance.sfxRoundLose);
+        Instance.PlayVoice(Instance.voRoundLost);
+    }
+
+    /// <summary>"Charge critical." — CHỈ phát trên máy của chính người đang nhiễm nặng.</summary>
+    public static void ChargeCritical() { if (Instance != null) Instance.PlayVoice(Instance.voChargeCritical); }
+
+    /// <summary>"Ten seconds." — sắp hết giờ pha chiến đấu.</summary>
+    public static void TenSeconds() { if (Instance != null) Instance.PlayVoice(Instance.voTenSeconds); }
+
+    /// <summary>"Match point." — round tới là có thể phân định thắng thua chung cuộc.</summary>
+    public static void MatchPoint() { if (Instance != null) Instance.PlayVoice(Instance.voMatchPoint); }
+
+    /// <summary>"Overtime." — hoà ở mốc điểm quy định, đấu tiếp tới khi đủ cách biệt.</summary>
+    public static void Overtime() { if (Instance != null) Instance.PlayVoice(Instance.voOvertime); }
+
+    /// <summary>Kết thúc trận: thắng thì "Victory.", thua thì "Defeat."</summary>
+    public static void MatchResult(bool won)
+    {
+        if (Instance == null) return;
+        Instance.PlayVoice(won ? Instance.voVictory : Instance.voDefeat);
+    }
 
     public static void ButtonClick() { if (Instance != null) Instance.PlayFlat(Instance.sfxButtonClick); }
     public static void Buy() { if (Instance != null) Instance.PlayFlat(Instance.sfxBuy); }

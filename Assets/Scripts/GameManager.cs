@@ -31,7 +31,7 @@ public class GameManager : NetworkBehaviour
 
     [Tooltip("Giới hạn giờ pha chiến đấu. Hết giờ thì đội có TIẾN ĐỘ CHIẾM cao hơn thắng round. " +
              "Vẫn cần dù đã có khu chiếm đóng: hai bên cùng né khu thì round sẽ kéo dài vô tận.")]
-    public float combatDuration = 90f;
+    public float combatDuration = 300f;   // 5 phút — chốt 25/09
 
     [Header("Điều kiện thắng")]
     [Tooltip("Số round cần thắng để vô địch.")]
@@ -43,9 +43,11 @@ public class GameManager : NetworkBehaviour
     [Tooltip("Tiến độ cần đạt để thắng round. Để 100 cho dễ hiểu là phần trăm.")]
     public float zoneProgressToWin = 100f;
 
-    [Tooltip("Một người đứng trong khu thì tiến độ tăng bao nhiêu mỗi giây. " +
-             "10 nghĩa là đứng một mình 10 giây liên tục là thắng round.")]
-    public float zoneCaptureRate = 10f;
+    [Tooltip("Một người đứng trong khu thì tiến độ tăng bao nhiêu mỗi giây.\n\n" +
+             "Tiến độ cần là 100, nên 1.667 nghĩa là đứng một mình 60 GIÂY liên tục là " +
+             "thắng round. Hai người cùng đội thì nhanh hơn 1.5 lần, tức khoảng 40 giây.\n\n" +
+             "Muốn đổi sang N giây thì đặt ô này = 100 / N.")]
+    public float zoneCaptureRate = 1.667f;   // 60 giây — chốt 25/09
 
     [Tooltip("Có thêm người thứ hai của cùng đội thì nhân tốc độ lên bấy nhiêu. " +
              "1.5 chứ không phải 2 - thưởng cho phối hợp nhưng không biến trận đấu thành " +
@@ -569,6 +571,10 @@ public class GameManager : NetworkBehaviour
         {
             case GamePhase.BuyPhase:
                 AudioManager.BuyPhase();
+
+                // Báo thêm nếu round sắp đánh là round quyết định. Hàng đợi trong
+                // AudioManager lo phần không cho hai câu chồng lên nhau.
+                AnnounceStakes();
                 break;
 
             case GamePhase.Combat:
@@ -579,7 +585,59 @@ public class GameManager : NetworkBehaviour
             case GamePhase.RoundEnd:
                 PlayRoundResultSound();
                 break;
+
+            case GamePhase.MatchEnd:
+                PlayMatchResultVoice();
+                break;
         }
+    }
+
+    /// <summary>
+    /// Đầu round: báo "Match point." hoặc "Overtime." nếu round này đáng giá hơn bình thường.
+    ///
+    /// Dùng ĐÚNG hai luật thắng chung cuộc như HUDController: phải vừa đủ số điểm quy định
+    /// vừa hơn đối thủ đủ cách biệt. Xét theo đội của người ngồi trước máy này, nên hai bên
+    /// có thể nghe khác nhau - đó là chủ ý, "match point" của mình là "elimination" của họ.
+    /// </summary>
+    private void AnnounceStakes()
+    {
+        PlayerHealth myHealth = FPSMovement.Local != null
+            ? FPSMovement.Local.GetComponent<PlayerHealth>()
+            : null;
+
+        if (myHealth == null) return;
+
+        int myScore = myHealth.Team == 0 ? RedScore : BlueScore;
+        int enemyScore = myHealth.Team == 0 ? BlueScore : RedScore;
+
+        // Overtime: cả hai đã chạm mốc điểm quy định mà chưa ai đủ cách biệt.
+        if (myScore >= pointsToWin && enemyScore >= pointsToWin)
+        {
+            AudioManager.Overtime();
+            return;
+        }
+
+        bool someoneCanWin =
+            ((myScore + 1) >= pointsToWin && (myScore + 1 - enemyScore) >= requiredLead)
+            || ((enemyScore + 1) >= pointsToWin && (enemyScore + 1 - myScore) >= requiredLead);
+
+        if (someoneCanWin) AudioManager.MatchPoint();
+    }
+
+    /// <summary>Hết trận: "Victory." hay "Defeat.", xét theo đội của chính người này.</summary>
+    private void PlayMatchResultVoice()
+    {
+        // Trận bị huỷ vì có người thoát thì không ai thắng - im lặng, để HUD giải thích
+        // bằng chữ. Đọc "Defeat." lúc đó là báo sai kết quả.
+        if (MatchAbandoned || MatchWinner < 0) return;
+
+        PlayerHealth myHealth = FPSMovement.Local != null
+            ? FPSMovement.Local.GetComponent<PlayerHealth>()
+            : null;
+
+        if (myHealth == null) return;
+
+        AudioManager.MatchResult(MatchWinner == myHealth.Team);
     }
 
     // Thắng hay thua thì kêu khác nhau, xét theo đội của chính người ngồi trước máy này
