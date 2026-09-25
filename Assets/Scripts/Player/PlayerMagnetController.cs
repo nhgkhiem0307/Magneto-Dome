@@ -146,6 +146,15 @@ public class PlayerMagnetController : NetworkBehaviour
     [Range(10f, 120f)]
     public float closeAssistAngle = 70f;
 
+    [Tooltip("Áp sát gần hơn bấy nhiêu mét thì BỎ QUA hẳn việc kiểm tra vật cản.\n\n" +
+             "⚠️ Ô NÀY CHỮA LỖI 'ĐỨNG TRÊN CỤC ĐÁ THÌ ĐẤM KHÔNG ĂN'. Phép kiểm tra vật cản " +
+             "kẻ một đường từ MẮT tới GIỮA THÂN địch. Đứng trên cục đá thì mắt ở trên cao, " +
+             "địch đứng dưới - đường đó xuyên qua mép chính cục đá mình đang đứng trên, và " +
+             "cú đấm bị huỷ vì 'có vật cản'.\n\n" +
+             "Áp sát tới cỡ này thì không có gì chắn thật được, tay vươn tới là tới. Đặt 0 " +
+             "để luôn kiểm tra như cũ.")]
+    public float noBlockCheckRange = 2f;
+
     [Header("Rung camera")]
     [Tooltip("Độ mạnh cú rung khi bắn vật đang cầm đi, thang 0..1. Đặt 0 để tắt.")]
     public float fireShakeTrauma = 0.4f;
@@ -662,14 +671,9 @@ public class PlayerMagnetController : NetworkBehaviour
             float angle = Vector3.Angle(aimDirection, toTarget);
             if (angle > closeAssistAngle) continue;
 
-            // Không cho đấm xuyên tường. Bỏ qua vật cản là chính mục tiêu hoặc chính mình -
-            // tia xuất phát từ camera nên nó nằm ngay trong người mình.
-            if (Physics.Linecast(aimOrigin, hit.bounds.center, out RaycastHit blocker)
-                && blocker.transform != hit.transform
-                && blocker.transform != transform)
-            {
-                continue;
-            }
+            // Không cho đấm xuyên tường. Xem IsBlockedByObstacle - nó tha cự ly áp sát,
+            // vật thể từ tính và trigger, vì ba thứ đó không phải vật cản thật.
+            if (IsBlockedByObstacle(aimOrigin, hit)) continue;
 
             if (angle < bestAngle)
             {
@@ -685,6 +689,83 @@ public class PlayerMagnetController : NetworkBehaviour
     private bool IsTeammate(Transform other)
     {
         return other != null && PlayerHealth.AreTeammates(gameObject, other.gameObject);
+    }
+
+    /// <summary>
+    /// Có vật cản THẬT nào chắn giữa mắt mình và mục tiêu không.
+    ///
+    /// ⚠️ HÀM NÀY CHỮA LỖI "LÚC ĐẤM ĐƯỢC LÚC KHÔNG" (21/09).
+    ///
+    /// Bản trước kiểm tra bằng một dòng Linecast từ camera tới giữa thân địch, và chỉ tha
+    /// đúng HAI thứ: chính mục tiêu và chính mình. Mọi thứ khác nằm trên đường đó đều huỷ cú
+    /// đấm, im lặng, không hiệu ứng, không báo gì. Hai chỗ nó sai:
+    ///
+    /// 1. ĐỨNG CAO HƠN ĐỊCH. Mắt ở trên cục đá, địch đứng dưới đất - đường thẳng từ mắt
+    ///    xuống giữa thân họ xuyên qua mép CHÍNH CỤC ĐÁ MÌNH ĐANG ĐỨNG TRÊN. Cục đá thành
+    ///    "vật cản", dù nó ở dưới chân mình.
+    ///
+    /// 2. BÀN GHẾ ĐÁ LÀM ĐẠN NẰM KHẮP SÂN. Chúng là collider thường, lại còn bị hút/đẩy bay
+    ///    qua giữa hai người liên tục. Đứng hai bên một cái bàn là đấm không ăn.
+    ///
+    /// Vì thứ chắn đường là chuyện tình cờ của địa hình và của đạn đang bay, người chơi không
+    /// có cách nào nhìn ra quy luật - nên nó hiện ra thành "đòn đánh hỏng ngẫu nhiên".
+    ///
+    /// Giờ tha thêm ba trường hợp: cự ly rất gần (noBlockCheckRange), VẬT THỂ TỪ TÍNH (đấm
+    /// qua cái bàn là hợp lý - cú đấm vốn là lực từ trường), và collider TRIGGER (vùng chiếm
+    /// khu, vùng nhặt đồ... chỉ là vùng đánh dấu, không phải vật thể).
+    ///
+    /// Vẫn chặn đấm xuyên TƯỜNG và xuyên VÁCH ĐẢO - đó mới là vật cản thật.
+    ///
+    /// Dùng RaycastAll chứ không Linecast: Linecast chỉ trả về vật CHẠM ĐẦU TIÊN, nên nếu
+    /// cái bàn (được tha) đứng trước một bức tường thật thì ta tha cái bàn rồi kết luận
+    /// "thông suốt", trong khi tường vẫn còn đó. Lấy hết rồi tự lọc mới đúng.
+    /// </summary>
+    private bool IsBlockedByObstacle(Vector3 aimOrigin, Collider targetCollider)
+    {
+        if (targetCollider == null) return true;
+
+        // Áp sát thì khỏi kiểm tra. Đo chân-chân cho khớp với cách HandleRightClickMelee
+        // tính khoảng cách, không đo từ camera - camera nằm cao hơn nên cho ra số khác.
+        if (noBlockCheckRange > 0f
+            && Vector3.Distance(transform.position, targetCollider.transform.position) <= noBlockCheckRange)
+        {
+            return false;
+        }
+
+        Vector3 toTarget = targetCollider.bounds.center - aimOrigin;
+        float distance = toTarget.magnitude;
+        if (distance < 0.01f) return false;
+
+        RaycastHit[] hits = Physics.RaycastAll(aimOrigin, toTarget / distance, distance,
+                                               Physics.DefaultRaycastLayers,
+                                               QueryTriggerInteraction.Ignore);
+
+        foreach (RaycastHit hit in hits)
+        {
+            if (hit.collider == null) continue;
+
+            // Chính mục tiêu. Xét cả collider lẫn transform vì collider có thể nằm ở một
+            // object con, không phải ngay trên object gốc của nhân vật.
+            // Xét CẢ HAI CHIỀU quan hệ cha-con: collider của nhân vật có thể nằm ở object
+            // gốc (tia chạm gốc) hoặc ở một object con (tia chạm gốc, mà gốc lại là CHA của
+            // collider kia). Thiếu chiều thứ hai là chính thân địch bị tính thành vật cản
+            // che chắn cho mình - đúng kiểu bug im lặng khó tìm nhất.
+            if (hit.collider == targetCollider) continue;
+            if (hit.transform == targetCollider.transform) continue;
+            if (hit.transform.IsChildOf(targetCollider.transform)) continue;
+            if (targetCollider.transform.IsChildOf(hit.transform)) continue;
+
+            // Chính mình. Tia xuất phát từ camera, mà camera nằm ngay trong người.
+            if (hit.transform == transform) continue;
+            if (hit.transform.IsChildOf(transform)) continue;
+
+            // Bàn ghế, đá, thùng TNT - đạn của game này. Không cho chúng chặn cú đấm.
+            if (hit.collider.CompareTag("Magnetic")) continue;
+
+            return true;
+        }
+
+        return false;
     }
 
     Transform FindMeleeTarget(Vector3 aimOrigin, Vector3 aimDirection)
@@ -741,17 +822,8 @@ public class PlayerMagnetController : NetworkBehaviour
             float angle = Vector3.Angle(aimDirection, toTarget);
             if (angle > aimAssistAngle) continue;
 
-            // Có tường chắn giữa không? Không cho grapple xuyên vách.
-            //
-            // Chấp nhận hai trường hợp: tia thông suốt tới đúng mục tiêu, hoặc nó chạm
-            // vào chính mình trước (hay xảy ra vì tia xuất phát từ camera, nằm trong người).
-            Vector3 targetCenter = candidate.collider.bounds.center;
-            if (Physics.Linecast(aimOrigin, targetCenter, out RaycastHit blocker)
-                && blocker.transform != candidate.transform
-                && blocker.transform != transform)
-            {
-                continue;
-            }
+            // Có tường chắn giữa không? Không cho grapple xuyên vách. Xem IsBlockedByObstacle.
+            if (IsBlockedByObstacle(aimOrigin, candidate.collider)) continue;
 
             // Chọn theo GÓC LỆCH, không chọn theo khoảng cách gần nhất.
             // Chọn theo khoảng cách thì người đứng sát bên hông sẽ luôn thắng người đang

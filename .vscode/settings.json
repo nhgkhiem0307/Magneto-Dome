@@ -67,5 +67,5 @@
         "*.sln": "*.csproj",
         "*.slnx": "*.csproj"
     },
-    "dotnet.defaultSolution": "Magneto-Dome.slnx"
+    "dotnet.defaultSolution": "My project.slnx"
 }

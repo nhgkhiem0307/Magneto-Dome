@@ -71688,7 +71688,7 @@ MonoBehaviour:
   outerRadius: 300
   topBelowSurface: 2.5
   thickness: 45
-  puffCount: 350
+  puffCount: 400
   puffSizeNear: 48
   puffSizeFar: 150
   customPuffTexture: {fileID: 2800000, guid: 20d5c69ee493ce448a9feb58214ddba8, type: 3}
@@ -71704,7 +71704,7 @@ MonoBehaviour:
   distanceFade: 0.55
   depthShading: 0.22
   depthVariance: 0.12
-  alphaVariance: 0.08
+  opacityVariance: 0.08
   driftDegPerSecond: 0.6
   bobAmount: 1.2
   underIslandDepth: 12

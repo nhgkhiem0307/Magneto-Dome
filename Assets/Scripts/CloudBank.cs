@@ -169,6 +169,26 @@ public class CloudBank : MonoBehaviour
              "Đổi skybox khác thì phải đo lại, không thì mây lạc tông với nền trời ngay.")]
     public Color bottomColor = new Color(0.56f, 0.85f, 0.96f, 1f);
 
+    [Tooltip("Độ chênh màu giữa NÓC và BỤNG của cùng một cụm mây.\n\n" +
+             "1 = kéo hẳn về hai màu Top/Bottom Color như cũ. 0 = mỗi cụm một màu phẳng đều.\n\n" +
+             "⚠️ ĐÂY LÀ Ô CHỮA 'MÂY CHÊNH MÀU GẮT QUÁ'. Hai đỉnh dưới của mỗi tấm bị kéo " +
+             "92% về Bottom Color, hai đỉnh trên kéo 70% về Top Color - mà hai màu đó chênh " +
+             "nhau 0.2 ở kênh đỏ. Trên một tấm ngoài xa rộng 150m thì khoảng chuyển đó trải " +
+             "hết mấy chục mét, thành một vệt đổ màu nhìn rõ mồn một.\n\n" +
+             "Hạ ô này KHÔNG làm mất chiều sâu như hạ Depth Shading: nó chỉ ép hai đỉnh của " +
+             "CÙNG một tấm lại gần nhau, còn chuyện cụm sâu tối hơn cụm nông thì vẫn giữ " +
+             "nguyên.\n\n" +
+             "⚠️ Đừng để 0. Chênh sáng-tối nóc/bụng là thứ duy nhất cho mắt biết khối mây " +
+             "có bề dày - mất hẳn là mây thành sương mù phẳng lì.")]
+    [Range(0f, 1f)]
+    public float colorContrast = 0.6f;
+
+    [Tooltip("Độ đục của các cụm chênh nhau bao nhiêu. 0 = mọi cụm đục y như nhau.\n\n" +
+             "Cụm mờ hơn thì lộ trời xanh phía sau nhiều hơn, nên nhìn ra thành đậm/nhạt " +
+             "khác nhau dù màu tô giống nhau. Để cao thì biển mây lốm đốm.")]
+    [Range(0f, 0.5f)]
+    public float opacityVariance = 0.08f;
+
     [Tooltip("Màu MÀN SƯƠNG giữa mắt và mây ở xa. Mây càng xa càng nhoà về màu này.\n\n" +
              "⚠️ ĐÂY LÀ Ô CHỮA 'MÂY Ở XA BỊ TỐI'. Nguyên nhân không phải màu sai, mà là " +
              "KÍCH THƯỚC: cụm mây ngoài xa to 150m, mà độ dốc sáng-tối lại trải đúng một " +
@@ -214,16 +234,6 @@ public class CloudBank : MonoBehaviour
     [Range(0f, 1f)]
     public float depthVariance = 0.25f;
 
-    [Tooltip("Mỗi cụm được phép loãng hơn mức chung bao nhiêu phần. 0 = mọi cụm đặc như nhau.\n\n" +
-             "⚠️ ĐÂY LÀ NGUỒN LỆCH MÀU KHÓ ĐOÁN NHẤT, và trước 24/09 nó bị VIẾT CHẾT trong " +
-             "code (mỗi cụm bốc ngẫu nhiên 82%-100% độ đặc) nên không ai chỉnh được từ " +
-             "Inspector.\n\n" +
-             "Vì sao nó đổi MÀU chứ không chỉ đổi độ đặc: cụm loãng thì nền TRỜI XANH phía " +
-             "sau lộ qua nhiều hơn, nên nó ngả xanh và xỉn hơn cụm bên cạnh - dù hai cụm " +
-             "được gán cùng một màu. Nhìn ra thì thấy cả mảng mây lốm đốm chỗ đậm chỗ nhạt.\n\n" +
-             "Để 0 thì biển mây phẳng và đều như sơn; 0.08-0.12 vẫn tự nhiên mà không lốm đốm.")]
-    [Range(0f, 0.6f)]
-    public float alphaVariance = 0.18f;
 
     [Tooltip("Tốc độ cả biển mây xoay quanh tâm đảo, độ mỗi giây. Rất chậm.\n\n" +
              "Có chuyển động thì mây mới sống. Nhưng phải chậm tới mức người chơi không " +
@@ -623,9 +633,13 @@ public class CloudBank : MonoBehaviour
             float dt = Mathf.Pow(depth01, 1.4f) * depthShading;
             Color c2 = Color.Lerp(topColor, bottomColor, dt);
 
-            // Độ đặc riêng của cụm này. Chênh lệch ở đây hiện ra thành chênh lệch MÀU,
-            // vì cụm loãng để lộ nền trời xanh phía sau - xem ô Alpha Variance.
-            float alpha = opacity * Random.Range(1f - alphaVariance, 1f);
+            // Biên độ chênh độ đục giờ lấy từ ô Opacity Variance thay vì cứng 0.82-1.0.
+            // Con số cứng đó là 18% chênh lệch, đủ để biển mây lốm đốm chỗ đậm chỗ nhạt.
+            //
+            // Cụm loãng để lộ nền TRỜI XANH phía sau nhiều hơn, nên nó ngả xanh và xỉn
+            // hơn cụm bên cạnh dù hai cụm được gán cùng một màu - vì vậy ô này hiện ra
+            // thành chênh lệch MÀU chứ không chỉ chênh độ đục.
+            float alpha = opacity * Random.Range(1f - opacityVariance, 1f);
 
             // ĐỘ DỐC NẮNG NGAY TRÊN BỐN ĐỈNH CỦA TẤM.
             //
@@ -641,6 +655,19 @@ public class CloudBank : MonoBehaviour
             // thêm ảnh đã là thang xám nữa thì kết quả chỉ còn trắng xám.
             Color hi = Color.Lerp(c2, topColor, 0.7f);
             Color lo = Color.Lerp(c2, bottomColor, 0.92f);
+
+            // GIẢM CHÊNH LỆCH NÓC/BỤNG - xem ô Color Contrast.
+            //
+            // Kéo cả hai đỉnh về màu TRUNG BÌNH CỦA CHÍNH CHÚNG, không phải về một màu cố
+            // định nào. Nhờ vậy cụm nào vẫn giữ đúng tông của nó (cụm sâu vẫn ngả lơ hơn
+            // cụm nông), chỉ riêng khoảng chênh trong một tấm là hẹp lại. Để 1 thì mid bị
+            // triệt tiêu và ra đúng hai màu như trước.
+            if (colorContrast < 1f)
+            {
+                Color mid = Color.Lerp(hi, lo, 0.5f);
+                hi = Color.Lerp(mid, hi, colorContrast);
+                lo = Color.Lerp(mid, lo, colorContrast);
+            }
 
             // PHỐI CẢNH KHÔNG KHÍ: càng xa càng nhoà về màu trời, và càng mất tương phản.
             //
