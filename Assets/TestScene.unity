@@ -69823,6 +69823,8 @@ MonoBehaviour:
   crosshair: {fileID: 1183791981}
   phaseText: {fileID: 1454110952}
   timerText: {fileID: 1274321187}
+  timerUrgentSeconds: 10
+  timerUrgentColor: {r: 1, g: 0.28, b: 0.2, a: 1}
   redScoreText: {fileID: 270145362}
   blueScoreText: {fileID: 516964450}
   roundNumberText: {fileID: 470407962}
@@ -71698,13 +71700,14 @@ MonoBehaviour:
   clusterCount: 26
   clusterSpread: 1.1
   verticalSpread: 0.75
-  topColor: {r: 0.6627451, g: 0.8196079, b: 0.854902, a: 1}
-  bottomColor: {r: 0.45790315, g: 0.84809834, b: 0.9245283, a: 1}
+  topColor: {r: 0.88, g: 0.945, b: 0.99, a: 1}
+  bottomColor: {r: 0.7, g: 0.885, b: 0.965, a: 1}
+  colorContrast: 0.35
+  opacityVariance: 0.08
   horizonColor: {r: 0.7, g: 0.88, b: 0.99, a: 1}
   distanceFade: 0.55
-  depthShading: 0.22
+  depthShading: 0.1
   depthVariance: 0.12
-  opacityVariance: 0.08
   driftDegPerSecond: 0.6
   bobAmount: 1.2
   underIslandDepth: 12

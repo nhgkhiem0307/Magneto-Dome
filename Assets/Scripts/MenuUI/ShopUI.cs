@@ -141,9 +141,16 @@ public class ShopUI : MonoBehaviour
             if (economy != null) moneyText.text = $"${economy.Money}";
         }
 
-        if (timerText != null && GameManager.Instance != null)
+        // Phải xét CẢ Object.IsValid và Runner, không chỉ Instance != null: lúc trận kết
+        // thúc hay Host thoát, mạng chết TRƯỚC còn object thì nằm lại thêm vài khung hình -
+        // hỏi đồng hồ mạng lúc đó là ném lỗi mỗi khung hình. Xem ghi chú NetworkReady
+        // trong PlayerHealth.
+        GameManager gm = GameManager.Instance;
+        bool gmAlive = gm != null && gm.Object != null && gm.Object.IsValid && gm.Runner != null;
+
+        if (timerText != null && gmAlive)
         {
-            float? remaining = GameManager.Instance.PhaseTimer.RemainingTime(GameManager.Instance.Runner);
+            float? remaining = gm.PhaseTimer.RemainingTime(gm.Runner);
             timerText.text = remaining.HasValue ? $"{Mathf.CeilToInt(remaining.Value)}s" : "";
         }
     }

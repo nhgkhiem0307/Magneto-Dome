@@ -182,6 +182,17 @@ public class HUDController : MonoBehaviour
         // Object.IsValid là cách Fusion tự nhận biết object đã rời khỏi mạng hay chưa.
         if (gm != null && (gm.Object == null || !gm.Object.IsValid)) gm = null;
 
+        // ⚠️ NHÂN VẬT CŨNG PHẢI KIỂM Y HỆT, không chỉ GameManager. Thiếu 25/09.
+        //
+        // FPSMovement.Local chỉ được xoá trong Despawned(). Nhưng lúc hết trận, Runner tắt
+        // trước và có vài khung hình object vẫn còn đó trong khi mạng đã chết. HUD đọc
+        // điện tích, tiền, đạn của nhân vật đó - toàn giá trị [Networked] - nên mỗi khung
+        // hình lại ném lỗi, y hệt lỗi GameManager đã sửa hồi 01/09.
+        if (localPlayer != null && (localPlayer.Object == null || !localPlayer.Object.IsValid))
+        {
+            localPlayer = null;
+        }
+
         // Chưa vào trận thì ẩn hết đi
         if (localPlayer == null)
         {
@@ -193,9 +204,11 @@ public class HUDController : MonoBehaviour
 
         // Đang quan sát đồng đội thì HUD hiện chỉ số CỦA HỌ, không phải máu 0 của xác mình.
         // Riêng tâm ngắm và bảng "đã bị loại" vẫn bám theo trạng thái thật của mình.
-        FPSMovement displayed = SpectatorController.Watching != null
-            ? SpectatorController.Watching
-            : localPlayer;
+        // Người đang xem nhờ cũng có thể vừa rời mạng - cùng lý do như trên.
+        FPSMovement watched = SpectatorController.Watching;
+        if (watched != null && (watched.Object == null || !watched.Object.IsValid)) watched = null;
+
+        FPSMovement displayed = watched != null ? watched : localPlayer;
 
         UpdateHealthAndArmor(displayed, localPlayer);
         UpdatePolarity(displayed);

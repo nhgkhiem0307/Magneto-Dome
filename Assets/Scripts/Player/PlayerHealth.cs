@@ -121,8 +121,22 @@ public class PlayerHealth : NetworkBehaviour
     // máy nào cũng cần đọc được để hiện dấu hiệu trên HUD sau này nếu muốn.
     [Networked] public TickTimer SpawnProtectTimer { get; set; }
 
+    /// <summary>
+    /// Object này còn sống TRÊN MẠNG không (chưa despawn, Runner chưa tắt).
+    ///
+    /// ⚠️ PHẢI HỎI TRƯỚC MỌI LẦN ĐỤNG VÀO TickTimer. Mọi hàm của TickTimer đều cần Runner,
+    /// mà lúc hết trận thì Runner bị tắt TRƯỚC khi các object kịp biến mất - còn vài khung
+    /// hình mà object vẫn nằm đó với Runner đã chết.
+    ///
+    /// Đây chính là lỗi "hết trận không về menu mà treo" (25/09) và lỗi HUD treo khi Host
+    /// thoát (01/09): không có gì crash cả, chỉ là một lỗi được ném ra MỖI KHUNG HÌNH khiến
+    /// FPS về gần 0 và phần code phía sau không bao giờ chạy tới.
+    /// </summary>
+    private bool NetworkReady => Object != null && Object.IsValid && Runner != null;
+
     /// <summary>Đang trong thời gian miễn nhiễm sau hồi sinh hay không.</summary>
-    public bool IsSpawnProtected => SpawnProtectTimer.IsRunning
+    public bool IsSpawnProtected => NetworkReady
+                                    && SpawnProtectTimer.IsRunning
                                     && !SpawnProtectTimer.Expired(Runner);
 
     // 0 = Đỏ, 1 = Xanh. Host gán lúc spawn, dựa theo đội đã chọn trong phòng chờ.
@@ -176,7 +190,7 @@ public class PlayerHealth : NetworkBehaviour
     public bool IsWaitingToRespawn => !IsAlive && RespawnTimer.IsRunning;
 
     /// <summary>Số giây còn lại trước khi sống lại, 0 nếu không trong trạng thái chờ.</summary>
-    public float RespawnSecondsLeft => RespawnTimer.RemainingTime(Runner) ?? 0f;
+    public float RespawnSecondsLeft => NetworkReady ? (RespawnTimer.RemainingTime(Runner) ?? 0f) : 0f;
 
     private CharacterController controller;
     private Renderer[] cachedRenderers;
@@ -393,6 +407,9 @@ public class PlayerHealth : NetworkBehaviour
     /// </summary>
     public override void Render()
     {
+        // Mạng đã chết (hết trận, Host thoát) thì không đụng gì tới đồng hồ mạng nữa.
+        if (!NetworkReady) return;
+
         bool blinking = IsAlive && IsSpawnProtected && spawnProtectBlinkRate > 0f;
 
         if (!blinking)

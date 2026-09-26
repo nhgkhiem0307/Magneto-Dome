@@ -841,7 +841,25 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
                 // ai bắt được, và nó giết luôn phần còn lại của hàm - tức là vẫn kẹt.
                 try
                 {
-                    await _networkRunner.Shutdown();
+                    // CHỜ CÓ HẠN, KHÔNG CHỜ VÔ THỜI HẠN.
+                    //
+                    // ⚠️ Đây là lưới an toàn cuối cùng cho lỗi "hết trận không về menu".
+                    // try/catch chỉ bắt được lỗi ĐƯỢC NÉM RA; nó hoàn toàn bất lực nếu
+                    // Shutdown() đơn giản là KHÔNG BAO GIỜ hoàn thành - lúc đó dòng await
+                    // này đứng im mãi mãi và mọi dòng phía dưới (huỷ Runner, thả chuột,
+                    // load scene menu) không bao giờ chạy tới. Nhìn từ ngoài: game đứng
+                    // nguyên ở màn hình trận đấu sau khi trận đã kết thúc.
+                    //
+                    // 5 giây là rất rộng rãi - tắt mạng bình thường mất chưa tới một giây.
+                    // Quá hạn thì bỏ mặc Runner đó và đi tiếp: dù sao cả object chứa nó
+                    // cũng sắp bị huỷ ở ngay dòng dưới.
+                    Task shutdown = _networkRunner.Shutdown();
+                    Task finished = await Task.WhenAny(shutdown, Task.Delay(5000));
+
+                    if (finished != shutdown)
+                    {
+                        Debug.LogWarning("[MẠNG] Tắt Runner quá 5 giây không xong -> bỏ qua, về menu luôn.");
+                    }
                 }
                 catch (Exception e)
                 {
