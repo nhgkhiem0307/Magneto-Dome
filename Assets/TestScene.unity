@@ -15,9 +15,9 @@ RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 10
   m_Fog: 1
-  m_FogColor: {r: 0.5019608, g: 0.5019608, b: 0.5019608, a: 1}
+  m_FogColor: {r: 0.78, g: 0.88, b: 0.97, a: 1}
   m_FogMode: 3
-  m_FogDensity: 0.006
+  m_FogDensity: 0.0022
   m_LinearFogStart: 0
   m_LinearFogEnd: 300
   m_AmbientSkyColor: {r: 0.212, g: 0.227, b: 0.259, a: 1}
@@ -71610,7 +71610,7 @@ Transform:
   m_GameObject: {fileID: 452220700}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 40, y: 0, z: 40}
+  m_LocalPosition: {x: 40, y: 6, z: 40}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -71685,12 +71685,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fb2dd24352aa3f84ba6b80cf7b3eddb7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CloudBank
-  islandRadius: 40
+  islandRadius: 35
   innerFactor: 0.85
-  outerRadius: 300
+  outerRadius: 500
   topBelowSurface: 2.5
   thickness: 45
-  puffCount: 400
+  puffCount: 700
   puffSizeNear: 48
   puffSizeFar: 150
   customPuffTexture: {fileID: 2800000, guid: 20d5c69ee493ce448a9feb58214ddba8, type: 3}
@@ -71700,13 +71700,13 @@ MonoBehaviour:
   clusterCount: 26
   clusterSpread: 1.1
   verticalSpread: 0.75
-  topColor: {r: 0.88, g: 0.945, b: 0.99, a: 1}
-  bottomColor: {r: 0.7, g: 0.885, b: 0.965, a: 1}
-  colorContrast: 0.35
+  topColor: {r: 0.96, g: 0.98, b: 1, a: 1}
+  bottomColor: {r: 0.84, g: 0.92, b: 0.99, a: 1}
+  colorContrast: 0.2
   opacityVariance: 0.08
   horizonColor: {r: 0.7, g: 0.88, b: 0.99, a: 1}
-  distanceFade: 0.55
-  depthShading: 0.1
+  distanceFade: 0.158
+  depthShading: 0.05
   depthVariance: 0.12
   driftDegPerSecond: 0.6
   bobAmount: 1.2

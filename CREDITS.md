@@ -76,6 +76,13 @@ khớp 100%, không phải qua auto-rig, không có rủi ro retarget lệch.
 | **Lời thoại** | Chủ project tự viết | — |
 | **Giọng đọc** | **ElevenLabs** (sinh bằng AI) | ⬜ Gói miễn phí: **BẮT BUỘC ghi nguồn**, chỉ dùng phi thương mại |
 
+> ✅ **Có bằng chứng máy đọc được ngay trong file.** Cả 8 file giọng đều mang **chứng chỉ
+> nội dung C2PA** do ElevenLabs nhúng vào, ghi rõ tác giả `"Eleven Labs Inc."` và loại nội
+> dung `trainedAlgorithmicMedia` — tức "phương tiện do thuật toán đã huấn luyện tạo ra".
+>
+> Đây là thứ đáng nhắc trong báo cáo: minh bạch về việc dùng AI **có chứng cứ kiểm chứng
+> được**, không phải lời khai suông. Người chấm có thể tự kiểm bằng công cụ đọc C2PA.
+
 > ⚠️ **Đây là giọng AI, không phải người thu — phải nói rõ trong báo cáo.** Gói miễn phí
 > của ElevenLabs yêu cầu ghi nguồn, nên đây không phải chuyện "nên ghi cho lịch sự" mà là
 > **điều kiện của giấy phép**. Không ghi là dùng sai giấy phép.
@@ -106,12 +113,50 @@ thiết kế nhân vật cụ thể, không phải bấm bừa ra rồi dùng.
 | `GPBG.mp3` *(nhạc nền trong trận)* | ⬜ | ⬜ |
 | `pripac-relaxing-vibes-for-gaming-focus-323623.mp3` *(nhạc menu)* | ⬜ **Tên file có mã số — nhiều khả năng từ Pixabay** | ⬜ |
 
-> 💡 **Mẹo:** file cuối có dạng tên `<tác-giả>-<tiêu-đề>-<id>.mp3` — đây đúng kiểu đặt tên khi
-> tải từ **Pixabay Audio**. Tra `pripac 323623` là ra ngay. Pixabay dùng giấy phép riêng của họ:
-> miễn phí, dùng thương mại được, không bắt ghi nguồn — nhưng **vẫn nên ghi**.
+> 💡 **Đã moi từ chính file + tra web, ngày 28/09.** Nhiều định dạng âm thanh nhúng sẵn
+> thông tin tác giả bên trong (ID3 với mp3, khối INFO với wav).
+
+### ✅ `GPBG.mp3` — nhạc nền trong trận *(đã thay 28/09)*
+
+| | |
+|---|---|
+| Nguồn | **Pixabay** — https://pixabay.com/music/adventure-arena-270364/ |
+| Giấy phép | **Pixabay Content License**: dùng thương mại được, **không bắt ghi nguồn**, không cấm dùng trong game |
+| Cấm | Bán lại hoặc phát tán chính file nhạc dưới dạng độc lập — không liên quan tới việc nhúng vào game |
+
+⬜ Mở trang trên, chép **tên người đăng** vào đây. Pixabay không bắt buộc, nhưng ghi thì
+vẫn hơn, và hội đồng thấy được là có truy nguồn đàng hoàng.
+
+> **Bài cũ đã bị gỡ bỏ:** trước đó nhạc trận là *"In Flight"* của **Alegend** tải từ
+> **freetouse.com**. Đọc kỹ điều khoản thì giấy phép miễn phí của họ **cấm dùng trong
+> "Digital Products"**, mà game chính là một Digital Product — chỉ gói trả phí mới được.
+> Đã xoá file khỏi project và thay bằng bài Pixabay ở trên.
 >
-> Freesound thì phức tạp hơn: có CC0 (thoải mái), CC-BY (**bắt buộc ghi tên tác giả**), và
-> vài loại cấm dùng thương mại. Nếu bạn tải từ đó thì phải xem từng file một.
+> ⚠️ Đáng ghi vào báo cáo như một bài học quy trình: **xoá khỏi ô gán là chưa đủ**, phải
+> xoá hẳn file. Thư mục `Resources/` được Unity đóng gói vào bản build **toàn bộ**, kể cả
+> file không ai dùng tới - để lại là bản nộp vẫn chứa nội dung không có quyền phát tán.
+
+### `lasershoot.wav`
+
+Thẻ trong file ghi tác giả **Mattias Michael Lahoud**, tên gốc **"8BIT LASER SHOT 04"**.
+Tra web không ra bộ asset cụ thể nào mang tên đó.
+⬜ Đủ thông tin để ghi tên tác giả trong báo cáo, nhưng nên tìm lại nguồn để biết giấy phép.
+
+### `pripac-relaxing-vibes-for-gaming-focus-323623.mp3` — nhạc menu
+
+Tên file đúng khuôn **Pixabay**: `<tác-giả>-<tiêu-đề>-<id>`, tức tác giả `pripac`, ID `323623`.
+Không mở được trang để xác nhận (Pixabay chặn truy cập tự động).
+⬜ Tự mở `pixabay.com` tra `pripac 323623` để xác nhận. Giấy phép Pixabay **cho dùng
+trong game, không bắt ghi nguồn** — nếu đúng là Pixabay thì file này an toàn.
+
+### 13 file còn lại
+
+Không có gì nhúng bên trong — không tác giả, không bản quyền, không cả tên phần mềm đã
+xuất. Không có cách nào tra ngược từ chính file; phải tìm trong **lịch sử tải của trình
+duyệt** hoặc **Package Manager → My Assets**.
+
+⚠️ **Đừng đoán rồi điền bừa.** Nếu một file hoá ra là CC-BY của người khác, ghi sai tác
+giả còn tệ hơn để trống: để trống là thiếu sót, ghi sai là khai man trong văn bản nộp.
 
 ---
 

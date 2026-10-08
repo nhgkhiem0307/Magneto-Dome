@@ -111,7 +111,11 @@ public class CloudBank : MonoBehaviour
     [Range(1, 4)]
     public int puffAtlasGrid = 2;
 
-    [Tooltip("Màu mây. Hơi ngả xanh lạnh thì ra vẻ ở trên cao.")]
+    [Tooltip("⛔ Ô NÀY KHÔNG CÒN TÁC DỤNG - chỉnh nó không làm mây đổi màu.\n\n" +
+             "Màu mây giờ do HAI ô Top Color / Bottom Color quyết định (xem mục 'Chiều sâu " +
+             "và ánh sáng' bên dưới). Ô này là tàn dư của bản đầu, lúc cả biển mây còn tô " +
+             "một màu duy nhất.\n\n" +
+             "Giữ lại thay vì xoá hẳn để tránh làm bẩn file scene, nhưng ĐỪNG DÙNG.")]
     public Color cloudColor = new Color(0.88f, 0.91f, 0.97f, 1f);
 
     [Tooltip("Độ đục của cụm mây dày nhất, 0-1.\n\n" +

@@ -1181,7 +1181,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "RED TEAM (0/2):"
+  m_text: New Text
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 12e363758156ddf42b528c1453a7240d, type: 2}
   m_sharedMaterial: {fileID: 790906571843141911, guid: 12e363758156ddf42b528c1453a7240d, type: 2}
@@ -1930,7 +1930,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "BLUE TEAM (0/2):"
+  m_text: New Text
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 12e363758156ddf42b528c1453a7240d, type: 2}
   m_sharedMaterial: {fileID: 790906571843141911, guid: 12e363758156ddf42b528c1453a7240d, type: 2}
@@ -5910,7 +5910,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AudioManager
   menuSceneName: MenuScene
   menuMusic: {fileID: 8300000, guid: e7b2eb847d4bd91419626f0fefb00846, type: 3}
-  gameMusic: {fileID: 8300000, guid: e2183e78a8a416045aa911383f8b308c, type: 3}
+  gameMusic: {fileID: 8300000, guid: a3430d391597e2c45b58caa07c770de1, type: 3}
   sfxDash: {fileID: 8300000, guid: 019f876905682c841a4bccd3f86d89ba, type: 3}
   sfxHit: {fileID: 8300000, guid: 5b605c1cd727b2f4abd1443d4f38050b, type: 3}
   sfxArmorHit: {fileID: 8300000, guid: 68c001d00b6271a49ad5d232a383e820, type: 3}
@@ -5921,6 +5921,7 @@ MonoBehaviour:
   sfxLaunch: {fileID: 8300000, guid: debe8777f1de25b40a2630445743cf6e, type: 3}
   sfxExplosion: {fileID: 8300000, guid: aad96877995d1dc468c5c41acf9e8510, type: 3}
   sfxConvertTNT: {fileID: 8300000, guid: 950505f3f552f874d982ad003142a1c7, type: 3}
+  sfxObjectReturn: {fileID: 0}
   sfxBuyPhase: {fileID: 8300000, guid: b58ab2a808dfee942a7d4aa58bae8ba0, type: 3}
   sfxRoundStart: {fileID: 8300000, guid: 6d681b998cb0b234583c1d6793e79219, type: 3}
   sfxRoundWin: {fileID: 0}
@@ -5928,11 +5929,13 @@ MonoBehaviour:
   voBuyPhase: {fileID: 8300000, guid: 5acd4fa329ac3a14c96f53644169bde8, type: 3}
   voCombat: {fileID: 8300000, guid: d3d3d7a1d9ad60d45873b17244f71893, type: 3}
   voRoundWon: {fileID: 8300000, guid: de0b612861c824d489c0bba87d2aacf9, type: 3}
-  voRoundLost: {fileID: 8300000, guid: 53413d0317cfe2546991e478b434ce2f, type: 3}
+  voRoundLost: {fileID: 8300000, guid: 141a84b820054b74e9068bf635d51ce2, type: 3}
   voMatchPoint: {fileID: 8300000, guid: 0b7711aa19a5ef94386f3c17255ecc5f, type: 3}
   voOvertime: {fileID: 8300000, guid: d28234a904773be42aebae4c75854ccc, type: 3}
   voVictory: {fileID: 8300000, guid: 15ec9f0404417114788ea166b77f7fc9, type: 3}
-  voDefeat: {fileID: 8300000, guid: 141a84b820054b74e9068bf635d51ce2, type: 3}
+  voDefeat: {fileID: 8300000, guid: 53413d0317cfe2546991e478b434ce2f, type: 3}
+  voChargeCritical: {fileID: 0}
+  voTenSeconds: {fileID: 0}
   voiceVolume: 1.415
   roundWonSpeed: 0.92
   radioFilter: 1

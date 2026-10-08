@@ -267,13 +267,27 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
     private void Start()
     {
-        // Nạp lại tên đã lưu từ lần chơi trước và điền sẵn vào ô nhập,
-        // để người chơi quen chỉ cần bấm xác nhận là xong.
-        string savedName = PlayerPrefs.GetString(KeyPlayerName, "");
-        if (!string.IsNullOrEmpty(savedName))
+        // TÊN ĐÃ GÕ TRONG PHIÊN NÀY LUÔN THẮNG TÊN LƯU TRONG MÁY.
+        //
+        // ⚠️ VÌ SAO - lỗi đã gặp 27/09: chạy HAI bản build trên CÙNG MỘT MÁY thì chúng
+        // dùng chung kho PlayerPrefs (nằm trong Registry, xếp theo tên project). Bản A
+        // đặt tên "Khiem", bản B đặt "Test2" -> ô lưu chung còn lại "Test2". Về menu,
+        // cả hai cùng đọc lại ô đó và cùng đổi tên thành "Test2".
+        //
+        // Nên chỉ đọc tên đã lưu khi tiến trình này CHƯA CÓ TÊN NÀO - tức lúc vừa mở
+        // game. Về menu giữa chừng thì giữ nguyên tên người chơi đã gõ.
+        bool firstBoot = string.IsNullOrEmpty(LocalPlayerName) || LocalPlayerName == "Player";
+
+        if (firstBoot)
         {
-            LocalPlayerName = savedName;
-            if (nameInput != null) nameInput.text = savedName;
+            string savedName = PlayerPrefs.GetString(KeyPlayerName, "");
+            if (!string.IsNullOrEmpty(savedName)) LocalPlayerName = savedName;
+        }
+
+        if (nameInput != null && !string.IsNullOrEmpty(LocalPlayerName)
+            && LocalPlayerName != "Player")
+        {
+            nameInput.text = LocalPlayerName;
         }
 
         RefreshCurrentNameText();
@@ -808,68 +822,105 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     /// Host gọi hàm này khi hết trận. Việc tắt Runner sẽ khiến các máy Client
     /// nhận callback OnShutdown, và ở đó chúng cũng tự gọi lại hàm này.
     /// </summary>
-    public async void ReturnToMenu()
+    public void ReturnToMenu()
     {
         // Chặn gọi chồng: tắt Runner mất vài khung hình, trong lúc đó
         // GameManager có thể gọi thêm lần nữa.
         if (_isReturningToMenu) return;
         _isReturningToMenu = true;
 
-        // ĐẶT CỜ NGAY DÒNG ĐẦU, TRƯỚC MỌI LỆNH await.
+        Debug.Log("[VỀ MENU] B1 - nhận yêu cầu, hoãn sang khung hình sau");
+
+        // Che màn hình ngay từ đây: phía sau là một scene đang bị tháo dở, để lộ ra chỉ
+        // làm người chơi thấy hình ảnh lỗi. Màn chờ tự tắt khi đã về tới MenuScene.
+        LoadingScreen.ShowReturningToMenu();
+
+        // ĐẶT CỜ NGAY, TRƯỚC MỌI LỆNH CHỜ.
         //
-        // Trước đây cờ này nằm ở cuối hàm, ngay trên LoadScene. Nhưng giữa đầu hàm và
-        // cuối hàm có một "await Shutdown()" - mà await nghĩa là hàm TẠM DỪNG rồi mới
-        // chạy tiếp. Nếu vì lý do nào đó phần sau await không chạy tới nơi, cờ không bao
-        // giờ được đặt, và người chơi bị ném về màn nhập tên.
-        //
-        // Đặt ở đây thì dù phần sau có hỏng cách nào, cờ vẫn đúng.
+        // Nếu phần sau vì lý do nào đó không chạy tới nơi, cờ vẫn đúng và người chơi
+        // không bị ném về màn nhập tên.
         _returningFromMatch = true;
+
+        StartCoroutine(ReturnToMenuRoutine());
+    }
+
+    /// <summary>
+    /// Tắt mạng rồi về menu - TỪNG BƯỚC, MỖI BƯỚC MỘT KHUNG HÌNH.
+    ///
+    /// ⚠️ VÌ SAO PHẢI HOÃN SANG KHUNG HÌNH SAU - ĐỪNG GỘP LẠI CHO "GỌN".
+    ///
+    /// Hàm này được gọi từ GameManager.FixedUpdateNetwork(), tức là đang đứng GIỮA vòng
+    /// mô phỏng của Fusion. Bản cũ gọi thẳng Shutdown() và Destroy() object chứa Runner
+    /// ngay tại đó - tức bảo Fusion tự huỷ mình trong lúc nó còn đang chạy dở callback
+    /// của chính nó. Kết quả không phải một lỗi đỏ trong Console mà là CRASH TẦNG NATIVE:
+    /// cửa sổ game tắt phụt như bị Alt+F4, không kịp in dòng nào.
+    ///
+    /// Lỗi đó rất dễ bị hiểu nhầm thành "lỗi C# ở đâu đó", vì lỗi C# thì chỉ in đỏ rồi
+    /// chạy tiếp chứ không bao giờ giết được tiến trình. Tiến trình chết = tầng native.
+    ///
+    /// "yield return null" đầu tiên đưa toàn bộ phần còn lại ra khỏi ngăn xếp của Fusion:
+    /// tới lúc chạy tiếp thì vòng mô phỏng đã kết thúc, và mọi thao tác bên dưới trở
+    /// thành lời gọi bình thường từ bên ngoài.
+    /// </summary>
+    private System.Collections.IEnumerator ReturnToMenuRoutine()
+    {
+        // BƯỚC 0 - ra khỏi vòng mô phỏng của Fusion. Dòng quan trọng nhất cả hàm.
+        yield return null;
 
         if (_networkRunner != null)
         {
             // CHỈ gọi Shutdown khi Runner CHƯA tắt.
             //
-            // Đây là chỗ gây treo khi Host thoát giữa trận. Luồng chạy như sau:
-            // Host thoát -> Fusion tắt Runner ở máy Client -> gọi OnShutdown ->
-            // OnShutdown gọi ReturnToMenu -> ReturnToMenu lại "await Shutdown()"
-            // trên chính cái Runner đang tắt dở. Lệnh chờ đó không bao giờ hoàn thành,
-            // nên hàm dừng lại ngay tại đây: scene không được load, chuột không được trả,
-            // người chơi kẹt vĩnh viễn trong một thế giới không còn mạng.
+            // Host thoát giữa trận -> Fusion tự tắt Runner ở máy Client -> gọi OnShutdown
+            // -> OnShutdown gọi ReturnToMenu. Lúc đó Runner đang tắt dở, gọi Shutdown()
+            // lần nữa là chờ một lệnh không bao giờ xong.
             if (!_runnerIsDown)
             {
-                // Bọc try/catch vì đây là async void: một lỗi ném ra trong này sẽ không
-                // ai bắt được, và nó giết luôn phần còn lại của hàm - tức là vẫn kẹt.
+                Debug.Log("[VỀ MENU] B2 - đang tắt Runner");
+
+                Task shutdown = null;
+
                 try
                 {
-                    // CHỜ CÓ HẠN, KHÔNG CHỜ VÔ THỜI HẠN.
-                    //
-                    // ⚠️ Đây là lưới an toàn cuối cùng cho lỗi "hết trận không về menu".
-                    // try/catch chỉ bắt được lỗi ĐƯỢC NÉM RA; nó hoàn toàn bất lực nếu
-                    // Shutdown() đơn giản là KHÔNG BAO GIỜ hoàn thành - lúc đó dòng await
-                    // này đứng im mãi mãi và mọi dòng phía dưới (huỷ Runner, thả chuột,
-                    // load scene menu) không bao giờ chạy tới. Nhìn từ ngoài: game đứng
-                    // nguyên ở màn hình trận đấu sau khi trận đã kết thúc.
-                    //
-                    // 5 giây là rất rộng rãi - tắt mạng bình thường mất chưa tới một giây.
-                    // Quá hạn thì bỏ mặc Runner đó và đi tiếp: dù sao cả object chứa nó
-                    // cũng sắp bị huỷ ở ngay dòng dưới.
-                    Task shutdown = _networkRunner.Shutdown();
-                    Task finished = await Task.WhenAny(shutdown, Task.Delay(5000));
-
-                    if (finished != shutdown)
-                    {
-                        Debug.LogWarning("[MẠNG] Tắt Runner quá 5 giây không xong -> bỏ qua, về menu luôn.");
-                    }
+                    shutdown = _networkRunner.Shutdown();
                 }
                 catch (Exception e)
                 {
-                    Debug.LogWarning($"[MẠNG] Lỗi khi tắt Runner, vẫn tiếp tục về menu: {e.Message}");
+                    Debug.LogWarning($"[MẠNG] Lỗi khi gọi Shutdown, vẫn tiếp tục về menu: {e.Message}");
+                }
+
+                // CHỜ CÓ HẠN, KHÔNG CHỜ VÔ THỜI HẠN.
+                //
+                // try/catch chỉ bắt được lỗi ĐƯỢC NÉM RA; nó bất lực nếu Shutdown() đơn
+                // giản là không bao giờ hoàn thành. Quá 5 giây thì bỏ mặc mà đi tiếp -
+                // dù sao object chứa Runner cũng sắp bị huỷ ở ngay dưới.
+                float deadline = Time.realtimeSinceStartup + 5f;
+
+                while (shutdown != null && !shutdown.IsCompleted
+                       && Time.realtimeSinceStartup < deadline)
+                {
+                    yield return null;
+                }
+
+                if (shutdown != null && !shutdown.IsCompleted)
+                {
+                    Debug.LogWarning("[MẠNG] Tắt Runner quá 5 giây không xong -> bỏ qua, về menu luôn.");
                 }
             }
 
-            // Object chứa Runner cũng là DontDestroyOnLoad, không tự mất theo scene
+            // BƯỚC 2b - để Fusion dọn nốt phần của nó trước khi ta huỷ object của nó.
+            yield return null;
+
+            Debug.Log("[VỀ MENU] B3 - Runner đã tắt, đang huỷ object");
+
+            // Object chứa Runner cũng là DontDestroyOnLoad, không tự mất theo scene.
+            // Fusion có thể đã tự huỷ trong Shutdown() nên phải kiểm null.
             if (_networkRunner != null) Destroy(_networkRunner.gameObject);
             _networkRunner = null;
+
+            // Chờ một khung hình nữa cho lệnh huỷ ở trên thật sự có hiệu lực (Destroy chỉ
+            // thi hành ở cuối khung hình), rồi mới đổi scene.
+            yield return null;
         }
 
         // Dọn sạch các danh sách tĩnh. Chúng sống xuyên scene nên không tự xoá,
@@ -877,23 +928,27 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         RoomPlayer.AllPlayers.Clear();
         PlayerHealth.AllPlayers.Clear();
 
-        // Trả chuột lại cho menu.
-        //
-        // Dùng ReleaseAll() vì mọi bảng giao diện của scene cũ (Shop, Radial Menu,
-        // Settings) sắp bị huỷ theo scene mà không kịp gọi Release. Để sót đăng ký
-        // của chúng thì trận sau chuột sẽ không bao giờ khoá lại được.
+        // Trả chuột lại cho menu. Dùng ReleaseAll() vì mọi bảng giao diện của scene cũ
+        // (Shop, Radial Menu, Settings) sắp bị huỷ theo scene mà không kịp gọi Release.
         CursorLock.ReleaseAll();
 
         // QUAN TRỌNG: phải bỏ Instance TRƯỚC khi load scene.
         //
-        // Object này là DontDestroyOnLoad nên nó sống sót qua scene mới. Nhưng mọi
-        // tham chiếu UI của nó đã chết theo MenuScene cũ -> menu sẽ hiện ra một đống
-        // nút bấm không được. Bỏ Instance ra để bản NetworkRunnerHandler nằm sẵn trong
-        // MenuScene mới được nhận vai, rồi huỷ bản cũ này đi.
+        // Object này là DontDestroyOnLoad nên nó sống sót qua scene mới. Nhưng mọi tham
+        // chiếu UI của nó đã chết theo MenuScene cũ -> menu sẽ hiện ra một đống nút bấm
+        // không được. Bỏ Instance ra để bản NetworkRunnerHandler nằm sẵn trong MenuScene
+        // mới được nhận vai, rồi huỷ bản cũ này đi.
+        Debug.Log("[VỀ MENU] B4 - dọn xong, chuẩn bị nạp scene " + menuSceneName);
+
         Instance = null;
-        Destroy(gameObject);
 
         SceneManager.LoadScene(menuSceneName);
+
+        Debug.Log("[VỀ MENU] B5 - đã gọi LoadScene");
+
+        // Huỷ SAU khi đã gọi LoadScene: huỷ trước thì coroutine này chết giữa chừng và
+        // không ai gọi LoadScene nữa.
+        Destroy(gameObject);
     }
 
     // --- 4. RỜI PHÒNG ---
@@ -967,6 +1022,11 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
                 // Bật cờ này TRƯỚC khi load, để khi scene load xong thì biết
                 // đây là lần vào trận thật và tiến hành spawn nhân vật.
                 _matchStarted = true;
+
+                // Màn chờ: từ đây tới lúc nhân vật xuất hiện là vài giây màn hình đen,
+                // người chơi không phân biệt được "đang tải" với "treo". Màn chờ tự tắt
+                // khi nhân vật của mình có mặt, không cần ai gọi tắt.
+                LoadingScreen.ShowEnteringMatch();
 
                 // Tắt nút đi cho người chơi THẤY là đã bấm được.
                 //

@@ -142,6 +142,11 @@ public class GameManager : NetworkBehaviour
         // Xét trước mọi thứ khác: không có lý do gì chạy tiếp một round mà quân số đã lệch.
         if (CheckForAbandonedMatch()) return;
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // Phím tắt test (F9 / F10 / F12) - xem khối ngay trên EndRound().
+        ConsumeDebugRoundRequest();
+#endif
+
         // KillZone kiểm tra liên tục trong lúc đánh nhau
         if (Phase == GamePhase.Combat)
         {
@@ -188,9 +193,18 @@ public class GameManager : NetworkBehaviour
                 {
                     PhaseTimer = TickTimer.None; // tránh gọi lại ở tick sau
 
+                    // Nhật ký đầu chuỗi "về menu" - xem NetworkRunnerHandler.ReturnToMenu().
+                    // Không thấy dòng B0 này trong log nghĩa là lỗi nằm TRƯỚC đó: trận
+                    // chưa từng vào pha MatchEnd, hoặc đồng hồ pha không bao giờ hết hạn.
+                    Debug.Log("[VỀ MENU] B0 - hết giờ MatchEnd, gọi ReturnToMenu (Host)");
+
                     if (NetworkRunnerHandler.Instance != null)
                     {
                         NetworkRunnerHandler.Instance.ReturnToMenu();
+                    }
+                    else
+                    {
+                        Debug.LogError("[VỀ MENU] B0 HỎNG - không tìm thấy NetworkRunnerHandler.Instance!");
                     }
                 }
                 break;
@@ -246,6 +260,81 @@ public class GameManager : NetworkBehaviour
 
         Debug.Log($"<color=lime><b>=== BẮT ĐẦU CHIẾN ĐẤU ({combatDuration}s) ===</b></color>");
     }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+    // ==================== PHÍM TẮT CHỈ ĐỂ TEST ====================
+    //
+    // ⚠️ CHỈ CÓ TRONG UNITY EDITOR VÀ BẢN BUILD CÓ TICK "Development Build".
+    // Bản nộp (bỏ tick đó) sẽ không hề chứa đoạn code này - người chấm không thể lỡ tay
+    // bấm trúng. Cùng cách đã làm với phím K tự sát.
+    //
+    // ⚠️ CHỈ MÁY HOST bấm được. Client bấm sẽ không có gì xảy ra, vì chỉ Host mới có
+    // quyền đổi điểm số và pha của trận - đó là toàn bộ nguyên tắc Host Mode.
+    //
+    // VÌ SAO CẦN: muốn test đường "hết trận -> về menu" thì bình thường phải đánh đủ 5
+    // round thắng và hơn 2 round, mất cả chục phút mỗi lần thử. F12 rút ngắn còn 5 giây.
+    //
+    // | Phím | Việc                                                        |
+    // |------|-------------------------------------------------------------|
+    // | F9   | Đội ĐỎ thắng round ngay                                     |
+    // | F10  | Đội XANH thắng round ngay                                   |
+    // | F12  | Kết thúc TRẬN ngay - đội của người bấm (Host) vô địch        |
+    private int _debugPendingWinner = -99;   // -99 = không có yêu cầu nào
+
+    private void Update()
+    {
+        if (!HasStateAuthority) return;
+        if (Phase == GamePhase.MatchEnd || Phase == GamePhase.WaitingToStart) return;
+
+        if (Input.GetKeyDown(KeyCode.F9)) _debugPendingWinner = 0;
+        if (Input.GetKeyDown(KeyCode.F10)) _debugPendingWinner = 1;
+
+        if (Input.GetKeyDown(KeyCode.F12))
+        {
+            // Nhồi điểm cho đội Host tới sát ngưỡng vô địch, rồi cho họ thắng round kế.
+            // Làm vậy thay vì nhảy thẳng vào MatchEnd để đường code chạy y HỆT một trận
+            // thật: cộng điểm -> xét thắng chung cuộc -> MatchEnd -> về menu. Test một
+            // đường tắt không đi qua đúng các bước đó thì test xong vẫn không biết gì.
+            PlayerHealth me = FPSMovement.Local != null
+                ? FPSMovement.Local.GetComponent<PlayerHealth>()
+                : null;
+
+            int team = me != null ? me.Team : 0;
+
+            if (team == 0)
+            {
+                RedScore = pointsToWin - 1;
+                BlueScore = Mathf.Max(0, pointsToWin - 1 - requiredLead);
+            }
+            else
+            {
+                BlueScore = pointsToWin - 1;
+                RedScore = Mathf.Max(0, pointsToWin - 1 - requiredLead);
+            }
+
+            _debugPendingWinner = team;
+            Debug.LogWarning($"[TEST] F12 - nhồi tỉ số {RedScore}-{BlueScore}, cho đội {team} thắng round cuối.");
+        }
+    }
+
+    /// <summary>
+    /// Thực thi yêu cầu của phím tắt test. Gọi từ FixedUpdateNetwork, KHÔNG gọi từ Update.
+    ///
+    /// ⚠️ EndRound() đặt TickTimer và dẫn tới việc dựng lại toàn bộ vật thể bằng
+    /// Teleport() - những thứ Fusion bắt buộc phải chạy trong vòng mô phỏng. Gọi thẳng
+    /// từ Update là sai vòng, và lỗi kiểu đó thường im lặng chứ không báo gì.
+    /// </summary>
+    private void ConsumeDebugRoundRequest()
+    {
+        if (_debugPendingWinner == -99) return;
+
+        int winner = _debugPendingWinner;
+        _debugPendingWinner = -99;
+
+        Debug.LogWarning($"[TEST] Ép kết thúc round, đội thắng = {(winner == 0 ? "ĐỎ" : "XANH")}");
+        EndRound(winner);
+    }
+#endif
 
     private void EndRound(int winnerTeam)
     {

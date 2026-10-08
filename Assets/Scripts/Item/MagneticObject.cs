@@ -85,6 +85,35 @@ public class MagneticObject : NetworkBehaviour
     [Range(0f, 1f)]
     public float groundHitSpeedRetain = 0.85f;
 
+    [Header("Rơi khỏi map - tự về chỗ cũ")]
+    [Tooltip("Rơi khỏi đảo bao nhiêu giây thì vật tự quay về đúng chỗ đặt ban đầu. " +
+             "Đặt 0 để tắt.\n\n" +
+             "⚠️ VÌ SAO CẦN: map chỉ có 38 vật thể, mà đánh nhau thì vật bay khỏi rìa đảo " +
+             "liên tục. Không có cái này thì càng về cuối round càng sạch đạn, và trận đấu " +
+             "biến thành hai người đấm tay không - đúng lúc lẽ ra phải căng nhất.\n\n" +
+             "20 giây là cố ý CHẬM: đủ lâu để việc hất vật của địch xuống vực vẫn là một " +
+             "nước đi có giá trị, nhưng không lâu tới mức map cạn đạn.")]
+    public float fallRespawnDelay = 5f;   // ⚠️ TẠM 5 giây để test (26/09). Bản chơi thật: 20.
+
+    [Tooltip("Thấp hơn độ cao này thì coi như đã rơi khỏi map. Để 0 thì tự lấy theo " +
+             "GameManager.killZoneY (cùng mốc dùng cho người chơi).")]
+    public float fallRespawnY = 0f;
+
+    [Tooltip("Vật hiện lại bằng cách phình từ nhỏ lên cỡ thật trong bấy nhiêu giây. " +
+             "Đặt 0 để nó hiện tức thì.\n\n" +
+             "⚠️ VÌ SAO CẦN HIỆU ỨNG: vật bỗng xuất hiện từ hư không thì người chơi đọc " +
+             "thành LỖI GAME, không phải 'được tiếp tế'. Một cú phình 0.28 giây kèm vòng " +
+             "sáng là đủ để mắt hiểu đây là chuyện có chủ đích.")]
+    public float returnPopDuration = 0.28f;
+
+    [Tooltip("Phình vượt cỡ thật bao nhiêu lần rồi mới co về. 1 = không vượt.\n\n" +
+             "Vượt một chút rồi lún lại là mẹo cũ của hoạt hình: nó làm vật có vẻ CÓ KHỐI " +
+             "LƯỢNG, thay vì chỉ là một cái ảnh được phóng to.")]
+    public float returnPopOvershoot = 1.12f;
+
+    [Tooltip("Bán kính vòng sáng lúc vật hiện lại, mét.")]
+    public float returnRingRadius = 1.6f;
+
     [Header("Ngủ đông - nằm bất động khi không ai đụng tới")]
     [Tooltip("Bật thì vật tự khoá cứng tại chỗ khi đã đứng yên, và tự tỉnh khi bị tác động. " +
              "Tắt nếu muốn vật lăn tự do như vật lý bình thường.")]
@@ -175,6 +204,11 @@ public class MagneticObject : NetworkBehaviour
     [Networked, OnChangedRender(nameof(OnExploded))]
     private int ExplodeCount { get; set; }
 
+    // Đếm số lần vật được trả về chỗ cũ sau khi rơi khỏi map. Bản thân con số vô nghĩa,
+    // nó chỉ tồn tại để mỗi lần trả về là giá trị đổi -> mọi máy cùng chạy hiệu ứng.
+    [Networked, OnChangedRender(nameof(OnReturnedHome))]
+    private int ReturnCount { get; set; }
+
     // Đang ngủ đông (khoá cứng tại chỗ) hay không.
     //
     // Vì sao phải [Networked] chứ không để mỗi máy tự quyết: Client cũng phải biết vật
@@ -238,6 +272,12 @@ public class MagneticObject : NetworkBehaviour
 
     // Chỗ đứng ban đầu trên map, ghi lại lúc vừa sinh ra để sang round mới trả về đúng đây.
     private Vector3 _originalPosition;
+
+    // Mốc thời gian vật được trả về chỗ cũ sau khi rơi. -1 = không đang đếm.
+    private float _fallDeadline = -1f;
+
+    // Thời gian còn lại của cú phình lúc vật hiện lại. -1 = không có cú phình nào.
+    private float _popTime = -1f;
     private Quaternion _originalRotation;
 
     // Vừa đập vào môi trường ở khung vật lý trước -> tick tới giảm bớt cú nảy lên.
@@ -318,6 +358,10 @@ public class MagneticObject : NetworkBehaviour
     /// <param name="onlyShrink">Bật thì vật vốn đã nhỏ hơn cỡ chuẩn sẽ được giữ nguyên, không phóng to lên.</param>
     public void ApplyHeldScale(float targetSize, float targetThickness, bool onlyShrink)
     {
+        // Vật vừa bị cầm lên giữa lúc đang phình ra -> bỏ cú phình đi, nếu không nó sẽ
+        // ghi đè lên cỡ cầm tay ở khung hình kế tiếp. Xem CancelReturnPop().
+        CancelReturnPop();
+
         if (targetSize <= 0f) return;
 
         Renderer rend = GetComponentInChildren<Renderer>();
@@ -798,6 +842,9 @@ public class MagneticObject : NetworkBehaviour
         // 1b. TNT ĐANG BAY: tự nổ khi có người tới gần
         CheckTntProximity();
 
+        // 1c. RƠI KHỎI MAP: đếm ngược rồi trả vật về chỗ cũ
+        CheckFallRecovery();
+
         // 2. NGỦ ĐÔNG
         UpdateSleepState();
     }
@@ -1112,6 +1159,136 @@ public class MagneticObject : NetworkBehaviour
     /// CHỈ HOST chạy hàm này (FixedUpdateNetwork đã chặn sẵn), nên quyết định nổ là duy
     /// nhất và mọi máy nhận cùng một kết quả qua ExplodeCount.
     /// </summary>
+    /// <summary>
+    /// Vật vừa được trả về chỗ cũ - chạy trên MỌI máy. Vẽ hiệu ứng và bắt đầu cú phình.
+    /// </summary>
+    private void OnReturnedHome()
+    {
+        // Màu lơ xanh của hệ từ trường, KHÔNG dùng màu điện tích: vật vừa được xả sạch
+        // điện nên nó đang trung tính, tô màu cực nào cũng là nói dối người chơi.
+        Color tint = new Color(0.35f, 0.85f, 1f);
+
+        CombatVFX.Shockwave(transform.position, returnRingRadius, tint, 0.4f);
+        CombatVFX.Flash(transform.position, Vector3.up, tint, 0.7f, 0.18f);
+
+        AudioManager.ObjectReturn(transform.position);
+
+        if (returnPopDuration > 0f)
+        {
+            _popTime = returnPopDuration;
+            ApplyPopScale(0f);
+        }
+    }
+
+    /// <summary>
+    /// Cú phình từ nhỏ lên cỡ thật, vượt qua một chút rồi lún về. Chỉ là hình ảnh.
+    /// </summary>
+    private void UpdateReturnPop()
+    {
+        if (_popTime < 0f) return;
+
+        // Bị cất vào túi hoặc vừa nổ ngay giữa cú phình -> bỏ dở, trả cỡ gốc.
+        if (IsStored || IsDestroyed)
+        {
+            CancelReturnPop();
+            return;
+        }
+
+        _popTime -= Time.deltaTime;
+
+        if (_popTime <= 0f)
+        {
+            CancelReturnPop();
+            return;
+        }
+
+        ApplyPopScale(1f - _popTime / Mathf.Max(0.0001f, returnPopDuration));
+    }
+
+    private void ApplyPopScale(float t01)
+    {
+        // 70% đầu: phình từ rất nhỏ lên quá cỡ. 30% sau: lún về đúng cỡ.
+        // Bắt đầu từ 0.15 chứ không phải 0 - cỡ 0 làm lưới biến mất hẳn một khung hình,
+        // nhìn như vật nhấp nháy chứ không phải đang lớn dần.
+        float s = t01 < 0.7f
+            ? Mathf.SmoothStep(0.15f, returnPopOvershoot, t01 / 0.7f)
+            : Mathf.Lerp(returnPopOvershoot, 1f, (t01 - 0.7f) / 0.3f);
+
+        transform.localScale = _originalScale * s;
+    }
+
+    /// <summary>
+    /// Dừng cú phình và trả cỡ gốc NGAY.
+    ///
+    /// ⚠️ PHẢI GỌI KHI VẬT BỊ CẦM LÊN. Cầm vật lên thì nó được thu nhỏ còn heldObjectSize,
+    /// mà việc thu nhỏ đó chỉ chạy ĐÚNG MỘT LẦN lúc vừa cầm. Nếu cú phình còn đang chạy,
+    /// khung hình kế tiếp nó ghi đè lên cỡ vừa thu, và vật sẽ nằm nguyên cỡ thật trên tay
+    /// cho tới khi buông ra - che kín màn hình.
+    /// </summary>
+    public void CancelReturnPop()
+    {
+        if (_popTime < 0f) return;
+
+        _popTime = -1f;
+        transform.localScale = _originalScale;
+    }
+
+    /// <summary>
+    /// Vật rơi khỏi đảo thì sau fallRespawnDelay giây tự quay về đúng chỗ đặt ban đầu.
+    ///
+    /// KHÔNG spawn vật mới, chỉ dời vật cũ về - nên không bao giờ sai prefab (5 prefab
+    /// khác nhau cùng thuộc loại Normal, spawn lại là ra nhầm cái), không tốn thêm
+    /// NetworkObject, và số vật trên map luôn đúng bằng số đã đặt tay trong Editor.
+    ///
+    /// Dùng lại ResetForNewRound() thay vì viết đường riêng: nó đã làm đúng mọi việc cần
+    /// làm - dừng vận tốc, Teleport để máy khác không thấy vật bay ngang map, trả cỡ,
+    /// xả điện, gỡ tư cách đạn. Vật quay về là một viên đạn sạch, y như đầu round.
+    ///
+    /// Chỉ Host chạy (FixedUpdateNetwork đã chặn sẵn), nên đồng hồ đếm để ở biến thường,
+    /// không cần [Networked]: máy khác không cần biết vật sắp về, chúng chỉ thấy kết quả.
+    /// </summary>
+    void CheckFallRecovery()
+    {
+        if (fallRespawnDelay <= 0f) return;
+
+        // Đang nằm trong túi hoặc đã nổ thì không tính - hai trạng thái đó do round mới lo.
+        if (IsStored || IsDestroyed) return;
+
+        float limit = fallRespawnY;
+        if (Mathf.Approximately(limit, 0f))
+        {
+            limit = GameManager.Instance != null ? GameManager.Instance.killZoneY : -20f;
+        }
+
+        // Còn trên map -> huỷ đồng hồ. Vật được hút ngược lên trong lúc đang đếm thì
+        // coi như chưa từng rơi.
+        if (transform.position.y > limit)
+        {
+            _fallDeadline = -1f;
+            return;
+        }
+
+        if (_fallDeadline < 0f)
+        {
+            _fallDeadline = Runner.SimulationTime + fallRespawnDelay;
+            return;
+        }
+
+        if (Runner.SimulationTime < _fallDeadline) return;
+
+        _fallDeadline = -1f;
+        ResetForNewRound();
+
+        // Báo cho MỌI máy biết để chạy hiệu ứng hiện lại.
+        //
+        // Dùng bộ đếm + OnChangedRender thay vì RPC, đúng khuôn LaunchCount / ExplodeCount
+        // / DashCount: Host chỉ tăng một con số, máy nào cũng tự thấy nó đổi và tự vẽ lấy.
+        // Không tốn một byte nào cho riêng hiệu ứng.
+        ReturnCount++;
+
+        Debug.Log($"<color=#88CCFF>[VẬT THỂ] {name} rơi khỏi map, đã trả về chỗ cũ.</color>");
+    }
+
     void CheckTntProximity()
     {
         if (CurrentType != ObjectType.TNT) return;
@@ -1157,6 +1334,10 @@ public class MagneticObject : NetworkBehaviour
     /// </summary>
     public override void Render()
     {
+        // PHẢI chạy TRƯỚC mọi lệnh return bên dưới: phần vệt sáng có vài đường thoát sớm,
+        // rơi vào một trong số đó là cú phình đứng hình giữa chừng và vật kẹt ở cỡ nhỏ.
+        UpdateReturnPop();
+
         bool want = isMovingAsBullet && bulletTrailTime > 0f && !IsStored && !IsDestroyed;
 
         if (want == _trailOn && _trail != null) return;

@@ -612,21 +612,13 @@ public class HUDController : MonoBehaviour
                 break;
 
             case GameManager.GamePhase.MatchEnd:
-                // Trận bị huỷ vì có người thoát -> nói rõ LÝ DO, không hiện đội thắng.
+                // Kết thúc TRẬN giờ do MatchResultPanel lo: nó hiện VICTORY / DEFEAT /
+                // MATCH CANCELLED chiếm cả màn hình, kèm tỉ số và đồng hồ về menu.
                 //
-                // Thiếu nhánh này thì trận huỷ sẽ hiện "BLUE TEAM WINS!" (vì MatchWinner
-                // bằng -1, khác 0), tức là báo sai người thắng - vừa khó hiểu vừa gây ức chế
-                // cho đội đang dẫn điểm.
-                if (gm.MatchAbandoned)
-                {
-                    SetAnnouncement("MATCH CANCELLED\nA PLAYER LEFT THE GAME");
-                }
-                else
-                {
-                    SetAnnouncement(gm.MatchWinner == 0
-                        ? "RED TEAM WINS!"
-                        : "BLUE TEAM WINS!");
-                }
+                // Dòng thông báo nhỏ ở đây phải TẮT, không thì hai thứ hiện chồng lên nhau.
+                // Nó cũng từng nói sai thứ cần nói: "RED TEAM WINS" cho biết đội nào thắng
+                // chứ không cho biết NGƯỜI ĐANG XEM thắng hay thua.
+                SetAnnouncement("");
                 break;
 
             default:

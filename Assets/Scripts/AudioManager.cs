@@ -39,6 +39,13 @@ public class AudioManager : MonoBehaviour
     public AudioClip sfxExplosion;    // TNT nổ
     public AudioClip sfxConvertTNT;   // chai xăng chế vật thành TNT
 
+    [Tooltip("Tiếng vật thể quay lại map sau khi rơi khỏi đảo. Để trống thì im lặng, " +
+             "không lỗi.\n\n" +
+             "Nên tìm một tiếng ngắn kiểu 'dịch chuyển' hoặc 'nạp năng lượng', dưới 1 giây. " +
+             "Tiếng này phát ở VỊ TRÍ vật nên người đứng xa nghe nhỏ - đó là chủ ý, nó là " +
+             "tin tức cục bộ chứ không phải thông báo toàn map.")]
+    public AudioClip sfxObjectReturn;
+
     [Header("Vòng đấu")]
     public AudioClip sfxBuyPhase;     // bắt đầu pha chuẩn bị
     public AudioClip sfxRoundStart;   // rào hạ, vào chiến đấu
@@ -361,6 +368,9 @@ public class AudioManager : MonoBehaviour
     public static void Launch(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxLaunch, pos); }
     public static void Explosion(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxExplosion, pos, 1.2f); }
     public static void ConvertTNT(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxConvertTNT, pos); }
+
+    /// <summary>Vật thể rơi khỏi map vừa được trả về chỗ cũ.</summary>
+    public static void ObjectReturn(Vector3 pos) { if (Instance != null) Instance.PlayAt(Instance.sfxObjectReturn, pos); }
 
     // Mỗi mốc của trận phát HAI thứ: tiếng hiệu (chuông, còi...) rồi tới giọng đọc.
     // Ô nào để trống thì phần đó im, nên gán một trong hai cũng chạy được.
