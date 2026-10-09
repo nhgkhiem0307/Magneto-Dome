@@ -459,11 +459,33 @@ public class PlayerAnimatorDriver : MonoBehaviour
             // Bỏ qua thứ vốn không đổ bóng (hiệu ứng, UI trong thế giới...)
             if (r.shadowCastingMode == ShadowCastingMode.Off) continue;
 
-            // ShadowsOnly = vô hình nhưng vẫn đổ bóng.
-            // Off = biến mất hoàn toàn, kể cả bóng.
-            r.shadowCastingMode = hideOwnShadow
-                ? ShadowCastingMode.Off
-                : ShadowCastingMode.ShadowsOnly;
+            // ⚠️ ĐỪNG DÙNG ShadowCastingMode.Off ĐỂ GIẤU - LỖI ĐÃ GẶP, SỬA 09/10.
+            //
+            // Hai hằng số này KHÔNG phải hai mức độ giấu như tên gọi gợi ý:
+            //   ShadowsOnly = KHÔNG vẽ tấm da, chỉ ghi vào bản đồ bóng  -> VÔ HÌNH
+            //   Off         = VẪN VẼ tấm da bình thường, chỉ bỏ đổ bóng -> HIỆN NGUYÊN
+            //
+            // Bản cũ hiểu ngược: thấy ô "ẩn cả bóng" bật thì đặt Off, tưởng giấu kỹ hơn.
+            // Thực tế thân nhân vật hiện nguyên ngay trước mắt, và vì mặt phẳng cắt gần
+            // của camera nằm GIỮA lồng ngực nên nó bị cắt hở - nhìn xuống thấy thân mình
+            // như ảnh chụp X-quang.
+            if (hideOwnShadow)
+            {
+                // Vô hình VÀ không đổ bóng.
+                //
+                // Dùng forceRenderingOff chứ không phải enabled = false: PlayerHealth
+                // cũng bật/tắt enabled khi chết và hồi sinh, đụng vào cùng thuộc tính thì
+                // hồi sinh xong thân mình hiện lại. forceRenderingOff là ô riêng, không
+                // ai khác đụng tới.
+                r.forceRenderingOff = true;
+            }
+            else
+            {
+                // Vô hình nhưng GIỮ bóng đổ - góc nhìn thứ nhất bớt cảm giác camera bay
+                // lơ lửng. Đổi lại, bóng vung tay theo animation góc nhìn thứ ba sẽ không
+                // khớp với tay viewmodel đang giơ trước mặt.
+                r.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+            }
         }
     }
 

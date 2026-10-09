@@ -142,6 +142,13 @@ MonoBehaviour:
   bulletGravityMultiplier: 2
   groundNormalThreshold: 0.5
   groundHitSpeedRetain: 0.85
+  startPolarity: 0
+  freezeInAir: 0
+  fallRespawnDelay: 5
+  fallRespawnY: 0
+  returnPopDuration: 0.28
+  returnPopOvershoot: 1.12
+  returnRingRadius: 1.6
   enableAutoSleep: 1
   sleepSpeedThreshold: 0.4
   sleepDelay: 0.6

@@ -85,6 +85,19 @@ public class MagneticObject : NetworkBehaviour
     [Range(0f, 1f)]
     public float groundHitSpeedRetain = 0.85f;
 
+    [Header("Dựng cảnh để chụp ảnh (poster, icon)")]
+    [Tooltip("Vào trận là vật này tự mang sẵn điện tích đã chọn, khỏi phải chạy tới nạp tay.\n\n" +
+             "Điện tích là giá trị ĐỒNG BỘ QUA MẠNG nên không đặt sẵn trong scene được - " +
+             "chỉ máy chủ mới có quyền ghi, và nó chỉ tồn tại khi trận đã bắt đầu. Ô này " +
+             "là cách đặt trước ý muốn, để máy chủ áp dụng ngay lúc vật sinh ra.\n\n" +
+             "Để None cho mọi vật trong bản nộp. Chỉ bật trên đúng vài vật đang cần chụp.")]
+    public Polarity startPolarity = Polarity.None;
+
+    [Tooltip("Vật đứng yên lơ lửng tại chỗ đặt, không rơi, không lăn.\n\n" +
+             "Dùng khi muốn chụp vật ở đúng một vị trí và một góc xoay - thả tự do thì nó " +
+             "rơi xuống đất và lăn mất góc đẹp. Nhớ TẮT lại sau khi chụp xong.")]
+    public bool freezeInAir = false;
+
     [Header("Rơi khỏi map - tự về chỗ cũ")]
     [Tooltip("Rơi khỏi đảo bao nhiêu giây thì vật tự quay về đúng chỗ đặt ban đầu. " +
              "Đặt 0 để tắt.\n\n" +
@@ -93,7 +106,7 @@ public class MagneticObject : NetworkBehaviour
              "biến thành hai người đấm tay không - đúng lúc lẽ ra phải căng nhất.\n\n" +
              "20 giây là cố ý CHẬM: đủ lâu để việc hất vật của địch xuống vực vẫn là một " +
              "nước đi có giá trị, nhưng không lâu tới mức map cạn đạn.")]
-    public float fallRespawnDelay = 5f;   // ⚠️ TẠM 5 giây để test (26/09). Bản chơi thật: 20.
+    public float fallRespawnDelay = 20f;
 
     [Tooltip("Thấp hơn độ cao này thì coi như đã rơi khỏi map. Để 0 thì tự lấy theo " +
              "GameManager.killZoneY (cùng mốc dùng cho người chơi).")]
@@ -330,11 +343,42 @@ public class MagneticObject : NetworkBehaviour
             IsSleeping = enableAutoSleep;
         }
 
+        // Dựng cảnh chụp ảnh: nạp sẵn điện và ghim vật tại chỗ nếu có yêu cầu.
+        ApplyPhotoSetup();
+
         // Áp màu, hào quang và trạng thái ẩn/hiện theo dữ liệu hiện tại.
         // Gọi ở đây để vật thể vào trận muộn vẫn hiển thị đúng.
         OnPolarityChanged();
         ApplyStoredState();
         ApplySleepState();
+    }
+
+    /// <summary>
+    /// Hai ô phục vụ việc chụp ảnh poster và icon: nạp điện sẵn, và ghim vật lơ lửng.
+    ///
+    /// Chỉ Host chạy, vì điện tích là giá trị đồng bộ qua mạng. Khi chụp ảnh thì bạn
+    /// chính là Host nên không vấn đề gì.
+    ///
+    /// ⚠️ NHỚ TẮT TRƯỚC KHI NỘP. Một vật mang sẵn điện tích từ đầu round là một món quà
+    /// miễn phí cho ai đứng gần nó - phá cân bằng mà rất khó phát hiện khi chơi.
+    /// </summary>
+    private void ApplyPhotoSetup()
+    {
+        if (!HasStateAuthority) return;
+
+        if (startPolarity != Polarity.None) currentPolarity = startPolarity;
+
+        if (freezeInAir && rb != null)
+        {
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+
+            // Tắt luôn ngủ đông: hệ thống đó cũng bật tắt kinematic, để nguyên thì nó
+            // giành quyền với ô này và vật có thể rơi xuống giữa chừng.
+            enableAutoSleep = false;
+        }
     }
 
     // --- KÍCH THƯỚC KHI CẦM TRÊN TAY ---
@@ -1618,5 +1662,12 @@ public class MagneticObject : NetworkBehaviour
             IsSleeping = true;
             ApplySleepState();
         }
+
+        // ĐẶT LẠI CẢNH CHỤP SAU KHI RESET - nếu không thì hai ô kia vô dụng.
+        //
+        // Hàm này xả sạch điện tích và bỏ kinematic cho MỌI vật, và nó chạy ở ĐẦU MỖI
+        // ROUND - tức ngay sau khi vật vừa sinh ra. Nghĩa là mọi thiết lập chụp ảnh đặt
+        // lúc Spawned() đều bị xoá trước khi người chơi kịp nhìn thấy.
+        ApplyPhotoSetup();
     }
 }
