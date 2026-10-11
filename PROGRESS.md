@@ -89,6 +89,137 @@ Hướng thứ hai kèm làm mượt (`Lerp` vị trí) có lẽ là đúng nh�
 
 ---
 
+## 🔥 Ngày 11/10 — TỤT LẠI CÒN 27 FPS, TÌM RA LÀ DO BIỂN MÂY
+
+**Đợt tối ưu thứ hai. Đọc cùng chương 01/09 bên dưới — hai đợt này ghép lại thành câu
+chuyện hoàn chỉnh cho mục 3.5 báo cáo: tối ưu xong rồi vẫn có thể tụt lại vì tính năng mới.**
+
+### Triệu chứng
+Đo bằng Xbox Game Bar trên bản build, **chạy một bản duy nhất**, CPU và RAM đều còn dư:
+**trung bình 27 FPS**, đỉnh khoảng 30. Trong khi mốc đo ngày 01/09 là **56 FPS**.
+
+### Suy luận
+CPU còn dư mà khung hình vẫn thấp ⇒ **nghẽn ở GPU**. Mà GPU nghẽn trong khi scene chỉ có
+**1 đèn thời gian thực** và khoảng 1 triệu tam giác ⇒ không phải ánh sáng, không phải hình
+học ⇒ còn lại **fill rate** (tô pixel).
+
+Git cho biết sau mốc 01/09 có 8 script mới, trong đó commit **14/09 "mây quanh đảo"** thêm
+`CloudBank` — đúng loại tải gây nghẽn fill rate.
+
+### Vì sao biển mây đắt
+
+| Ô | Trước | Vấn đề |
+|---|---|---|
+| `puffCount` | 700 | 700 tấm phẳng **trong suốt** xếp chồng → overdraw khổng lồ |
+| `puffSizeFar` | 150 | Mỗi tấm phủ một mảng lớn màn hình |
+| `softParticles` | bật | Bắt bật ảnh độ sâu + đọc độ sâu cho **từng pixel mây** |
+
+Nặng thêm: cả biển mây là **một mesh duy nhất** có hộp bao rộng ~2400 đơn vị, nên Unity
+**không bao giờ cắt bỏ được phần ngoài tầm nhìn** — quay đi đâu cũng vẽ đủ.
+
+Chính tooltip trong `CloudBank.cs` đã ghi sẵn: *"`puffCount` — ĐÂY LÀ Ô CỨU HỘ KHI TỤT FPS."*
+
+### Đã sửa ngày 11/10
+
+| Ô | Trước | Sau | Ở đâu |
+|---|---|---|---|
+| `puffCount` | 700 | **320** | `TestScene` → `CloudBank` |
+| `puffSizeFar` | 150 | **125** | `TestScene` → `CloudBank` |
+| `softParticles` | 1 | **0** | `TestScene` → `CloudBank` |
+| Camera `Anti-aliasing` | SMAA | **None** | `Player.prefab` → Camera |
+
+⚠️ **Ô khử răng cưa là lỗi trả tiền hai lần.** `PC_RPAsset` đã bật **MSAA 2×** (phần cứng),
+mà camera lại bật thêm **SMAA** (một lượt xử lý toàn màn hình nữa) — hai thứ làm cùng một
+việc. Bỏ SMAA **không mất gì về hình ảnh** vì MSAA vẫn chạy.
+
+### Đã loại trừ, khỏi mất công tìm lại
+- **Hậu xử lý**: `MotionBlur` có `intensity = 0` nên URP bỏ qua hẳn. `TestScene` không có `Volume` nào.
+- **Viền sáng QuickOutline**: mặc định `enabled = false`, chỉ bật khi vật được nạp điện.
+- **Đèn điểm theo vật** (`MagneticAura.auraPointLight`): không prefab đạn nào gán.
+
+### Kết quả đợt 1: 27 → **38 FPS**
+
+Khá hơn nhưng vẫn dưới mốc 56 của ngày 01/09. Đào tiếp mới lòi ra nguyên nhân thật.
+
+### 🎯 NGUYÊN NHÂN LỚN NHẤT: ĐANG ĐO Ở 1440p, KHÔNG PHẢI 1080p
+
+Máy thử nghiệm: **AMD Radeon RX 6600**, i5-12400F, màn hình **2560 × 1440**.
+
+Card này thừa sức chạy game low-poly. Vấn đề là `ProjectSettings.defaultIsNativeResolution`
+đang bật, nên **bản build tự mở ở đúng độ phân giải màn hình** — tức 1440p.
+
+| Độ phân giải | Số điểm ảnh | So với 1080p |
+|---|---|---|
+| 2560 × 1440 | 3.686.400 | **178%** |
+| 1920 × 1080 | 2.073.600 | 100% |
+
+Game đang nghẽn ở khâu tô điểm ảnh, nên FPS gần như **tỉ lệ nghịch với số điểm ảnh**.
+38 FPS ở 1440p quy về 1080p là khoảng **67 FPS** — tức chỉ tiêu ≥60 đạt được, chỉ là
+trước giờ đo nhầm chỗ.
+
+→ **Đã đổi `defaultIsNativeResolution` thành `0`** (11/10). Bản build giờ luôn mở ở
+**1920 × 1080**, không phụ thuộc màn hình của người chấm. Người chơi vẫn đổi được trong
+`Settings → Resolution` (dropdown đã gán sẵn ở cả hai scene).
+
+> 📌 **Bài học cho báo cáo: chỉ tiêu FPS phải đi kèm độ phân giải.** Ghi "≥60 FPS" mà
+> không nói ở độ phân giải nào là câu không kiểm chứng được. Ghi
+> **"≥60 FPS ở 1920×1080"** mới là một chỉ tiêu đúng nghĩa.
+
+### 🎯 THỦ PHẠM THỨ HAI: SSAO CHẠY Ở ĐỘ PHÂN GIẢI ĐẦY ĐỦ
+
+GPU báo **96% tải** mà chỉ ra 38 FPS trên một RX 6600 với scene low-poly — con số đó tự nó
+nói rằng còn thứ gì đó nặng bất thường, không phải chỉ tại độ phân giải.
+
+Tìm ra: `PC_Renderer.asset` đang bật **Screen Space Ambient Occlusion**, với cấu hình đắt
+gần như tối đa:
+
+| Ô | Giá trị | Vì sao đắt |
+|---|---|---|
+| `Downsample` | **0** | AO tính ở **độ phân giải đầy đủ** — tức toàn bộ 1440p |
+| `AOMethod` | **0** = Blue Noise | Phương pháp đẹp hơn nhưng nặng hơn Interleaved Gradient |
+| `Source` | **1** = DepthNormals | **Bắt vẽ lại TOÀN BỘ hình học một lượt nữa** để lấy depth + normal |
+| `AfterOpaque` | **0** | Chạy trước pha opaque nên lượt vẽ phụ kia là bắt buộc |
+| `BlurQuality` | **0** = High | Lượt làm mờ đắt nhất |
+
+Nặng nhất là dòng `Source: DepthNormals`: hòn đảo ~1 triệu tam giác **bị raster hoá hai
+lần mỗi khung hình**, một lần cho prepass của SSAO và một lần cho pha vẽ thật. Cộng thêm
+lượt AO toàn màn hình và lượt blur chất lượng cao, ở 1440p là vài mili giây mỗi khung.
+
+→ **Đã TẮT (`m_Active: 0`) ngày 11/10.**
+
+Với tạo hình low-poly, một đèn định hướng và bầu trời sáng, `Intensity` chỉ 0.4 — phần
+bóng tiếp xúc trong khe gần như không nhìn thấy. Không đáng đánh đổi một phần tư ngân
+sách khung hình.
+
+> 🔁 **Muốn bật lại mà vẫn nhẹ:** `Downsample: 1` *(AO ở nửa độ phân giải)* ·
+> `AOMethod: 1` *(Interleaved Gradient)* · `BlurQuality: 2` *(Low)*. Bộ này rẻ hơn khoảng
+> bốn lần mà nhìn gần như không khác.
+
+### ✅ KẾT QUẢ CUỐI: 85 FPS
+
+| Mốc | FPS | Hoàn cảnh |
+|---|---|---|
+| Trước đợt 1 | **27** | 2560×1440, SSAO bật, 700 cụm mây |
+| Sau khi dọn mây + bỏ SMAA | **38** | 2560×1440 |
+| Sau khi tắt SSAO + về 1920×1080 | **85** | 1920×1080, bản đóng gói |
+
+**Vượt chỉ tiêu ≥60.** Ghi vào báo cáo là **"85 FPS ở 1920×1080"** — luôn kèm độ phân giải,
+vì chính bản build đó chạy ở 1440p chỉ được 38.
+
+Đã điền vào: `BaoCao_MagnetoDome.docx` *(bảng nghiệm thu + đoạn mục 3.5)* và
+`Slide_MagnetoDome.pptx` *(slide 7 và slide 4)*.
+
+### Nếu vẫn chưa đủ, hạ tiếp theo thứ tự này
+1. `CloudBank.outerRadius` 500 → 380
+2. `PC_RPAsset.m_SoftShadowQuality` 3 → 1
+3. `PC_RPAsset.m_MainLightShadowmapResolution` 2048 → 1024
+4. `PC_RPAsset.m_MSAA` 2 → Disabled *(lúc này mới bật lại FXAA trên camera)*
+
+> 📏 **Đo ở cùng một chỗ đứng, cùng hướng nhìn** — tốt nhất đứng giữa đảo nhìn ra chân
+> trời, chỗ nhiều mây nhất. Khác góc nhìn thì các con số không so với nhau được.
+
+---
+
 ## 🚀 Ngày 01/09 — TỐI ƯU HIỆU NĂNG (chương hay nhất cho báo cáo)
 
 **Kết quả: 20 FPS → 56 FPS, 7 triệu tam giác → 1 triệu.** Đây là câu chuyện có số liệu

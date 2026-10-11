@@ -6,6 +6,9 @@ Ngôn ngữ làm việc: **tiếng Việt** (cả trao đổi lẫn comment tron
 > 📌 **Đang làm tới đâu → xem [PROGRESS.md](PROGRESS.md).**
 > File CLAUDE.md này chứa *đặc tả và quy tắc* (ít thay đổi).
 > File PROGRESS.md chứa *tiến độ* (cập nhật liên tục). Đọc cả hai trước khi bắt tay vào việc.
+>
+> 📋 **Sửa bất cứ thứ gì thì phải cập nhật tài liệu liên quan ngay** — bảng tra cứu
+> "sửa cái gì → sửa file nào" nằm ở **Mục 6**, kèm danh sách toàn bộ tài liệu của project.
 
 ---
 
@@ -22,8 +25,8 @@ Ngôn ngữ làm việc: **tiếng Việt** (cả trao đổi lẫn comment tron
 | Deadline | Khoảng **giữa tháng 9/2026** (7 tuần tính từ 29/07/2026) |
 | Phạm vi bắt buộc | Gameplay hoàn chỉnh + thắng/thua + UI + hình ảnh + âm thanh |
 
-### Về file GDD.txt
-GDD là bản nháp **hơi sơ sài và không bắt buộc phải bám sát**. Khi GDD mâu thuẫn với thực tế code hoặc với quyết định gần đây của chủ project, **ưu tiên quyết định của chủ project**. Các mục đã chốt được ghi lại ở Mục 4 bên dưới — dùng mục đó làm chuẩn.
+### Về file GDD.md
+GDD *(`GDD.md` ở thư mục gốc — trước đây là `GDD.txt`)* là bản nháp **hơi sơ sài và không bắt buộc phải bám sát**. Khi GDD mâu thuẫn với thực tế code hoặc với quyết định gần đây của chủ project, **ưu tiên quyết định của chủ project**. Các mục đã chốt được ghi lại ở Mục 4 bên dưới — dùng mục đó làm chuẩn.
 
 ---
 
@@ -179,9 +182,9 @@ tác động lên bạn càng mạnh, nên cùng một cú đấm sẽ hất b�
 | Luật | Chi tiết |
 |---|---|
 | Thanh đo | Điện tích `0 → 100`. Đầy 100% **KHÔNG chết** |
-| Lực văng | Nhân tuyến tính `x1.0` (sạch điện) → `x5.0` (đầy điện) |
+| Lực văng | Nhân tuyến tính `x1.0` (sạch điện) → `x4.0` (đầy điện) ⚠️ *mặc định trong code là 5, nhưng `Player.prefab` đang để **4** — Inspector mới là thứ chạy thật* |
 | Cái chết **duy nhất** | Rơi khỏi đảo (`GameManager.CheckKillZone`) |
-| Hết giờ Combat (90s) | Đội có **tổng điện tích thấp hơn** thắng round. Người đã rơi tính là đầy 100 |
+| Hết giờ Combat (**5 phút**) | Đội có **tiến độ chiếm khu cao hơn** thắng round. Bằng nhau thì **HOÀ**, không ai được điểm |
 | Sang round mới | Xả sạch điện về 0 |
 
 **Vì sao đầy điện không chết:** nếu đầy là chết thì đây chỉ là thanh máu chạy ngược, không có gì mới.
@@ -189,7 +192,7 @@ tác động lên bạn càng mạnh, nên cùng một cú đấm sẽ hất b�
 đứng sát rìa với 30% đã là mạo hiểm. Đây là cơ chế phần trăm của Smash Bros. đặt vào FPS từ tính.
 
 **Vì sao pha Combat phải có giới hạn giờ:** không còn ai chết vì hết máu, nên hai bên cùng né rìa vực
-thì round kéo dài vô tận. Đồng hồ 90s là bắt buộc, không phải tuỳ chọn.
+thì round kéo dài vô tận. Đồng hồ **5 phút** (`combatDuration = 300`) là bắt buộc, không phải tuỳ chọn.
 
 **Hai đường `AddImpact()` phải tách bạch — ĐỪNG GỘP LẠI:**
 
@@ -211,8 +214,9 @@ Nếu nhân hệ số cho cả Dash thì người sắp thua sẽ lướt xa g�
 ⚠️ Knockback khi trúng đạn **trước 09/08 KHÔNG TỒN TẠI** — va chạm chỉ trừ máu rồi thôi.
 Nếu thấy nhân vật không bị đẩy khi trúng đạn thì kiểm tra nhánh `CompareTag("Player")` trước tiên.
 
-**🚫 KHÔNG CÓ SÁT THƯƠNG ĐỒNG ĐỘI** *(chốt 19/09)*. Lý do chính: hết giờ thì đội có
-**tổng điện tích thấp hơn** thắng, nên đánh trúng đồng đội là tự cộng điểm xấu cho đội mình.
+**🚫 KHÔNG CÓ SÁT THƯƠNG ĐỒNG ĐỘI** *(chốt 19/09)*. Lý do chính: mỗi người chết thì
+**đội ĐỐI PHƯƠNG được +8 tiến độ chiếm khu** (`GameManager.deathZoneBonus`), bất kể ai hạ
+người đó. Nên đánh chết đồng đội là tự tặng điểm cho địch, lại còn mất một người giữ khu.
 Mọi chỗ đi qua một hàm duy nhất `PlayerHealth.AreTeammates()`:
 
 | Đòn | Trúng đồng đội |
@@ -237,11 +241,27 @@ nhận vào, ngay đầu `TakeDamage()` trước cả giáp. Muốn chỉnh đ�
 Trên map cube hiện tại gần như không ai chết, mọi round kết thúc bằng hết giờ — **đó là dấu hiệu
 map chưa sẵn sàng, không phải mode hỏng.**
 
-### Vòng đấu & Điều kiện thắng (BẢN CHÍNH THỨC — theo GDD FR-7)
+### Vòng đấu & Điều kiện thắng (ĐỐI CHIẾU VỚI CODE 10/10/2026)
 
-- Thắng 1 round = **hạ gục toàn bộ đội đối phương** *(nay là: hất hết họ khỏi đảo)*,
-  **hoặc** tổng điện tích thấp hơn khi hết giờ 90s.
-- Chết là **bị loại khỏi round đó**, hồi sinh khi round sau bắt đầu.
+> ⚠️ **Mục này từng sai suốt một thời gian dài** — vẫn chép luật cũ của GDD trong khi code
+> đã đổi từ 16/08. Dưới đây là luật ĐÃ ĐỐI CHIẾU VỚI `GameManager.cs`. Nếu sau này sửa luật,
+> nhớ sửa luôn cả `GDD.md`, báo cáo và slide — xem bảng tra ở Mục 6.
+
+**Chỉ có HAI đường thắng một round**, cộng khả năng hoà. `EndRound()` chỉ được gọi từ
+`CheckZoneVictory()`, `EndRoundByProgress()` và phím debug — không còn đường nào khác:
+
+| Đường | Chi tiết |
+|---|---|
+| **Chiếm đủ khu** | Tiến độ chạm `100` là thắng round ngay lập tức |
+| **Hết giờ 5 phút** | Đội có tiến độ **cao hơn** thắng (`EndRoundByProgress`) |
+| **Hoà** | Hết giờ mà hai bên bằng tiến độ → không đội nào được điểm |
+
+❌ **KHÔNG còn luật "hạ gục toàn đội địch là thắng round".** Hàm `EndRoundByCharge()` so tổng
+điện tích cũng **đã bị bỏ** — nó vốn chỉ là giải pháp tình thế khi chưa có khu chiếm đóng.
+
+❌ **Chết KHÔNG còn là bị loại khỏi round** *(đổi 16/08)*. Chết chỉ lấy đi **thời gian**
+(hồi sinh sau 5 giây) và **vị trí** (bị đưa về điểm xuất phát), cộng **+8 tiến độ cho đối
+phương**. Nhờ vậy lực văng được phép mạnh tay mà không gây ức chế.
 - Đội thắng round được **+1 điểm**.
 - Thắng chung cuộc: **đạt 5 điểm trước VÀ cách biệt tối thiểu 2 round**.
 - Nếu tỉ số 5-4 → vào **Overtime**, đấu tiếp tới khi một đội hơn 2 round (6-4, 7-5...).
@@ -299,7 +319,10 @@ tới tay. Lấy theo thứ tự LIFO.
 - Region cố định: **`asia`** — **đã cấu hình sẵn** ở `Assets/Photon/Fusion/Resources/PhotonAppSettings.asset` (dòng `FixedRegion: asia`), không phải trong code. Đây là cách làm đúng của Fusion 2, không cần set lại trong `NetworkRunnerHandler`.
 - Vật thể từ tính (bàn, ghế, TNT) **cần đồng bộ vị trí qua mạng** vì chúng chính là "đạn" gây sát thương → sẽ phải trở thành `NetworkObject` + `NetworkRigidbody3D`. Đây là phần nặng và rủi ro nhất.
 - Input: sẽ chuyển sang **New Input System** (package đã cài sẵn), kết hợp với `NetworkInput` struct của Fusion.
-- Mục tiêu phi chức năng: **≥60 FPS**, **ping < 100ms** ở region asia.
+- Mục tiêu phi chức năng: **≥60 FPS ở 1920×1080**, **ping < 100ms** ở region asia.
+  > ✅ **Đã đạt 11/10: 85 FPS** trên bản đóng gói (RX 6600, 1920×1080). Chỉ tiêu FPS
+  > **bắt buộc phải kèm độ phân giải** — cùng bản build đó chạy ở 2560×1440 chỉ được
+  > 38 FPS. Xem chương "Ngày 11/10" trong PROGRESS.md.
 
 ### ⚠️ Bẫy đã gặp khi chuyển sang Fusion — ĐỌC TRƯỚC KHI CHUYỂN SCRIPT MỚI
 
@@ -410,6 +433,59 @@ Chủ project **lần đầu dùng Claude Code và lần đầu dùng AI để l
 - Với thay đổi nhỏ và rõ ràng: sửa luôn, nhưng nói rõ đã sửa gì và tại sao.
 - **Comment trong code viết bằng tiếng Việt** — bám theo phong cách hiện có của codebase.
 
+### 📋 SỬA GÌ THÌ CẬP NHẬT TÀI LIỆU ĐÓ — BẮT BUỘC, KHÔNG CẦN HỎI
+
+**Chốt 10/10/2026 theo yêu cầu của chủ project.**
+
+Mỗi khi thay đổi bất cứ thứ gì — một con số cân bằng, một luật chơi, một script, một
+tài nguyên — thì **cập nhật luôn mọi tài liệu có nhắc tới thứ đó, ngay trong cùng lượt
+làm việc**. Không chờ được nhắc, không để dành "lát nữa làm".
+
+**Vì sao bắt buộc:** tài liệu sai còn tệ hơn không có tài liệu. Một con số cũ nằm trong
+`BALANCE.md` hay trong báo cáo sẽ được tin là đúng, rồi nó đi thẳng vào bài bảo vệ. Lúc
+hội đồng hỏi "số này ở đâu ra" mà mở code lên thấy số khác là mất điểm, trong khi sửa
+một dòng bảng lúc đó chỉ tốn mười giây.
+
+**Cách làm:** sửa xong code thì tra bảng dưới, mở đúng những file được liệt kê, sửa,
+rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
+
+#### Tra cứu: sửa cái gì → phải cập nhật file nào
+
+| Vừa thay đổi | Cập nhật những file này |
+|---|---|
+| **Con số cân bằng** *(Inspector, prefab, hằng số trong code)* | `BALANCE.md` · `CLAUDE.md` Mục 4 nếu số đó có trong đặc tả · `BaoCao_MagnetoDome.docx` Phụ lục A · `Slide_MagnetoDome.pptx` slide 7, 8, 18 |
+| **Luật chơi, cơ chế mới, bỏ cơ chế** | `CLAUDE.md` Mục 4 · `GDD.md` · `BaoCao` chương 2 · `Slide` slide 6–9 |
+| **Phím điều khiển** | `CLAUDE.md` Mục 4 bảng phím · `ControlsOverlay.cs` *(tự đọc KeyCode nên thường không phải sửa, nhưng phải kiểm)* · `TRAILER_SCRIPT.md` nếu ảnh hưởng tới cách quay |
+| **Thêm / xoá / đổi vai trò script** | `CLAUDE.md` Mục 3 *(cây thư mục + bảng đã-networked-chưa)* · `PROGRESS.md` Mục 5 bản đồ code · `Slide` dự phòng 3 |
+| **Tài nguyên bên thứ ba** *(asset, nhạc, font, giọng)* | `CREDITS.md` · `BaoCao` Phụ lục B · `Slide` dự phòng 4 |
+| **Câu thoại / giọng thông báo** | `VOICE_BRIEF.md` · `CREDITS.md` mục 3b |
+| **Thay đổi TẠM để test hoặc chụp ảnh** | `ROLLBACK_TRUOC_KHI_NOP.md` — ghi ngay lúc thay, đừng tin trí nhớ |
+| **Sửa xong một lỗi đã biết** | `CLAUDE.md` Mục 7 · `PROGRESS.md` |
+| **Làm xong một hạng mục** | `PROGRESS.md` |
+| **Bẫy kỹ thuật mới phát hiện** | `CLAUDE.md` Mục 5 *(danh sách bẫy Fusion/vật lý)* |
+
+#### Danh sách tài liệu của project — khỏi phải đi tìm
+
+| File | Chứa gì | Ai đọc |
+|---|---|---|
+| `CLAUDE.md` | Đặc tả và quy tắc. **Ít thay đổi** | Claude, mỗi phiên |
+| `PROGRESS.md` | Tiến độ, nhật ký công việc. **Thay đổi liên tục** | Claude, mỗi phiên |
+| `BALANCE.md` | Toàn bộ con số cân bằng, kèm nơi chỉnh | Chủ project khi cân bằng game |
+| `GDD.md` | Tài liệu thiết kế game | Nộp kèm |
+| `CREDITS.md` | Khai báo tài nguyên bên thứ ba và giấy phép | Nộp kèm, hội đồng hay hỏi |
+| `VOICE_BRIEF.md` | Chỉ đạo giọng ARENA CONTROL, prompt ElevenLabs | Khi làm thêm câu thoại |
+| `TRAILER_SCRIPT.md` | Kịch bản trailer, cách quay, chính sách HUD | Khi quay trailer |
+| `ROLLBACK_TRUOC_KHI_NOP.md` | Mọi thứ phải trả lại trước khi nộp | **Đọc trước khi build bản nộp** |
+| `BaoCao_MagnetoDome.docx` | Báo cáo 48 trang, 4 chương + 2 phụ lục | Nộp chính |
+| `Slide_MagnetoDome.pptx` | 16 slide bảo vệ + 4 slide dự phòng | Buổi bảo vệ |
+| `SlideBuilder/` | **Script sinh ra file .pptx.** Sửa slide thì sửa ở đây rồi chạy lại | Xem `SlideBuilder/README.md` |
+
+⚠️ Hai file `.docx` và `.pptx` là **định dạng nhị phân**, sửa khác với sửa file `.md`:
+- `.docx` — đọc được bằng cách giải nén `word/document.xml`; sửa thì dùng thư viện, hoặc
+  **nói rõ cho chủ project tự sửa tay** nếu chỉ là vài chữ.
+- `.pptx` — **đừng sửa thẳng**, sửa `SlideBuilder/make_slide.js` rồi chạy lại.
+  Nhưng nhớ: chạy lại là **mất ảnh đã chèn vào các khung ảnh**.
+
 ### Giới hạn của Claude — luôn phải nhớ
 
 **Claude không mở được Unity Editor.** Chỉ sửa được file `.cs`. Mọi thao tác sau đây **chủ project phải tự làm**:
@@ -461,7 +537,20 @@ Chủ project dùng linh hoạt cả hai cách:
 ### 🟢 Thiếu tính năng (theo lộ trình, chưa phải lỗi)
 
 - `RadialMenuController.cs` — vẫn là MonoBehaviour thuần, đọc `Input.` trực tiếp (đã vá tạm bằng cách tắt component khi không phải nhân vật mình).
-- Nhãn HUD trong TestScene vẫn ghi "MÁU" dù giờ hiển thị điện tích — cần sửa chữ trong Unity.
+- ~~Nhãn HUD ghi "MÁU"~~ — **đã hết, kiểm lại 10/10.** Quét toàn bộ `TestScene` không
+  còn nhãn nào ghi "MÁU"; các nhãn HUD đều là `New Text` rồi được `HUDController` ghi
+  lúc chạy. *(Lưu ý khi tự kiểm: TextMeshPro lưu chữ ở khoá `m_text` chữ thường,
+  grep `m_Text` kiểu cũ sẽ không ra gì.)*
+- `Canvas / ShopPanel / TitleText / Text` ghi `Buying phase` viết thường, lệch với mọi
+  nhãn khác đang viết hoa. Nhãn tĩnh, code không ghi đè. Sửa chữ trong Unity.
+- ✅ **HỆ SỐ LỰC VĂNG TRÊN HUD — đã xong 11/10.** Trước đó code vẫn chạy nhưng ô
+  `HUDController.knockbackText` để trống nên không bao giờ hiện ra. Nay đã gán:
+  `Canvas / HUD / Group_BottomLeft / KnockbackText`, cỡ chữ 36, màu đỏ `#EE525A`.
+
+  📌 **Nó TỰ ẨN khi chưa nhiễm điện** *(chủ project yêu cầu)*. Ngưỡng là
+  `KnockbackMultiplier >= 1.05f`, không phải `> 1.0f`: chuỗi `:F1` làm tròn một chữ số
+  nên mọi giá trị dưới 1.05 vẫn in ra đúng chữ `x1.0`. Nhờ vậy **không khung hình nào
+  hiện "x1.0"**, và loạt ảnh chụp lúc điện tích bằng 0 trước đó vẫn khớp với bản cuối.
 
 > Các mục cũ ở đây (thanh giáp, kinh tế, Shop, HUD, âm thanh, Settings UI, MatchEnd về menu)
 > **đã làm xong hết** tính tới 05/08. Xem [PROGRESS.md](PROGRESS.md) để biết chính xác còn thiếu gì.
@@ -487,3 +576,38 @@ Máy Client không dính vì ở đó nhân vật Host là proxy, được nội
 `FPSMovement.WalkSpeed01`, `IsGrounded`, `MovingBackward` (cộng lại chưa tới 6 byte/tick).
 → **Bài học chung:** nguyên tắc "suy ra tại chỗ thay vì đồng bộ" của project chỉ đúng khi thứ
 dùng để suy ra là ĐÁNG TIN. Transform trên Host không đáng tin cho việc đo tốc độ.
+
+**12. Lực "đặt lại mỗi tick" gặp cờ "một lần mỗi cú bay" thì sinh ra vòng lặp sát thương** *(bẫy thiết kế — sửa 10/10)*
+Triệu chứng: hút một vật về tay mà có địch đứng chắn đường thì họ **bay khỏi đảo ngay lập tức**,
+mạnh hơn mọi đòn khác nhiều lần.
+→ Nguyên nhân: đường HÚT trong `PlayerMagnetController` đặt lại `linearVelocity` **và** gọi
+`MagneticObject.MarkAsBullet()` **mỗi tick** chừng nào còn giữ chuột. Vật trúng người thì
+`ResetBulletState()` hạ cờ `isMovingAsBullet` — nhưng tick ngay sau đó `MarkAsBullet()` dựng cờ lên
+lại, vật vẫn bị ép tốc độ nên đâm tiếp. Lặp khoảng **60 lần mỗi giây**, mỗi lần đều cộng điện và hất
+văng, mà lực văng lại nhân theo lượng điện (tới ×5) — nên nó tự nhân lên theo cấp số.
+→ Cách chữa: `MagneticObject.HitCooldownTimer` + ô `hitCooldown` (0.6 giây). Trúng người xong thì
+**không được phong làm đạn lại** trong chừng đó. Đặt chốt chặn trong `MarkAsBullet()` chứ không phải
+ở chỗ va chạm, để nó chặn **mọi** đường phong đạn lặp lại, kể cả phản ứng dây chuyền vật đâm vật.
+→ `LaunchAsBullet()` (cú bắn) **cố ý không xét** khoảng khoá này — bắn là hành động một lần, không lặp.
+→ **Bài học chung:** chỗ nào đặt lại trạng thái **mỗi tick** thì mọi cờ "chỉ một lần" đi qua chỗ đó
+đều vô hiệu. Hai cơ chế đó không tự biết về nhau; phải có đồng hồ đứng giữa.
+
+**13. Kiểm `!= null` KHÔNG phải là kiểm "đã spawn"** *(bẫy Fusion — sửa 10/10)*
+Triệu chứng: Console spam liên tục mỗi khung hình
+`InvalidOperationException: Error when accessing PlayerHealth.Team. Networked properties can only be accessed when Spawned() has been called.`
+→ Nguyên nhân: component C# **có mặt ngay khi prefab được tạo**, nhưng Fusion chỉ cho đọc
+thuộc tính `[Networked]` sau khi `Spawned()` chạy. Giữa hai thời điểm đó, `thing != null`
+trả **true** mà `thing.Team` lại **ném exception**. Mọi chỗ trong project kiểm mỗi `!= null`
+rồi đọc thẳng `.Team` đều dính.
+→ Vì sao nó **spam** chứ không báo một lần: chỗ đọc nằm trong `Update()` và kết quả được
+dùng để thoát khỏi trạng thái "chưa biết". Exception làm phép gán không bao giờ hoàn tất,
+nên khung hình sau lại thử lại — vòng lặp vô tận. Thủ phạm gốc là `PlayerVisuals.TryResolveRelation()`.
+→ Cách chữa: `PlayerHealth.NetworkReady` *(đã đổi từ private thành public)* —
+`Object != null && Object.IsValid && Runner != null`. **Đọc bất kỳ thuộc tính `[Networked]`
+nào của `PlayerHealth` từ script khác thì phải kiểm nó trước.** Đã vá 5 chỗ:
+`PlayerVisuals`, `HUDController` (2 chỗ), `MatchResultPanel`, `SpectatorController`.
+→ Hai thời điểm hay dính nhất: **vừa vào trận** (nhân vật người khác đã tạo nhưng chưa spawn
+xong) và **lúc kết thúc trận** (Fusion đang tắt, object đã despawn mà script vẫn chạy `Update`).
+→ **Bài học chung:** với Fusion, "có tồn tại" và "dùng được" là hai chuyện khác nhau.
+Danh sách như `PlayerHealth.AllPlayers` thì an toàn hơn vì chỉ thêm vào trong `Spawned()`,
+nhưng `GetComponent<PlayerHealth>()` thì **không** bảo đảm gì cả.

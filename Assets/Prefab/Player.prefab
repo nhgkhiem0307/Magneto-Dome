@@ -304,7 +304,7 @@ MonoBehaviour:
   m_VolumeTrigger: {fileID: 0}
   m_VolumeFrameworkUpdateModeOption: 2
   m_RenderPostProcessing: 1
-  m_Antialiasing: 2
+  m_Antialiasing: 0
   m_AntialiasingQuality: 2
   m_StopNaN: 0
   m_Dithering: 0
@@ -5467,7 +5467,7 @@ MonoBehaviour:
   cam: {fileID: 8644669993631743010}
   holdPoint: {fileID: 202164235604517974}
   shootRange: 50
-  pullForce: 36
+  pullForce: 49
   pushSpeed: 50
   pushUpwardBias: 0.055
   pushLiftOffset: 0.3
@@ -5484,6 +5484,7 @@ MonoBehaviour:
   meleePushForce: 200
   meleeCooldown: 0.35
   heldObjectSize: 1.2
+  heldObjectThickness: 0.55
   onlyShrinkLargeObjects: 0
   heavyBlockSlowFactor: 0.5
   heavyBlockDamageFactor: 0.5
@@ -5494,6 +5495,7 @@ MonoBehaviour:
   aimAssistRadius: 1.2
   aimAssistAngle: 12
   closeAssistAngle: 70
+  noBlockCheckRange: 2
   fireShakeTrauma: 4
   fireKickStrength: 2
   meleeShakeTrauma: 1
@@ -5538,7 +5540,7 @@ MonoBehaviour:
   mass: 3
   drag: 5
   maxVerticalImpact: 12
-  knockbackMultiplier: 0.975
+  knockbackMultiplier: 0.95
   _SpawnYaw: 0
   _WalkSpeed01: 0
   _IsGrounded:
@@ -5560,6 +5562,9 @@ MonoBehaviour:
   maxCharge: 100
   knockbackAtMaxCharge: 4
   chargeGainMultiplier: 1.5
+  spawnProtectDuration: 2
+  spawnProtectBlinkRate: 8
+  chargeCriticalRatio: 0.8
   hitChargeForFullEffect: 35
   hitMinStrength: 0.3
   hitShakeTrauma: 0.55

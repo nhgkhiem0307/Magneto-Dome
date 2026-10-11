@@ -1401,6 +1401,21 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
         NetworkInputData data = new NetworkInputData();
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+        // ĐANG QUAY PHIM -> gửi input RỖNG, nhân vật đứng yên.
+        //
+        // Camera quay phim cũng dùng WASD và chuột. Không ngắt ở đây thì mỗi lần bay
+        // camera là nhân vật chạy theo trong khung hình, và cảnh quay hỏng.
+        //
+        // Gửi input rỗng chứ không return: Fusion cần nhận input mỗi tick, thiếu thì nó
+        // coi như mất gói và lặp lại input cũ - nhân vật sẽ chạy mãi theo phím bấm cuối.
+        if (CinematicCamera.Active)
+        {
+            input.Set(data);
+            return;
+        }
+#endif
+
         data.MoveDirection = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
         data.Yaw = LookYaw;
         data.Pitch = LookPitch;

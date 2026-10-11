@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -248,7 +248,24 @@ public class HUDController : MonoBehaviour
         if (healthText != null) healthText.text = $"{Mathf.RoundToInt(chargeRatio * 100f)}%";
 
         // Hệ số lực văng: con số nói thẳng "một cú chạm bây giờ đẩy bạn xa gấp mấy lần"
-        if (knockbackText != null) knockbackText.text = $"x{health.KnockbackMultiplier:F1}";
+        //
+        // ẨN KHI CHƯA NHIỄM ĐIỆN - cùng lý do với thanh giáp ngay bên dưới. Lúc còn sạch
+        // điện thì "x1.0" không nói thêm được gì mà thanh điện tích chưa nói, chỉ tổ chiếm
+        // chỗ trên màn hình. Để nó xuất hiện đúng lúc bắt đầu có ý nghĩa thì mắt người chơi
+        // cũng bị kéo về đó ngay - chính là lúc cần chú ý.
+        //
+        // Ngưỡng 1.05 chứ không phải 1.0: chuỗi ":F1" làm tròn một chữ số thập phân, nên
+        // mọi giá trị dưới 1.05 vẫn in ra đúng chữ "x1.0". Lấy 1.05 thì con số hiện ra
+        // sớm nhất đã là "x1.1" - không bao giờ có khung hình nào hiện "x1.0".
+        if (knockbackText != null)
+        {
+            bool showKnockback = health.KnockbackMultiplier >= 1.05f;
+
+            if (knockbackText.gameObject.activeSelf != showKnockback)
+                knockbackText.gameObject.SetActive(showKnockback);
+
+            if (showKnockback) knockbackText.text = $"x{health.KnockbackMultiplier:F1}";
+        }
 
         // Thanh giáp chỉ hiện khi thật sự có giáp, đỡ chiếm chỗ vô ích
         bool hasArmor = health.CurrentArmor > 0f;
@@ -391,7 +408,7 @@ public class HUDController : MonoBehaviour
         // "ĐỘI ĐỎ ĐANG CHIẾM" bắt người chơi phải nhớ mình thuộc đội nào rồi mới suy ra
         // là tin tốt hay tin xấu - mất một nhịp suy nghĩ giữa lúc đang đánh nhau.
         // "LOSING ZONE" thì hiểu ngay lập tức, không cần nghĩ.
-        int myTeam = selfHealth != null ? selfHealth.Team : 0;
+        int myTeam = (selfHealth != null && selfHealth.NetworkReady) ? selfHealth.Team : 0;
 
         int myCount = myTeam == 0 ? red : blue;
         int enemyCount = myTeam == 0 ? blue : red;
@@ -655,7 +672,7 @@ public class HUDController : MonoBehaviour
             ? FPSMovement.Local.GetComponent<PlayerHealth>()
             : null;
 
-        if (myHealth == null) return "";
+        if (myHealth == null || !myHealth.NetworkReady) return "";
 
         int myScore = myHealth.Team == 0 ? gm.RedScore : gm.BlueScore;
         int enemyScore = myHealth.Team == 0 ? gm.BlueScore : gm.RedScore;

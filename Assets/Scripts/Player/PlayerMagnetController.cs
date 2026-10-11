@@ -1,4 +1,4 @@
-using Fusion;
+﻿using Fusion;
 using UnityEngine;
 
 public class PlayerMagnetController : NetworkBehaviour
@@ -9,7 +9,13 @@ public class PlayerMagnetController : NetworkBehaviour
 
     [Header("Magnet Settings")]
     public float shootRange = 100f;
-    public float pullForce = 40f;
+
+    [Tooltip("Tốc độ HÚT vật về tay, mét/giây. Đặt thẳng vào vận tốc nên đây là tốc độ " +
+             "thật, không phải lực. Nâng 36 -> 49 ngày 10/10 theo yêu cầu buff +35%. " +
+             "⚠️ Ô này còn được dùng ở chỗ thứ hai: cú phản đòn khi hút nhầm bóng Spike " +
+             "(= pullForce x spikePullBoost). Nâng ô này là cú phạt Spike cũng mạnh lên " +
+             "theo. Muốn giữ cú phạt như cũ thì hạ spikePullBoost cho bù lại.")]
+    public float pullForce = 49f;
 
     [Tooltip("Tốc độ ĐẨY vật thể trong môi trường ra xa (chuột trái, cùng dấu), mét/giây. " +
              "Là VẬN TỐC chứ không phải lực, nên vật nặng vật nhẹ bay đi như nhau. " +

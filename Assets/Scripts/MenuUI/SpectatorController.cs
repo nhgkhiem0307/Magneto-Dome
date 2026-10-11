@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 
@@ -49,7 +49,7 @@ public class SpectatorController : MonoBehaviour
         }
 
         PlayerHealth myHealth = local.GetComponent<PlayerHealth>();
-        if (myHealth == null) return;
+        if (myHealth == null || !myHealth.NetworkReady) return;
 
         // CÒN SỐNG -> luôn nhìn bằng mắt mình
         if (myHealth.IsAlive)

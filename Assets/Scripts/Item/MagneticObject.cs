@@ -1,4 +1,4 @@
-using Fusion;
+﻿using Fusion;
 using Fusion.Addons.Physics; // NetworkRigidbody3D.Teleport() khi reset map mỗi round
 using UnityEngine;
 using System.Collections.Generic; // Cần thiết để lọc trùng danh sách khi nổ TNT
@@ -48,19 +48,30 @@ public class MagneticObject : NetworkBehaviour
              "được xé gió.")]
     public float windTrailMinSpeed = 30f;
 
-    [Tooltip("Nhân THÊM riêng cho lực hất của đạn trúng người. 1.6 = mạnh thêm 60%.\n\n" +
+    [Tooltip("Nhân THÊM riêng cho lực hất của đạn trúng người. 1.2 = mạnh thêm 20%.\n\n" +
              "Chồng lên hệ số toàn cục ở FPSMovement > Knockback Multiplier, không thay " +
-             "thế nó. Tổng thực tế = hitKnockbackForce x (sát thương/10) x 1.6 x 1.3 x hệ " +
+             "thế nó. Tổng thực tế = hitKnockbackForce x (sát thương/10) x 1.2 x 0.95 x hệ " +
              "số điện tích của nạn nhân.\n\n" +
              "Để riêng vì trúng đạn cần mạnh hơn các nguồn khác: đạn bay tới từ xa và " +
              "tránh được, nên trúng phải đáng. Cú đấm thì đã có lợi thế áp sát rồi.")]
-    public float bulletKnockbackMultiplier = 1.6f;
+    public float bulletKnockbackMultiplier = 1.2f;
 
     [Tooltip("Bay chậm hơn tốc độ này thì thôi không tính là đạn nữa, không gây sát thương.")]
     public float minBulletSpeed = 3f;
 
     [Tooltip("Khoảng thời gian ngay sau khi phóng, chưa xét tốc độ vội. Cần vì lực đẩy phải sang bước vật lý kế tiếp mới thành vận tốc.")]
     public float bulletArmTime = 0.25f;
+
+    [Tooltip("Sau khi trúng một người chơi, vật KHÔNG được phép trở lại làm đạn trong " +
+             "chừng này giây. Ô NÀY CHỐNG LỖI HÚT VẬT LÀ ĐỊCH CHẾT NGAY." + "\n\n" +
+             "Lúc đang HÚT, PlayerMagnetController gọi MarkAsBullet() MỖI TICK và đặt lại " +
+             "vận tốc vật mỗi tick. Không có khoảng khoá này thì vật trúng người xong, tick " +
+             "sau được phong làm đạn lại ngay, đâm tiếp, rồi lặp - khoảng 60 lần mỗi giây. " +
+             "Mỗi lần đều cộng điện và hất văng, mà càng nhiễm điện thì lực văng càng nhân " +
+             "lên tới x5, nên nạn nhân bay khỏi đảo chỉ trong chớp mắt." + "\n\n" +
+             "Để 0 là lỗi quay lại. Không ảnh hưởng tới cú BẮN: bắn đi qua LaunchAsBullet(), " +
+             "đường đó cố ý không xét khoảng khoá này.")]
+    public float hitCooldown = 0.6f;
 
     [Tooltip("Khi đạn NẢY LÊN từ sàn/tường, giữ lại bao nhiêu phần tốc độ đi lên. " +
              "0.2 = nảy còn 20% độ cao, chỉ tưng nhẹ một cái rồi trượt tiếp. " +
@@ -237,6 +248,9 @@ public class MagneticObject : NetworkBehaviour
 
     // Khoảng khoá ngay sau khi phóng, chưa xét tốc độ để tắt tư cách đạn.
     [Networked] private TickTimer BulletArmTimer { get; set; }
+
+    // Khoảng khoá sau khi vừa trúng một người chơi. Xem ghi chú ở ô hitCooldown.
+    [Networked] private TickTimer HitCooldownTimer { get; set; }
 
     // Đếm số lần vật được phóng đi, để mọi máy phát tiếng.
     // Không phát tiếng thẳng trong LaunchAsBullet được vì hàm đó chỉ chạy trên Host.
@@ -735,6 +749,14 @@ public class MagneticObject : NetworkBehaviour
         // Đã đánh dấu cho đúng người này rồi thì thôi, đây là lần gọi thứ hai trở đi
         if (isMovingAsBullet && shooterOwner == owner) return;
 
+        // VỪA TRÚNG NGƯỜI XONG THÌ CHƯA ĐƯỢC LÀM ĐẠN LẠI.
+        //
+        // Đây là chốt chặn của lỗi "hút vật về là địch chết ngay". Đường HÚT trong
+        // PlayerMagnetController gọi hàm này mỗi tick, nên thiếu dòng dưới thì vật
+        // trúng người xong là lập tức được phong đạn lại và đâm tiếp, lặp liên tục
+        // chừng nào còn giữ chuột. Chi tiết ở ô hitCooldown.
+        if (!HitCooldownTimer.ExpiredOrNotRunning(Runner)) return;
+
         EnableHighSpeedCollision();
 
         isMovingAsBullet = true;
@@ -1124,7 +1146,12 @@ public class MagneticObject : NetworkBehaviour
             DummyGravity dummyGrav = collision.collider.GetComponent<DummyGravity>();
             if (dummyGrav != null) dummyGrav.AddImpact(hitDir, knockback);
 
-            // Trúng người rồi thì hết là đạn, tránh trừ máu nhiều lần trong một cú bắn
+            // Trúng người rồi thì hết là đạn, tránh trừ máu nhiều lần trong một cú bắn.
+            //
+            // Bật thêm khoảng khoá: ResetBulletState() chỉ hạ cờ isMovingAsBullet, mà cờ
+            // đó được MarkAsBullet() dựng lại ngay tick sau nếu người chơi vẫn đang giữ
+            // chuột hút. Khoảng khoá mới là thứ thực sự chặn vòng lặp đó.
+            HitCooldownTimer = TickTimer.CreateFromSeconds(Runner, hitCooldown);
             ResetBulletState();
             return;
         }

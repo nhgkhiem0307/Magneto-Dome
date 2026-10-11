@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -109,7 +109,7 @@ public class MatchResultPanel : MonoBehaviour
             _subtitle.text = "A PLAYER LEFT THE MATCH";
             accent = ColCancel;
         }
-        else if (me != null)
+        else if (me != null && me.NetworkReady)
         {
             bool won = gm.MatchWinner == me.Team;
             _title.text = won ? "VICTORY" : "DEFEAT";

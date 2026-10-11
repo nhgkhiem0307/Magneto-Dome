@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Fusion;
 using UnityEngine;
 
@@ -132,7 +132,15 @@ public class PlayerHealth : NetworkBehaviour
     /// thoát (01/09): không có gì crash cả, chỉ là một lỗi được ném ra MỖI KHUNG HÌNH khiến
     /// FPS về gần 0 và phần code phía sau không bao giờ chạy tới.
     /// </summary>
-    private bool NetworkReady => Object != null && Object.IsValid && Runner != null;
+    /// <summary>
+    /// Đã Spawned() xong chưa — tức có được phép đọc các thuộc tính [Networked] không.
+    ///
+    /// ⚠️ PHẢI DÙNG CÁI NÀY TRƯỚC KHI ĐỌC Team, IsAlive, CurrentCharge... TỪ SCRIPT KHÁC.
+    /// Kiểm "!= null" là KHÔNG ĐỦ: component tồn tại ngay khi prefab được tạo, nhưng
+    /// Fusion chỉ cho đọc [Networked] sau khi Spawned() chạy. Đọc sớm thì ném
+    /// InvalidOperationException, mà nếu chỗ đọc nằm trong Update thì nó spam mỗi khung hình.
+    /// </summary>
+    public bool NetworkReady => Object != null && Object.IsValid && Runner != null;
 
     /// <summary>Đang trong thời gian miễn nhiễm sau hồi sinh hay không.</summary>
     public bool IsSpawnProtected => NetworkReady

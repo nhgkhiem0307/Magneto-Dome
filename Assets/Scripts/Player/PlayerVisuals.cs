@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// Nhãn quan nhân vật: giúp người chơi đọc được BỐN thông tin chỉ bằng mắt, từ xa,
@@ -130,6 +130,13 @@ public class PlayerVisuals : MonoBehaviour
 
         PlayerHealth myHealth = FPSMovement.Local.GetComponent<PlayerHealth>();
         if (myHealth == null) return false;
+
+        // CHƯA SPAWNED THÌ CHƯA ĐƯỢC ĐỌC Team.
+        //
+        // Component có mặt ngay khi prefab được tạo, nên "!= null" ở trên vẫn lọt. Thiếu
+        // dòng này thì Fusion ném InvalidOperationException, _relation kẹt ở Unknown, và
+        // vì Update thử lại mỗi khung hình nên Console bị spam liên tục.
+        if (!_health.NetworkReady || !myHealth.NetworkReady) return false;
 
         if (FPSMovement.Local.gameObject == gameObject)
         {

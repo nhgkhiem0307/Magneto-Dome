@@ -9,8 +9,10 @@
 > | Canvas HUD | ✅ đã bật lại — **bị tắt lúc chụp ảnh, suýt quên** |
 > | 2 tảng đá nạp điện sẵn + đóng băng | ✅ đã xoá thiết lập |
 > | 3 tảng đá bị dời chỗ | ✅ đã trả về toạ độ cũ |
-> | `fallRespawnDelay` | ✅ đã về 20 giây |
+> | `fallRespawnDelay` | ✅ đã về 20 trên cả 4 prefab cây *(10/10)* |
 > | **Bỏ tick `Development Build`** | ⬜ **CÒN LẠI — làm lúc build bản nộp** |
+> | **Tắt object `PhotoCamera` trong TestScene** | ✅ đã xoá khỏi scene 09/10 |
+> | **Dọn thư mục build + nén lại zip** | ⬜ **CÒN LẠI — xem mục 7** |
 
 ---
 
@@ -48,13 +50,23 @@ Phá cân bằng mà rất khó phát hiện khi chơi, vì nhìn bề ngoài n�
 
 ---
 
-## 3. Vật rơi khỏi map quay lại sau **5 giây** — ĐANG LÀ GIÁ TRỊ TEST
+## 3. Vật rơi khỏi map quay lại sau 5 giây — ✅ ĐÃ TRẢ VỀ 20 *(10/10)*
+
+> 🔍 **Phát hiện lại ngày 10/10 khi đối chiếu tài liệu với prefab.** Trước đó mục này bị
+> đánh dấu nhầm là đã xong: mặc định trong **code** đã về `20f` thật, nhưng **giá trị
+> Inspector luôn đè lên mặc định code** (xem CLAUDE.md Mục 5 bẫy số 7), mà 4 prefab cây
+> vẫn đang lưu số `5`.
 
 | | |
 |---|---|
-| Ở đâu | Mã nguồn `MagneticObject.cs`, ô `fallRespawnDelay` |
-| Đang là | `5f` |
-| Nên trả về | **`20f`** |
+| Ở đâu | `Assets/Resources/Environment/Tree9/Tree9_2.prefab` và `Tree9_3`, `Tree9_4`, `Tree9_5` |
+| Trạng thái | ✅ Đã sửa thành `20` trên cả 4 prefab |
+| Phải trả về | **`20`** trên cả 4 prefab |
+| Đá thì sao | 24 prefab đá **không lưu ô này** nên tự lấy `20` từ code — không phải sửa |
+
+⚠️ Hậu quả nếu bỏ qua: **cây về sau 5 giây, đá về sau 20 giây** — hai loại đạn cùng map mà
+luật khác nhau, người chơi không thể đoán được. Mà cây chính là toàn bộ 14 vật loại Normal
+trên map, tức hơn một phần ba số đạn.
 
 5 giây là để test cho nhanh. Giữ nguyên thì việc hất đạn của đối thủ xuống vực gần như
 mất hết giá trị chiến thuật — đồ về lại ngay.
@@ -78,8 +90,96 @@ Phím `K` tự sát cũng cùng cơ chế.
 
 1. ⬜ Bật lại `Build Visual At Runtime`
 2. ⬜ Trả hai tảng đá về `None` và tắt `Freeze In Air`
-3. ⬜ `fallRespawnDelay` về `20`
-4. ⬜ Bỏ tick `Development Build`
-5. ⬜ Vào trận thử: vòng lửa giữa map **có đổi màu** khi đứng vào không
-6. ⬜ Bấm `F12` trong bản build: **không được** có gì xảy ra
-7. ⬜ Chơi trọn một trận 2 máy, kết thúc phải về được menu
+3. ✅ `fallRespawnDelay` về `20` trên 4 prefab `Tree9_2/3/4/5` *(xong 10/10)*
+4. ✅ Tắt object `PhotoCamera` trong `TestScene` *(đã xoá 09/10)*
+5. ⬜ Bỏ tick `Development Build`
+6. ⬜ Vào trận thử: vòng lửa giữa map **có đổi màu** khi đứng vào không
+7. ⬜ Bấm `F12` trong bản build: **không được** có gì xảy ra
+8. ⬜ Chơi trọn một trận 2 máy, kết thúc phải về được menu
+9. ⬜ Xoá thư mục `*_BurstDebugInformation_DoNotShip` trong bản build mới
+10. ⬜ Nén `Build.zip` **lại từ đầu** — file zip cũ là bản có tick Development Build
+
+---
+
+## 6. Object `PhotoCamera` trong TestScene — ✅ ĐÃ XOÁ 09/10
+
+| | |
+|---|---|
+| Ở đâu | `TestScene` → object tên **`PhotoCamera`** (nằm ở gốc Hierarchy) |
+| Trạng thái | **Đã xoá hẳn khỏi scene.** File scene giờ giống hệt lúc commit |
+| Thêm ngày | 09/10, để quay cảnh toàn đảo cho trailer |
+
+⚠ **Nếu sau này dựng lại object này thì nhớ xoá trước khi nộp.** Để nó bật mà vào trận thật thì:
+
+| Hại gì | Vì sao |
+|---|---|
+| **Toàn bộ vật thể đứng im như tượng** | Nó gắn `isKinematic` cho mọi Rigidbody → không bắn được gì |
+| **Không thấy gì ngoài camera này** | `depth = 100` nên nó vẽ đè lên camera người chơi |
+| **Mất sạch giao diện** | `hideUI` tự tắt mọi Canvas |
+
+Script `Assets/Scripts/MenuUI/PhotoFlyCamera.cs` **vẫn còn** — nó không nằm trong scene nên
+không chạy, không hại gì. Cần quay lại thì: `GameObject → Create Empty`, đặt tên `PhotoCamera`,
+kéo script vào, đặt Orbit Radius 70 / Orbit Height 26. Mất 10 giây.
+
+⚠ **Nhớ xoá lại trước khi nộp** nếu có dựng lại.
+
+> 💡 Muốn quay phim **trong lúc đang đánh nhau** thì đừng dùng cái này, dùng phím **`F8`**
+> (`CinematicCamera`) — nó mượn thông số từ camera người chơi và không đụng vào vật lý.
+
+---
+
+## 7. Dọn thư mục build trước khi nén zip
+
+### 7.1 Xoá thư mục `*_BurstDebugInformation_DoNotShip`
+
+Unity tự tạo nó cạnh file `.exe` sau **mọi** lần build. Tên nó ghi thẳng *DoNotShip* —
+đây là bản ghi để lập trình viên đọc log sự cố, không phải thứ để phát hành.
+Chỉ nặng 1 MB nên không phải chuyện dung lượng — **là chuyện chỉn chu**: nộp bài kèm
+một thư mục tên "đừng gửi kèm" thì ngưệi chấm đọc được ngay.
+
+> ✅ Đã xoá khỏi bản build hiện tại ngày 09/10. Nhưng **build lại là nó hiện lại**, phải xoá lại.
+
+### 7.2 Nén `Build.zip` lại từ đầu
+
+File `Build.zip` hiện có là bản **có tick Development Build** và **còn thư mục DoNotShip**.
+Đừng nộp file đó. Build lại → xoá DoNotShip → rồi mới nén.
+
+---
+
+## 8. Dung lượng build — để **sau khi nộp** hãy làm
+
+Bản build: **492 MB**, nén zip **244 MB**. Mổ ra:
+
+| Phần | MB | Là gì |
+|---|---|---|
+| `resources.assets` + `.resS` | **258** | Toàn bộ `Assets/Resources/` — vào hết, dùng hay không |
+| `UnityPlayer.dll` | 81 | Engine. Cố định |
+| `level1` + `.resS` | 54 | Đồ `TestScene` thật sự chạm tới |
+| `Managed/` | 45 | Tất cả code: của mình + Fusion + URP |
+
+**Luật:** Unity chỉ đóng gói asset nào scene trong Build Settings lần tới được.
+**Ngoại lệ duy nhất:** thư mục tên `Resources` — vào hết, vì nó tồn tại để `Resources.Load("tên")`
+gọi theo tên lúc chạy, mà Unity không đoán trước được sẽ gọi tên nào.
+
+Kết quả quét GUID toàn project ngày 09/10 *(lần theo scene → prefab → material → texture,
+đúng cách Unity làm)*:
+
+| Nhóm | Dung lượng nguồn | Ghi chú |
+|---|---|---|
+| Đang dùng thật | 302 MB | Phải giữ |
+| **Không ai nhắc tới, cả project** | **70 MB** *(317 file)* | Xoá an toàn tuyệt đối |
+| Chỉ bị đồ không dùng giữ | 153 MB | Phải gỡ cả chuỗi, rủi ro hơn |
+
+70 MB vô chủ gần như toàn bộ là **file `.tif` gốc** trong
+`Resources/Environment/Rocks and Boulders 2/Rocks/Source/Textures/` *(60 MB — ảnh gốc
+của gói asset, mỗi file 12 MB, không material nào dùng)*, cộng mấy ảnh **mockup thiết kế**
+trong `Resources/UI/` và font `Poppins-Light` không dùng.
+
+⚠⚠ **Đừng dọn trước khi nộp.** Xoá asset làm Unity **nhập lại toàn bộ 530 MB**
+*(15–30 phút)* và dựng lại thư mục `Library`. Mất cả buổi nếu có gì đó sai, mà **244 MB
+nén là cỡ nộp bài bình thưỡng** — chưa phải vấn đề. Giảm được khoảng 30 MB build thôi,
+vì `.tif` 12 MB khi vào build bị nén xuống còn vài MB.
+
+Chỉ làm nếu trưỡng có **giới hạn upload** thật chặt. Lúc đó còn một đưỡng an toàn hơn
+xoá file: hạ ô **Max Size** của mấy texture nặng nhất ngay trong Unity — đổi được qua lại,
+không dịch file nào.

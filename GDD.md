@@ -124,7 +124,7 @@ Bốn loại vật thể dùng chung một lớp `MagneticObject` với `enum Ob
 ## 3.1. Cấu trúc một round
 
 ```
-WaitingToStart (2s) → BuyPhase (15s) → Combat (90s) → RoundEnd (5s) → round kế
+WaitingToStart (2s) → BuyPhase (15s) → Combat (300s) → RoundEnd (5s) → round kế
                        rào chắn hạ ↑                    tính điểm ↑
 ```
 
@@ -134,11 +134,11 @@ Giữa bản đồ có một **khu chiếm đóng** hình trụ (`radius 13`, `h
 
 | Luật | Chi tiết |
 |---|---|
-| Chiếm | Đứng trong khu → tiến độ đội tăng `10`/giây |
+| Chiếm | Đứng trong khu → tiến độ đội tăng `1.667`/giây, tức đủ `100` sau **60 giây** |
 | Hai người cùng đội | Nhân tốc độ `×1.5` — thưởng phối hợp, không biến thành cuộc đua dồn người |
 | **Tranh chấp** | Hai đội cùng có mặt → **đóng băng**, không ai tiến |
 | Thắng round | Đạt `100` tiến độ |
-| Hết giờ 90s | Đội có tiến độ **cao hơn** thắng |
+| Hết giờ 5 phút | Đội có tiến độ **cao hơn** thắng. Bằng nhau thì **hoà** |
 | Địch chết | Đội mình **+8** tiến độ |
 
 **Vì sao chết cho địch điểm:** hồi sinh xả sạch điện tích. Nếu chết mà không mất gì thì tự nhảy xuống vực lúc nhiễm nặng sẽ thành nước đi tối ưu. Cộng tiến độ cho địch chặn đứng lối chơi đó — **và khiến việc hất địch khỏi đảo trực tiếp đẩy mình tới chiến thắng**, nên lực văng và mục tiêu round trở thành cùng một thứ.
@@ -331,8 +331,8 @@ Găng tay từ tính hai cực · không súng đạn · hút/đẩy theo dấu 
 |---|---|---|---|
 | 1 | **Thanh máu HP.** Đạn gây 10/20/25/35 HP | **Chế độ Quá Tải.** Trúng đòn nạp điện, lực văng ×1→×5, chỉ chết khi rơi khỏi đảo | Thanh máu khiến bối cảnh "đảo bay" thành trang trí. Quá Tải biến vực thành cơ chế thật, và tạo được sự leo thang tự nhiên trong round |
 | 2 | **Thắng round = hạ gục toàn đội địch** | **Chiếm khu ở giữa** | Không còn ai chết vì hết máu, nên cần mục tiêu khác. Khu chiếm đóng còn ép giao tranh vào một chỗ cố định thay vì để hai bên né rìa vực |
-| 3 | **Chết = bị loại hết round** | **Hồi sinh sau 5 giây** | Bị hất khỏi map mà mất cả round thì rất ức chế (ngồi nhìn 90 giây). Có hồi sinh thì lực văng được phép mạnh tay |
-| 4 | Pha Combat không giới hạn giờ | **90 giây** | Hệ quả bắt buộc của #1: không ai chết vì hết máu thì round có thể kéo dài vô tận |
+| 3 | **Chết = bị loại hết round** | **Hồi sinh sau 5 giây** | Bị hất khỏi map mà mất cả round thì rất ức chế (ngồi nhìn hết round). Có hồi sinh thì lực văng được phép mạnh tay |
+| 4 | Pha Combat không giới hạn giờ | **300 giây (5 phút)** | Hệ quả bắt buộc của #1: không ai chết vì hết máu thì round có thể kéo dài vô tận |
 
 ## 8.3. Bỏ bớt
 

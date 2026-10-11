@@ -66,7 +66,7 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 | `dashForce` | **70** | Inspector | Lực Dash |
 | `dashCooldown` | **1** | Inspector | Hồi chiêu Dash (giây) |
 | `mass` | **3** | Inspector | Khối lượng - CHIA vào mọi lực đẩy |
-| `knockbackMultiplier` | **0.975** | Inspector | Hệ số lực đẩy TOÀN CỤC |
+| `knockbackMultiplier` | **0.95** | Inspector | Hệ số lực đẩy TOÀN CỤC (đấm + TNT + đạn). Hạ 0.975 → 0.95 ngày 10/10 |
 | `stunDuration` | **1** | Inspector | Choáng khi trúng đòn (giây) |
 
 ## Chiến đấu & găng tay
@@ -79,7 +79,8 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 | `meleePushForce` | **200** | Inspector | Lực đấm |
 | `meleeCooldown` | **0.35** | Inspector | Hồi chiêu đấm (giây) |
 | `grapplePullForce` | **250** | Inspector | Lực kéo áp sát |
-| `pullForce` | **36** | Inspector | Lực hút vật |
+| `pullForce` | **49** | Inspector | Tốc độ hút vật về tay, m/s. Nâng 36 → 49 ngày 10/10 (+35%). ⚠️ Ô này còn nhân vào cú phản đòn khi hút nhầm Spike — xem `spikePullBoost` |
+| `spikePullBoost` | **1.5** | Inspector | Hút nhầm bóng gai thì nó lao ngược lại với lực `pullForce × 1.5`. Từ 10/10 là `49 × 1.5 = 73.5` (trước 54) — cú phạt Spike mạnh lên 35% theo pullForce, **có chủ ý** |
 | `pushSpeed` | **50** | Inspector | Tốc độ đẩy vật |
 | `shootRange` | **50** | Inspector | Tầm với của găng |
 | `heldObjectSize` | **1.2** | Inspector | Cạnh dài nhất của vật cầm trên tay |
@@ -97,6 +98,17 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 
 > ⚠️ Điện tích thật mà nạn nhân nhận = cột trên × `chargeGainMultiplier`. Muốn chỉnh độ
 > sát thương chung thì sửa hệ số đó, **đừng** đi sửa từng prefab.
+
+### Ô chung trên mọi prefab vật thể — `MagneticObject`
+
+| Ô | Giá trị | Nguồn | Ý nghĩa |
+|---|---|---|---|
+| `hitKnockbackForce` | **120** | Inspector | Lực hất khi trúng đạn, nhân tiếp với (sát thương / 10) |
+| `bulletKnockbackMultiplier` | **1.2** | code + prefab + scene | Hệ số nhân thêm cho lực hất của đạn. Hạ 1.6 → 1.2 ngày 10/10 (nerf 25%), **đã đồng bộ cả ba nơi** |
+
+> ✅ **Đã đồng bộ ba nơi ngày 10/10**: mặc định code (`MagneticObject.cs:57`), 4 prefab
+> `Tree9_*`, và 38 vật ghi đè trong `TestScene`. Nhờ vậy kéo thêm vật mới vào map thì nó
+> hất đúng bằng những vật đang có — trước đó vật mới sẽ mạnh hơn 33% mà không ai nhận ra.
 
 
 ## Đạn THỰC SỰ có trên map (TestScene)
