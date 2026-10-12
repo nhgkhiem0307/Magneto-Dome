@@ -8,9 +8,27 @@ Thư mục này **nằm ngoài `Assets/`** nên Unity không đụng tới, khô
 Muốn sửa slide thì sửa file script rồi chạy lại, đừng sửa thẳng file `.pptx` —
 lần chạy sau sẽ ghi đè mất.
 
-> ⚠️ Ngoại lệ: **ảnh bạn chèn vào 5 khung ảnh** thì nằm trong file `.pptx`, chạy lại
-> script là mất. Nên chèn ảnh ở bước cuối cùng, sau khi chốt xong mọi chữ nghĩa.
-> Hoặc chèn xong thì `Save As` ra một tên khác để giữ.
+## 🔴 ĐỪNG CHÈN ẢNH TAY VÀO FILE .pptx
+
+**Chạy lại script là file `.pptx` bị ghi đè, ảnh chèn tay mất sạch.** Chuyện này đã xảy ra
+thật ngày 12/10: bản slide đã chèn ảnh bị một lệnh `cp` ghi đè mất — mà `cp` không đi qua
+thùng rác nên không khôi phục được. Phải lấy lại ảnh từ trong file báo cáo.
+
+**Cách đúng: để ảnh trong thư mục `img/` và nhúng đường dẫn vào script.** Dựng lại bao
+nhiêu lần ảnh vẫn còn.
+
+| File trong `img/` | Dùng ở slide |
+|---|---|
+| `icon.png` | 1 — bìa, logo game |
+| `shot_dao.png` | 3 — toàn cảnh đảo |
+| `shot_hut.png` | 6 — góc nhìn thứ nhất, hút vật thể |
+| `shot_hud.png` | 8 — cận cảnh HUD |
+
+Muốn đổi ảnh thì **thay file trong `img/`** rồi chạy lại script, không động vào `.pptx`.
+Thêm ảnh mới thì dùng hàm `picImg()` trong `make_slide.js`.
+
+> Khung duy nhất còn để trống là **slide 13 (Demo)** — chỗ đó dành cho video, phải chèn tay.
+> Chèn xong thì đừng chạy lại script nữa, hoặc `Save As` ra tên khác để giữ.
 
 ## Ba file ảnh kèm theo là gì
 

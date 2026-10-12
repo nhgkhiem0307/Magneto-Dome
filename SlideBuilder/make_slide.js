@@ -99,6 +99,21 @@ function picBox(slide, o) {
   );
 }
 
+// Đặt ẢNH THẬT vào đúng chỗ của khung chờ.
+//
+// ⚠️ VÌ SAO ẢNH PHẢI NẰM TRONG SCRIPT, KHÔNG PHẢI CHÈN TAY VÀO FILE .pptx:
+// mỗi lần chạy lại script là file .pptx bị ghi đè, nên ảnh chèn tay sẽ mất sạch.
+// Nhúng đường dẫn vào đây thì dựng lại bao nhiêu lần ảnh vẫn còn.
+//
+// sizing "contain" giữ đúng tỉ lệ gốc, ảnh không bị kéo méo.
+function picImg(slide, o) {
+  slide.addImage({
+    path: o.path,
+    x: o.x, y: o.y, w: o.w, h: o.h,
+    sizing: { type: "contain", w: o.w, h: o.h },
+  });
+}
+
 // Chấm tròn màu + chữ, dùng làm mô-típ lặp lại
 function dot(slide, x, y, color, label) {
   slide.addShape(pres.ShapeType.ellipse, {
@@ -190,7 +205,7 @@ s.addText(
   { x: 0.45, y: 3.45, w: 5.2, h: 1.5, fontFace: F, fontSize: 13, color: WHITE, paraSpaceAfter: 4, margin: 0, isTextBox: true }
 );
 
-picBox(s, { x: 6.45, y: 1.5, w: 3.1, h: 3.1, caption: "Logo game Magneto-Dome" });
+picImg(s, { x: 6.45, y: 1.5, w: 3.1, h: 3.1, path: "img/icon.png" });
 s.addNotes("0:00-0:15 — Chào hội đồng, giới thiệu tên đề tài và bản thân. Không đọc lại slide.");
 
 // =====================================================================
@@ -256,7 +271,7 @@ for (let i = 0; i < 3; i++) {
     fontFace: F, fontSize: 11.5, color: MUTED, valign: "top", margin: 0, isTextBox: true,
   });
 }
-picBox(s, { x: L, y: 3.55, w: W, h: 1.5, caption: "Ảnh gameplay đẹp nhất — thấy rõ tay nạp điện và vật thể đang bay" });
+picImg(s, { x: L, y: 3.55, w: W, h: 1.5, path: "img/shot_dao.png" });
 s.addNotes("0:35-1:25 — Nói một câu duy nhất về cái mới: không súng, không thanh máu. Đừng kể cốt truyện.");
 
 // =====================================================================
@@ -354,7 +369,7 @@ bullets(s, [
   "Từ 3 đến 8m, trái dấu: kéo áp sát, lướt nhanh về phía đối thủ",
 ], { x: L + 0.16, y: 4.22, w: 5.1, h: 0.72, size: 10.5, color: MUTED });
 
-picBox(s, { x: 6.2, y: 1.52, w: 3.35, h: 3.48, caption: "Góc nhìn thứ nhất: găng tay đang phóng điện vào một tảng đá, đá sáng màu đỏ" });
+picImg(s, { x: 6.2, y: 1.52, w: 3.35, h: 3.48, path: "img/shot_hut.png" });
 s.addNotes("2:35-3:35 — Slide nặng nhất về luật chơi. Chỉ vào bảng, nói ba dòng giữa. Không đọc hết bảng.");
 
 // =====================================================================
@@ -415,7 +430,7 @@ s.addText(
   { x: L + 0.18, y: 4.38, w: 5.05, h: 0.5, fontFace: F, fontSize: 11, italic: true, color: MUTED, valign: "top", margin: 0, isTextBox: true }
 );
 
-picBox(s, { x: 6.1, y: 2.95, w: 3.45, h: 2.05, caption: "Cận cảnh HUD: thanh điện tích đang đầy dần và hệ số lực văng đang tăng" });
+picImg(s, { x: 6.1, y: 2.95, w: 3.45, h: 2.05, path: "img/shot_hud.png" });
 s.addNotes("4:15-5:35 — SLIDE QUAN TRỌNG NHẤT. Nói chậm. Nếu hội đồng chỉ nhớ một điều, phải là điều này.");
 
 // =====================================================================
