@@ -4,7 +4,7 @@ Thư mục này **nằm ngoài `Assets/`** nên Unity không đụng tới, khô
 
 ## Nó là gì
 
-`Slide_MagnetoDome.pptx` ở thư mục gốc **không gõ tay mà sinh ra từ `make_slide.js`**.
+`NOP_BAI/[ĐT-QĐ04-BM08] Final Project.pptx` **không gõ tay mà sinh ra từ `make_slide.js`**.
 Muốn sửa slide thì sửa file script rồi chạy lại, đừng sửa thẳng file `.pptx` —
 lần chạy sau sẽ ghi đè mất.
 
@@ -32,7 +32,7 @@ npm install pptxgenjs      # chỉ lần đầu
 node make_slide.js         # sinh ra MagnetoDome_Slide.pptx ngay tại đây
 ```
 
-Rồi chép đè ra thư mục gốc thành `Slide_MagnetoDome.pptx`.
+Rồi chép đè vào `NOP_BAI/[ĐT-QĐ04-BM08] Final Project.pptx`.
 
 ## Hình học đã đo sẵn — đừng đoán lại
 

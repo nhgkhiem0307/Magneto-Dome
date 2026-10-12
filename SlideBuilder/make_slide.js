@@ -181,7 +181,7 @@ s.addText(
     { text: "Sinh viên thực hiện: ", options: { color: "BFD0EA" } },
     { text: "Nguyễn Hoàng Gia Khiêm", options: { bold: true, breakLine: true } },
     { text: "Giảng viên hướng dẫn: ", options: { color: "BFD0EA" } },
-    { text: "[ĐIỀN TÊN GVHD]", options: { bold: true, color: "FF8A80", breakLine: true } },
+    { text: "………………………", options: { bold: true, breakLine: true } },
     { text: "Lớp: ", options: { color: "BFD0EA" } },
     { text: "K24M-GAME1", options: { bold: true, breakLine: true } },
     { text: "Khóa: ", options: { color: "BFD0EA" } },
@@ -606,7 +606,7 @@ s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "7. Ket qua dat duo
 head(s, "7. Kết quả đạt được");
 
 stat(s, { x: L, y: TOP, w: 2.2, h: 1.1, value: "85", label: "khung hình/giây, bản build 1920x1080", color: DARK });
-stat(s, { x: 2.85, y: TOP, w: 2.2, h: 1.1, value: "[__] ms", label: "độ trễ khu vực asia — CẦN ĐIỀN", size: 20, color: RED });
+stat(s, { x: 2.85, y: TOP, w: 2.2, h: 1.1, value: "16 ms", label: "độ trễ tới máy chủ khu vực asia", size: 26, color: DARK });
 stat(s, { x: 5.25, y: TOP, w: 2.05, h: 1.1, value: "45", label: "tệp mã nguồn tự viết", color: DARK });
 stat(s, { x: 7.5, y: TOP, w: 2.05, h: 1.1, value: "4", label: "chương báo cáo, 48 trang", color: DARK });
 

@@ -102,7 +102,8 @@ Assets/
     │   ├── MagneticAura.cs              # Hiệu ứng hào quang theo điện tích
     │   └── ItemData.cs                  # ScriptableObject định nghĩa vật phẩm
     ├── MenuUI/
-    │   └── RoomItemUI.cs
+    │   ├── RoomItemUI.cs
+    │   └── PingDisplay.cs           # Hiện ping góc trên phải, tự dựng UI bằng code, F4 ẩn/hiện
     └── Dummy/
         ├── DummyGravity.cs              # Bản sao FPSMovement cho bù nhìn tập bắn
         └── DummyMagnetTarget.cs
@@ -140,6 +141,8 @@ GDD sẽ được sửa lại cho khớp code sau, không phải ngược lại.
 | `Z` / `X` / `C` | Rút đạn Normal / Heavy / **TNT** từ túi ra tay. *(Ô `C` tạm là TNT từ 19/09 vì map chưa có vật Spike — đổi lại ở `PlayerHotbarController.ThirdSlotType`)* |
 | `Tab` (giữ) | Mở Radial Menu, xoay chuột chọn, thả phím để dùng |
 | `B` | Mở Shop (chỉ trong Buy Phase) — *chưa làm* |
+| `F1` | Bật/tắt bảng hướng dẫn điều khiển *(tự hiện ở pha chuẩn bị)*. Phím phụ `H` cho Editor |
+| `F4` | Bật/tắt ô hiển thị **ping** ở góc trên bên phải *(`PingDisplay.cs`)* |
 
 ### Cận chiến (chuột phải, tay trống)
 
@@ -453,7 +456,7 @@ rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
 
 | Vừa thay đổi | Cập nhật những file này |
 |---|---|
-| **Con số cân bằng** *(Inspector, prefab, hằng số trong code)* | `BALANCE.md` · `CLAUDE.md` Mục 4 nếu số đó có trong đặc tả · `BaoCao_MagnetoDome.docx` Phụ lục A · `Slide_MagnetoDome.pptx` slide 7, 8, 18 |
+| **Con số cân bằng** *(Inspector, prefab, hằng số trong code)* | `BALANCE.md` · `CLAUDE.md` Mục 4 nếu số đó có trong đặc tả · `BaoCao_MagnetoDome.docx` Phụ lục A · `NOP_BAI/[...BM08] Final Project.pptx` slide 7, 8, 18 |
 | **Luật chơi, cơ chế mới, bỏ cơ chế** | `CLAUDE.md` Mục 4 · `GDD.md` · `BaoCao` chương 2 · `Slide` slide 6–9 |
 | **Phím điều khiển** | `CLAUDE.md` Mục 4 bảng phím · `ControlsOverlay.cs` *(tự đọc KeyCode nên thường không phải sửa, nhưng phải kiểm)* · `TRAILER_SCRIPT.md` nếu ảnh hưởng tới cách quay |
 | **Thêm / xoá / đổi vai trò script** | `CLAUDE.md` Mục 3 *(cây thư mục + bảng đã-networked-chưa)* · `PROGRESS.md` Mục 5 bản đồ code · `Slide` dự phòng 3 |
@@ -477,8 +480,25 @@ rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
 | `TRAILER_SCRIPT.md` | Kịch bản trailer, cách quay, chính sách HUD | Khi quay trailer |
 | `ROLLBACK_TRUOC_KHI_NOP.md` | Mọi thứ phải trả lại trước khi nộp | **Đọc trước khi build bản nộp** |
 | `BaoCao_MagnetoDome.docx` | Báo cáo 48 trang, 4 chương + 2 phụ lục | Nộp chính |
-| `Slide_MagnetoDome.pptx` | 16 slide bảo vệ + 4 slide dự phòng | Buổi bảo vệ |
+| `NOP_BAI/[ĐT-QĐ04-BM08] Final Project.pptx` | 16 slide bảo vệ + 4 slide dự phòng | Buổi bảo vệ |
 | `SlideBuilder/` | **Script sinh ra file .pptx.** Sửa slide thì sửa ở đây rồi chạy lại | Xem `SlideBuilder/README.md` |
+| `NOP_BAI/` | **Thư mục nộp bài** — gom đủ 6 biểu mẫu theo tên chính thức của trường | Nộp cho Bộ Môn |
+
+**Bộ biểu mẫu của trường** *(mẫu gốc ở Drive của khoa, bản đã điền nằm trong `NOP_BAI/`)*:
+
+| Mã | Tên | Ai điền |
+|---|---|---|
+| BM01 | Phiếu đăng ký Project | Học viên — ✅ đã điền |
+| BM02 | Đề cương chi tiết | Học viên — ✅ **cập nhật từ bản gốc của chủ project**, không phải từ bài mẫu |
+| BM03 | Phiếu theo dõi Project | Học viên + GVHD ký từng tuần — ⬜ **chưa làm** |
+| BM04 | Nhận xét của GVHD | GVHD viết — ✅ đã điền sẵn thông tin học viên |
+| BM05 | Nhận xét của GV phản biện | GV phản biện viết — ✅ đã điền sẵn thông tin học viên |
+| BM06 | Báo cáo tốt nghiệp | Học viên — ✅ `BaoCao_MagnetoDome.docx` ở thư mục gốc, bản nộp trong `NOP_BAI/` |
+| BM08 | Final Project (slide) | Học viên — ✅ sinh từ `SlideBuilder/` |
+
+> 📌 **Thông tin học viên dùng chung cho mọi biểu mẫu:** Nguyễn Hoàng Gia Khiêm ·
+> MSHV **144010124020** · Lớp **K24M-GAME1** · Ngành Công nghệ thông tin ·
+> Chuyên ngành Lập trình Game · Khoá **K24** · Cơ sở **Đà Nẵng**.
 
 ⚠️ Hai file `.docx` và `.pptx` là **định dạng nhị phân**, sửa khác với sửa file `.md`:
 - `.docx` — đọc được bằng cách giải nén `word/document.xml`; sửa thì dùng thư viện, hoặc

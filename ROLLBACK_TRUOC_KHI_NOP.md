@@ -128,6 +128,29 @@ kéo script vào, đặt Orbit Radius 70 / Orbit Height 26. Mất 10 giây.
 
 ---
 
+## 6b. Thư mục nộp bài `NOP_BAI/` — đã gom sẵn *(12/10)*
+
+Sáu file theo đúng tên chính thức của trường, đã kiểm không còn dấu vết bài mẫu khoá trước:
+
+| File | Trạng thái |
+|---|---|
+| BM01 Phiếu đăng ký Project | ✅ đã điền |
+| BM02 Đề cương chi tiết | ✅ đã điền, kèm bảng tiến độ 12 tuần |
+| BM04 Nhận xét GVHD | ✅ điền sẵn thông tin học viên, phần nhận xét để trống |
+| BM05 Nhận xét GV phản biện | ✅ điền sẵn thông tin học viên |
+| BM06 Báo cáo tốt nghiệp | ✅ 10/10 ảnh, 0 ô đỏ |
+| BM08 Final Project (slide) | ✅ 20 slide |
+
+⬜ **Còn thiếu: BM03 Phiếu theo dõi Project** — chủ project chưa rõ cách làm, chưa đụng tới.
+
+⬜ **Tên GVHD để trống dạng `………`** ở 5 chỗ: BM01, BM02, bìa báo cáo (2 trang), Lời cảm ơn, slide bìa.
+Có tên thì tìm chuỗi `………` thay hàng loạt.
+
+⬜ **Hai danh mục trong báo cáo chưa sinh** — xem hướng dẫn ngay trong trang
+`DANH MỤC CÁC HÌNH VẼ` và `DANH MỤC CÁC BẢNG`. Sinh xong nhớ `Ctrl+A` rồi `F9` để cập nhật mục lục.
+
+---
+
 ## 7. Dọn thư mục build trước khi nén zip
 
 ### 7.1 Xoá thư mục `*_BurstDebugInformation_DoNotShip`
