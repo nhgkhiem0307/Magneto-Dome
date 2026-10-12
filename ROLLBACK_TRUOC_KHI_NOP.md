@@ -151,6 +151,28 @@ Có tên thì tìm chuỗi `………` thay hàng loạt.
 
 ---
 
+## 6c. DỌN FILE THỪA — làm SAU khi nộp xong
+
+⚠️ **Luật bắt buộc trước mỗi lần xoá hoặc ghi đè: MỞ RA KIỂM NỘI DUNG TRƯỚC.**
+Không tin vào tên file, không tin vào dung lượng. Với `.pptx`/`.docx` thì đếm số ảnh
+bên trong (`ppt/media/`, `word/media/`) — đó là cách duy nhất biết file nào là bản
+đã chèn ảnh.
+
+> 📌 Luật này viết ra vì ngày 12/10 đã **ghi đè mất bản slide đã chèn ảnh** bằng một
+> lệnh `cp`. `cp` không đi qua thùng rác nên không khôi phục được; phải lấy lại ảnh
+> từ trong file báo cáo. Lần trước đó tôi có kiểm số ảnh rồi mới ghi đè, lần này thì bỏ qua.
+
+Danh sách cần rà rồi mới xoá:
+
+| Thứ | Vì sao cân nhắc xoá | Kiểm gì trước khi xoá |
+|---|---|---|
+| `BaoCao_MagnetoDome.docx` ở thư mục gốc | Trùng với bản trong `NOP_BAI/`, mỗi lần sửa là repo phình gấp đôi | So số ảnh và số trang hai bản; giữ bản nào mới hơn |
+| `C:\mdtmp\` | Thư mục tạm của quá trình làm việc, có cả bản sao lưu báo cáo | Còn bản sao lưu nào chưa dùng tới không |
+| `Assets/_Recovery/` | 8 bản backup scene, ~26 MB | **KHÔNG XOÁ** khi chưa nộp xong — phao cứu sinh nếu scene hỏng |
+| `Assets/Resources/` 70 MB vô chủ | Xem mục 8 | Chỉ làm sau khi nộp, vì phải nhập lại 530 MB |
+
+---
+
 ## 7. Dọn thư mục build trước khi nén zip
 
 ### 7.1 Xoá thư mục `*_BurstDebugInformation_DoNotShip`

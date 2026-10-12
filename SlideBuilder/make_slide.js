@@ -99,18 +99,24 @@ function picBox(slide, o) {
   );
 }
 
-// Đặt ẢNH THẬT vào đúng chỗ của khung chờ.
+// Đặt ẢNH THẬT, GIỮ ĐÚNG TỈ LỆ GỐC.
 //
-// ⚠️ VÌ SAO ẢNH PHẢI NẰM TRONG SCRIPT, KHÔNG PHẢI CHÈN TAY VÀO FILE .pptx:
-// mỗi lần chạy lại script là file .pptx bị ghi đè, nên ảnh chèn tay sẽ mất sạch.
-// Nhúng đường dẫn vào đây thì dựng lại bao nhiêu lần ảnh vẫn còn.
+// ⚠️ KHÔNG dùng tuỳ chọn "sizing" của pptxgenjs — đã thử và nó KHÔNG có tác dụng:
+// khung ảnh vẫn đúng bằng w/h truyền vào, nên ảnh bị kéo méo. Phải tự tính lấy.
 //
-// sizing "contain" giữ đúng tỉ lệ gốc, ảnh không bị kéo méo.
+// Cách tính: thu ảnh sao cho vừa HẲN trong ô (contain), rồi căn giữa ô.
+// o.ar là tỉ lệ ngang chia dọc của ảnh gốc.
+//
+// ⚠️ Ảnh phải để trong thư mục img/ và nhúng đường dẫn ở đây, KHÔNG chèn tay vào
+// file .pptx — chạy lại script là ảnh chèn tay mất sạch. Xem README.
 function picImg(slide, o) {
+  let w = o.w, h = w / o.ar;
+  if (h > o.h) { h = o.h; w = h * o.ar; }
   slide.addImage({
     path: o.path,
-    x: o.x, y: o.y, w: o.w, h: o.h,
-    sizing: { type: "contain", w: o.w, h: o.h },
+    x: o.x + (o.w - w) / 2,
+    y: o.y + (o.h - h) / 2,
+    w: w, h: h,
   });
 }
 
@@ -205,7 +211,7 @@ s.addText(
   { x: 0.45, y: 3.45, w: 5.2, h: 1.5, fontFace: F, fontSize: 13, color: WHITE, paraSpaceAfter: 4, margin: 0, isTextBox: true }
 );
 
-picImg(s, { x: 6.45, y: 1.5, w: 3.1, h: 3.1, path: "img/icon.png" });
+picImg(s, { x: 6.45, y: 1.3, w: 3.1, h: 3.4, path: "img/icon.png", ar: 367 / 355 });
 s.addNotes("0:00-0:15 — Chào hội đồng, giới thiệu tên đề tài và bản thân. Không đọc lại slide.");
 
 // =====================================================================
@@ -258,20 +264,25 @@ const usp = [
   ["KHÔNG THANH MÁU", "Trúng đòn không mất máu mà bị nạp điện. Càng nhiễm điện càng bị hất xa.", BLUE],
   ["CHẾT DO VỊ TRÍ", "Cách chết duy nhất là rơi khỏi đảo. Đứng ở đâu quan trọng hơn còn bao nhiêu máu.", DARK],
 ];
+// BỐ CỤC HAI CỘT: ba thẻ xếp DỌC bên trái, ảnh chiếm hẳn cột phải.
+//
+// Trước đó ba thẻ nằm ngang và ảnh bị nhét vào một băng rộng 9.1 cao 1.5 — tỉ lệ 6:1,
+// trong khi ảnh chụp màn hình là 1.54:1. Giữ đúng tỉ lệ thì ảnh teo còn 2.5 inch nằm
+// lọt thỏm giữa khoảng trắng. Xếp dọc thì ảnh được hẳn 4.3 inch bề ngang.
 for (let i = 0; i < 3; i++) {
-  const cx = L + i * (2.95 + 0.26);
-  card(s, { x: cx, y: 1.85, w: 2.95, h: 1.5 });
-  s.addShape(pres.ShapeType.ellipse, { x: cx + 0.16, y: 2.02, w: 0.2, h: 0.2, fill: { color: usp[i][2] }, line: { width: 0 } });
+  const cy = 1.80 + i * 1.06;
+  card(s, { x: L, y: cy, w: 4.55, h: 0.96 });
+  s.addShape(pres.ShapeType.ellipse, { x: L + 0.16, y: cy + 0.15, w: 0.2, h: 0.2, fill: { color: usp[i][2] }, line: { width: 0 } });
   s.addText(usp[i][0], {
-    x: cx + 0.45, y: 1.96, w: 2.4, h: 0.3,
+    x: L + 0.45, y: cy + 0.08, w: 3.9, h: 0.3,
     fontFace: F, fontSize: 12.5, bold: true, color: DARK, valign: "middle", margin: 0, isTextBox: true,
   });
   s.addText(usp[i][1], {
-    x: cx + 0.16, y: 2.35, w: 2.63, h: 0.92,
-    fontFace: F, fontSize: 11.5, color: MUTED, valign: "top", margin: 0, isTextBox: true,
+    x: L + 0.16, y: cy + 0.40, w: 4.25, h: 0.5,
+    fontFace: F, fontSize: 11, color: MUTED, valign: "top", margin: 0, isTextBox: true,
   });
 }
-picImg(s, { x: L, y: 3.55, w: W, h: 1.5, path: "img/shot_dao.png" });
+picImg(s, { x: 5.25, y: 1.80, w: 4.3, h: 3.02, path: "img/shot_dao.png", ar: 1843 / 1195 });
 s.addNotes("0:35-1:25 — Nói một câu duy nhất về cái mới: không súng, không thanh máu. Đừng kể cốt truyện.");
 
 // =====================================================================
@@ -369,7 +380,7 @@ bullets(s, [
   "Từ 3 đến 8m, trái dấu: kéo áp sát, lướt nhanh về phía đối thủ",
 ], { x: L + 0.16, y: 4.22, w: 5.1, h: 0.72, size: 10.5, color: MUTED });
 
-picImg(s, { x: 6.2, y: 1.52, w: 3.35, h: 3.48, path: "img/shot_hut.png" });
+picImg(s, { x: 6.2, y: 1.52, w: 3.35, h: 3.48, path: "img/shot_hut.png", ar: 1916 / 1057 });
 s.addNotes("2:35-3:35 — Slide nặng nhất về luật chơi. Chỉ vào bảng, nói ba dòng giữa. Không đọc hết bảng.");
 
 // =====================================================================
@@ -430,7 +441,7 @@ s.addText(
   { x: L + 0.18, y: 4.38, w: 5.05, h: 0.5, fontFace: F, fontSize: 11, italic: true, color: MUTED, valign: "top", margin: 0, isTextBox: true }
 );
 
-picImg(s, { x: 6.1, y: 2.95, w: 3.45, h: 2.05, path: "img/shot_hud.png" });
+picImg(s, { x: 6.1, y: 2.95, w: 3.45, h: 2.05, path: "img/shot_hud.png", ar: 1914 / 1059 });
 s.addNotes("4:15-5:35 — SLIDE QUAN TRỌNG NHẤT. Nói chậm. Nếu hội đồng chỉ nhớ một điều, phải là điều này.");
 
 // =====================================================================
