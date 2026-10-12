@@ -166,8 +166,8 @@ Danh sách cần rà rồi mới xoá:
 
 | Thứ | Vì sao cân nhắc xoá | Kiểm gì trước khi xoá |
 |---|---|---|
-| `BaoCao_MagnetoDome.docx` ở thư mục gốc | Trùng với bản trong `NOP_BAI/`, mỗi lần sửa là repo phình gấp đôi | So số ảnh và số trang hai bản; giữ bản nào mới hơn |
-| `C:\mdtmp\` | Thư mục tạm của quá trình làm việc, có cả bản sao lưu báo cáo | Còn bản sao lưu nào chưa dùng tới không |
+| ~~`BaoCao_MagnetoDome.docx` ở thư mục gốc~~ | ✅ **đã xoá 12/10** — đối chiếu mã băm thấy giống hệt bản trong `NOP_BAI/` | — |
+| `C:\mdtmp\` **(97 MB)** | ⬜ **CÒN LẠI — bạn tự xoá.** Toàn file trung gian của quá trình làm việc. Đã giữ lại 3 sơ đồ báo cáo vào `SlideBuilder/img/baocao_*.png` trước khi dọn | Không còn gì cần giữ |
 | `Assets/_Recovery/` | 8 bản backup scene, ~26 MB | **KHÔNG XOÁ** khi chưa nộp xong — phao cứu sinh nếu scene hỏng |
 | `Assets/Resources/` 70 MB vô chủ | Xem mục 8 | Chỉ làm sau khi nộp, vì phải nhập lại 530 MB |
 

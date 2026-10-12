@@ -456,7 +456,7 @@ rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
 
 | Vừa thay đổi | Cập nhật những file này |
 |---|---|
-| **Con số cân bằng** *(Inspector, prefab, hằng số trong code)* | `BALANCE.md` · `CLAUDE.md` Mục 4 nếu số đó có trong đặc tả · `BaoCao_MagnetoDome.docx` Phụ lục A · `NOP_BAI/[...BM08] Final Project.pptx` slide 7, 8, 18 |
+| **Con số cân bằng** *(Inspector, prefab, hằng số trong code)* | `BALANCE.md` · `CLAUDE.md` Mục 4 nếu số đó có trong đặc tả · `NOP_BAI/[...BM06] Báo cáo tốt nghiệp.docx` Phụ lục A · `NOP_BAI/[...BM08] Final Project.pptx` slide 7, 8, 18 |
 | **Luật chơi, cơ chế mới, bỏ cơ chế** | `CLAUDE.md` Mục 4 · `GDD.md` · `BaoCao` chương 2 · `Slide` slide 6–9 |
 | **Phím điều khiển** | `CLAUDE.md` Mục 4 bảng phím · `ControlsOverlay.cs` *(tự đọc KeyCode nên thường không phải sửa, nhưng phải kiểm)* · `TRAILER_SCRIPT.md` nếu ảnh hưởng tới cách quay |
 | **Thêm / xoá / đổi vai trò script** | `CLAUDE.md` Mục 3 *(cây thư mục + bảng đã-networked-chưa)* · `PROGRESS.md` Mục 5 bản đồ code · `Slide` dự phòng 3 |
@@ -479,7 +479,7 @@ rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
 | `VOICE_BRIEF.md` | Chỉ đạo giọng ARENA CONTROL, prompt ElevenLabs | Khi làm thêm câu thoại |
 | `TRAILER_SCRIPT.md` | Kịch bản trailer, cách quay, chính sách HUD | Khi quay trailer |
 | `ROLLBACK_TRUOC_KHI_NOP.md` | Mọi thứ phải trả lại trước khi nộp | **Đọc trước khi build bản nộp** |
-| `BaoCao_MagnetoDome.docx` | Báo cáo 48 trang, 4 chương + 2 phụ lục | Nộp chính |
+| `NOP_BAI/[ĐT-QĐ04-BM06] Báo cáo tốt nghiệp.docx` | Báo cáo 49 trang, 4 chương + 2 phụ lục, 10 hình | Nộp chính |
 | `NOP_BAI/[ĐT-QĐ04-BM08] Final Project.pptx` | 16 slide bảo vệ + 4 slide dự phòng | Buổi bảo vệ |
 | `SlideBuilder/` | **Script sinh ra file .pptx.** Sửa slide thì sửa ở đây rồi chạy lại | Xem `SlideBuilder/README.md` |
 | `NOP_BAI/` | **Thư mục nộp bài** — gom đủ 6 biểu mẫu theo tên chính thức của trường | Nộp cho Bộ Môn |
@@ -493,7 +493,7 @@ rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
 | BM03 | Phiếu theo dõi Project | Học viên + GVHD ký từng tuần — ⬜ **chưa làm** |
 | BM04 | Nhận xét của GVHD | GVHD viết — ✅ đã điền sẵn thông tin học viên |
 | BM05 | Nhận xét của GV phản biện | GV phản biện viết — ✅ đã điền sẵn thông tin học viên |
-| BM06 | Báo cáo tốt nghiệp | Học viên — ✅ `BaoCao_MagnetoDome.docx` ở thư mục gốc, bản nộp trong `NOP_BAI/` |
+| BM06 | Báo cáo tốt nghiệp | Học viên — ✅ chỉ còn **một bản duy nhất** trong `NOP_BAI/` |
 | BM08 | Final Project (slide) | Học viên — ✅ sinh từ `SlideBuilder/` |
 
 > 📌 **Thông tin học viên dùng chung cho mọi biểu mẫu:** Nguyễn Hoàng Gia Khiêm ·
