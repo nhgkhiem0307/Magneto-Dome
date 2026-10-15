@@ -101,8 +101,9 @@ Bốn loại vật thể dùng chung một lớp `MagneticObject` với `enum Ob
 | Luật | Chi tiết |
 |---|---|
 | Thanh đo | Điện tích `0 → 100`. Đầy 100% **KHÔNG chết** |
-| Lực văng | Nhân tuyến tính `×1.0` (sạch điện) → `×5.0` (đầy điện) |
-| Cái chết **duy nhất** | Rơi khỏi đảo (`killZoneY = -20`) |
+| Lực văng | Nhân tuyến tính `×1.0` (sạch điện) → `×4.0` (đầy điện) |
+| Cái chết **duy nhất** | Rơi khỏi đảo (`killZoneY = -20`) — **chỉ tính trong pha chiến đấu** |
+| Rơi lúc mua đồ / chờ round | **Không chết.** Được kéo ngay về điểm xuất phát, giữ nguyên giáp và đồ vừa mua, địch không được điểm |
 | Sang round mới | Xả sạch điện về 0 |
 
 **Vì sao đầy điện không chết:** nếu đầy là chết thì đây chỉ là thanh máu chạy ngược, không có gì mới. Để cái chết đến từ **VỊ TRÍ** mới tạo được sự căng thẳng thật — đứng giữa sân với 90% điện vẫn an toàn, đứng sát rìa với 30% đã là mạo hiểm.

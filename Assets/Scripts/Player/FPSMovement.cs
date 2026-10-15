@@ -785,6 +785,18 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
         StunImmunityTimer = TickTimer.CreateFromSeconds(Runner, stunDuration + stunImmunityDuration);
     }
 
+    /// <summary>
+    /// Xoá đà rơi và lực văng còn sót. Gọi mỗi khi dịch chuyển tức thời nhân vật
+    /// (hồi sinh, kéo về khi rơi lúc mua đồ). (14/10)
+    /// </summary>
+    public void ClearMotion()
+    {
+        if (!HasStateAuthority) return;
+
+        NetVelocity = Vector3.zero;
+        NetImpact = Vector3.zero;
+    }
+
     /// <summary>Xoá choáng ngay. GameManager gọi khi hồi sinh / sang round mới.</summary>
     public void ClearStun()
     {

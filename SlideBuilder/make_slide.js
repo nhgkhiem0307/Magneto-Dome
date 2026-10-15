@@ -199,10 +199,10 @@ s.addShape(pres.ShapeType.ellipse, { x: 0.71, y: 2.98, w: 0.16, h: 0.16, fill: {
 
 s.addText(
   [
-    { text: "Sinh viên thực hiện: ", options: { color: "BFD0EA" } },
+    { text: "Học viên thực hiện: ", options: { color: "BFD0EA" } },
     { text: "Nguyễn Hoàng Gia Khiêm", options: { bold: true, breakLine: true } },
     { text: "Giảng viên hướng dẫn: ", options: { color: "BFD0EA" } },
-    { text: "………………………", options: { bold: true, breakLine: true } },
+    { text: "Phạm Thị Hằng", options: { bold: true, breakLine: true } },
     { text: "Lớp: ", options: { color: "BFD0EA" } },
     { text: "K24M-GAME1", options: { bold: true, breakLine: true } },
     { text: "Khóa: ", options: { color: "BFD0EA" } },
@@ -221,8 +221,8 @@ s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "Mo dau" });
 head(s, "Nội dung");
 
 const agenda = [
-  "GIỚI THIỆU ĐỀ TÀI", "MỤC TIÊU", "CÔNG NGHỆ & CÔNG CỤ",
-  "PHÂN TÍCH & THIẾT KẾ", "QUY TRÌNH PHÁT TRIỂN", "DEMO / HÌNH ẢNH",
+  "GIỚI THIỆU ĐỀ TÀI", "MỤC TIÊU", "TECH STACK",
+  "PHÂN TÍCH & THIẾT KẾ", "QUY TRÌNH PHÁT TRIỂN", "DEMO TRỰC TIẾP",
   "KẾT QUẢ ĐẠT ĐƯỢC", "HƯỚNG PHÁT TRIỂN", "KẾT LUẬN",
 ];
 const aw = 2.95, ah = 1.12, gx = 0.26, gy = 0.2;
@@ -322,7 +322,7 @@ s.addNotes("1:25-2:00 — CÓ THỂ BỎ SLIDE NÀY nếu đang chậm giờ. N�
 // =====================================================================
 pres.addSection({ title: "3. Cong nghe va cong cu" });
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "3. Cong nghe va cong cu" });
-head(s, "3. Công nghệ & công cụ");
+head(s, "3. Tech stack");
 
 const tech = [
   ["Unity 6000.3.17f1", "Engine chính. Bản Unity 6 mới nhất."],
@@ -345,7 +345,7 @@ for (let i = 0; i < 6; i++) {
     fontFace: F, fontSize: 11, color: MUTED, valign: "top", margin: 0, isTextBox: true,
   });
 }
-stat(s, { x: L, y: 3.75, w: 3.1, h: 1.05, value: "45", label: "tệp mã nguồn tự viết", color: DARK });
+stat(s, { x: L, y: 3.75, w: 3.1, h: 1.05, value: "49", label: "tệp mã nguồn tự viết", color: DARK });
 stat(s, { x: 3.7, y: 3.75, w: 3.1, h: 1.05, value: "~20.000", label: "dòng mã tự viết (không tính thư viện)", size: 26, color: DARK });
 stat(s, { x: 6.9, y: 3.75, w: 2.65, h: 1.05, value: "1", label: "người thực hiện toàn bộ", color: RED });
 s.addNotes("2:00-2:35 — Nhấn mạnh Fusion 2 Host Mode vì phần sau sẽ quay lại. Đọc nhanh phần còn lại.");
@@ -355,7 +355,7 @@ s.addNotes("2:00-2:35 — Nhấn mạnh Fusion 2 Host Mode vì phần sau sẽ q
 // =====================================================================
 pres.addSection({ title: "4. Phan tich va thiet ke" });
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "4. Phan tich va thiet ke" });
-head(s, "4. Phân tích & thiết kế — găng tay từ tính");
+head(s, "4. Phân tích & thiết kế — Magnetic Gloves");
 
 lead(s, "Toàn bộ chiến đấu dựa trên một luật duy nhất: cùng dấu đẩy nhau, trái dấu hút nhau");
 
@@ -387,7 +387,7 @@ s.addNotes("2:35-3:35 — Slide nặng nhất về luật chơi. Chỉ vào bả
 // 7. §4 HỆ SINH THÁI ĐẠN
 // =====================================================================
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "4. Phan tich va thiet ke" });
-head(s, "4. Phân tích & thiết kế — bốn loại đạn");
+head(s, "4. Phân tích & thiết kế — Ammo Types");
 
 lead(s, "Mỗi loại vật thể có một luật riêng, buộc người chơi phải nhìn màu vật trước khi bấm chuột");
 
@@ -414,7 +414,7 @@ s.addNotes("3:35-4:15 — Nhấn vào cặp Heavy/Spike: đây là chỗ thể h
 // 8. §4 CHẾ ĐỘ QUÁ TẢI — slide quan trọng nhất
 // =====================================================================
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "4. Phan tich va thiet ke" });
-head(s, "4. Phân tích & thiết kế — chế độ Quá Tải");
+head(s, "4. Phân tích & thiết kế — Overload Mode");
 
 s.addText(
   [
@@ -448,7 +448,7 @@ s.addNotes("4:15-5:35 — SLIDE QUAN TRỌNG NHẤT. Nói chậm. Nếu hội đ
 // 9. §4 THỂ THỨC THI ĐẤU
 // =====================================================================
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "4. Phan tich va thiet ke" });
-head(s, "4. Phân tích & thiết kế — thể thức thi đấu");
+head(s, "4. Phân tích & thiết kế — Match Format");
 
 const loop = [
   ["CHUẨN BỊ", "15 giây", "Mua đồ, bị rào chắn giữ lại"],
@@ -495,7 +495,7 @@ s.addNotes("5:35-6:10 — Lướt nhanh. Hội đồng chỉ cần thấy trận
 // 10. §4 KIẾN TRÚC MẠNG
 // =====================================================================
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "4. Phan tich va thiet ke" });
-head(s, "4. Phân tích & thiết kế — kiến trúc mạng");
+head(s, "4. Phân tích & thiết kế — Netcode");
 
 lead(s, "Photon Fusion 2 — Host Mode: một máy giữ quyền quyết định, ba máy kia chỉ gửi phím bấm");
 
@@ -542,7 +542,7 @@ s.addNotes("6:10-7:10 — Phần kỹ thuật nặng nhất. Nói nguyên tắc 
 // =====================================================================
 pres.addSection({ title: "5. Quy trinh phat trien" });
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "5. Quy trinh phat trien" });
-head(s, "5. Quy trình phát triển");
+head(s, "5. Quy trình phát triển — Workflow");
 
 const phases = [
   ["GIAI ĐOẠN 1", "Gameplay chạy một máy", ["Di chuyển, nhảy, lướt", "Găng tay từ tính, bốn loại vật thể", "Cận chiến, túi đồ"]],
@@ -571,7 +571,7 @@ s.addNotes("7:10-7:40 — CÓ THỂ BỎ SLIDE NÀY nếu chậm giờ. Nhưng �
 // 12. §5 BA BẪY KỸ THUẬT
 // =====================================================================
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "5. Quy trinh phat trien" });
-head(s, "5. Quy trình phát triển — ba lỗi khó nhất đã vượt");
+head(s, "5. Quy trình phát triển — Top 3 Bugs");
 
 const traps = [
   ["Nhân vật máy khách chạy nhanh gấp nhiều lần", "Fusion tua lại nhiều lượt mỗi khung hình. Mỗi lượt tua, CharacterController vẫn nhớ vị trí cũ nên quãng đường bị cộng dồn.", "Tắt rồi bật lại CharacterController ở đầu mỗi chuỗi tua, qua IBeforeAllTicks."],
@@ -594,35 +594,10 @@ for (let i = 0; i < 3; i++) {
     { x: L + 0.64, y: cy + 0.45, w: 8.3, h: 0.72, fontFace: F, fontSize: 10.5, valign: "top", margin: 0, isTextBox: true, lineSpacingMultiple: 1.0 }
   );
 }
-s.addNotes("7:40-8:40 — Slide ghi điểm với hội đồng kỹ thuật. Kể lỗi số 2 như một câu chuyện, nó dễ hình dung nhất.");
-
-// =====================================================================
-// 13. §6 DEMO
-// =====================================================================
-pres.addSection({ title: "6. Demo" });
-s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "6. Demo" });
-head(s, "6. Demo / hình ảnh");
-
-picBox(s, { x: L, y: TOP, w: 6.45, h: 3.65, caption: "Chèn video demo tại đây — hoặc dán ảnh chụp màn hình nếu chiếu video rời" });
-
-const marks = [
-  ["00:05", "Toàn cảnh đảo lơ lửng"],
-  ["00:12", "Nạp điện và bắn vật thể"],
-  ["00:25", "Thanh điện tăng, lực văng tăng"],
-  ["00:35", "Bị hất khỏi rìa đảo"],
-];
-s.addText("MỐC THỜI GIAN", { x: 7.15, y: TOP, w: 2.4, h: 0.28, fontFace: F, fontSize: 11.5, bold: true, color: DARK, margin: 0, isTextBox: true });
-for (let i = 0; i < 4; i++) {
-  const cy = TOP + 0.38 + i * 0.84;
-  card(s, { x: 7.15, y: cy, w: 2.4, h: 0.72 });
-  s.addText(marks[i][0], { x: 7.3, y: cy + 0.06, w: 2.1, h: 0.26, fontFace: F, fontSize: 12, bold: true, color: i % 2 === 0 ? RED : BLUE, margin: 0, isTextBox: true });
-  s.addText(marks[i][1], { x: 7.3, y: cy + 0.32, w: 2.1, h: 0.36, fontFace: F, fontSize: 10, color: MUTED, valign: "top", margin: 0, isTextBox: true });
-}
-s.addText(
-  "Lưu ý khi trình chiếu: bấm F1 tắt bảng hướng dẫn trước khi quay, nếu không nó tự hiện ở pha chuẩn bị.",
-  { x: L, y: 4.72, w: 6.45, h: 0.3, fontFace: F, fontSize: 10, italic: true, color: MUTED, margin: 0, isTextBox: true }
-);
-s.addNotes("8:40-9:20 — Để video chạy, nói ít. Mỗi mốc một câu ngắn.");
+s.addNotes("7:40-8:40 — Slide ghi điểm với hội đồng kỹ thuật. Kể lỗi số 2 như một câu chuyện, nó dễ hình dung nhất.\n\n"
+  + "8:40-9:20 — MỤC 6: DEMO TRỰC TIẾP (không có slide riêng, Alt+Tab sang game). Mở game sẵn trước buổi bảo vệ. "
+  + "Bấm F1 tắt bảng hướng dẫn kẻo nó tự hiện ở pha chuẩn bị. Thứ tự gợi ý: toàn cảnh đảo -> nạp điện và bắn vật thể "
+  + "-> thanh điện tăng, lực văng tăng -> bị hất khỏi rìa đảo. Demo xong Alt+Tab về slide Kết quả.");
 
 // =====================================================================
 // 14. §7 KẾT QUẢ ĐẠT ĐƯỢC
@@ -633,8 +608,8 @@ head(s, "7. Kết quả đạt được");
 
 stat(s, { x: L, y: TOP, w: 2.2, h: 1.1, value: "85", label: "khung hình/giây, bản build 1920x1080", color: DARK });
 stat(s, { x: 2.85, y: TOP, w: 2.2, h: 1.1, value: "16 ms", label: "độ trễ tới máy chủ khu vực asia", size: 26, color: DARK });
-stat(s, { x: 5.25, y: TOP, w: 2.05, h: 1.1, value: "45", label: "tệp mã nguồn tự viết", color: DARK });
-stat(s, { x: 7.5, y: TOP, w: 2.05, h: 1.1, value: "4", label: "chương báo cáo, 48 trang", color: DARK });
+stat(s, { x: 5.25, y: TOP, w: 2.05, h: 1.1, value: "49", label: "tệp mã nguồn tự viết", color: DARK });
+stat(s, { x: 7.5, y: TOP, w: 2.05, h: 1.1, value: "4", label: "chương báo cáo, 53 trang", color: DARK });
 
 card(s, { x: L, y: 2.22, w: 4.45, h: 2.78 });
 s.addText("TÍNH NĂNG ĐÃ HOÀN THÀNH", { x: L + 0.18, y: 2.32, w: 4.1, h: 0.28, fontFace: F, fontSize: 12, bold: true, color: DARK, margin: 0, isTextBox: true });
@@ -657,7 +632,7 @@ bullets(s, [
   "Người chơi thoát giữa trận không làm hỏng trận đấu",
   "Toàn bộ tài nguyên bên thứ ba đều được khai báo và kiểm giấy phép",
 ], { x: 5.28, y: 2.64, w: 4.1, h: 2.25, size: 11.5 });
-s.addNotes("9:20-9:45 — Hai ô đỏ phải đo và điền trước khi bảo vệ. Đừng nói số nếu chưa đo.");
+s.addNotes("9:20-9:45 — Số đã đo thật ngày 11/10: 85 FPS trên bản build ở 1920x1080 (RX 6600), ping 16 ms tới máy chủ asia. Nếu bị hỏi FPS thì nói kèm độ phân giải.");
 
 // =====================================================================
 // 15. §8 + §9 HƯỚNG PHÁT TRIỂN VÀ KẾT LUẬN
@@ -721,15 +696,14 @@ pres.addSection({ title: "Du phong" });
 
 // D1 — tiến độ
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "Du phong" });
-head(s, "Dự phòng 1 — tiến độ thực hiện");
-lead(s, "Mở slide này khi hội đồng hỏi: em làm trong bao lâu, chia công việc thế nào?");
+head(s, "Timeline");
 tbl(s, [
   hdrRow(["Mốc", "Nội dung chính", "Kết quả"]),
   ["Giai đoạn 1", "Gameplay chạy một máy: di chuyển, găng tay từ tính, vật thể, cận chiến", "Chơi được offline"],
   ["Giai đoạn 2", "Chuyển toàn bộ sang Photon Fusion 2 Host Mode, đồng bộ vật lý", "Hai máy chơi được"],
   ["Giai đoạn 3", "Vòng round, kinh tế, cửa hàng, HUD, menu, âm thanh, cài đặt", "Trận đấu hoàn chỉnh"],
   ["Giai đoạn 4", "Cân bằng số liệu, kiểm thử hai máy, sửa lỗi, viết báo cáo", "Sẵn sàng bảo vệ"],
-], { x: L, y: 1.45, w: 9.1, colW: [1.6, 5.6, 1.9], rowH: 0.52, size: 11.5 });
+], { x: L, y: 1.1, w: 9.1, colW: [1.6, 5.6, 1.9], rowH: 0.52, size: 11.5 });
 card(s, { x: L, y: 3.9, w: 9.1, h: 1.0, fill: "F3F7FD" });
 s.addText(
   "Toàn bộ đồ án do một người thực hiện: thiết kế lối chơi, lập trình, dựng cảnh, xử lý âm thanh và viết tài liệu. Không có thành viên nào khác.",
@@ -738,8 +712,7 @@ s.addText(
 
 // D2 — bảng cân bằng
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "Du phong" });
-head(s, "Dự phòng 2 — bảng số liệu cân bằng");
-lead(s, "Mở slide này khi hội đồng hỏi: các con số trong game dựa vào đâu?");
+head(s, "Balance Sheet");
 tbl(s, [
   hdrRow(["Hạng mục", "Giá trị", "Hạng mục", "Giá trị"]),
   ["Thang điện tích tối đa", "100", "Pha chuẩn bị", "15 giây"],
@@ -749,12 +722,11 @@ tbl(s, [
   ["Điện tích: Spike / TNT", "25 / 35", "Bất tử sau hồi sinh", "2 giây"],
   ["Bán kính nổ TNT", "6 mét", "Thắng trận", "5 round, cách biệt 2"],
   ["Thưởng thắng / thua round", "$150 / $100", "Trần ví", "$750"],
-], { x: L, y: 1.45, w: 9.1, colW: [2.9, 1.65, 2.9, 1.65], rowH: 0.4, size: 11 });
+], { x: L, y: 1.1, w: 9.1, colW: [2.9, 1.65, 2.9, 1.65], rowH: 0.4, size: 11 });
 
 // D3 — kiến trúc mã nguồn
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "Du phong" });
-head(s, "Dự phòng 3 — kiến trúc mã nguồn");
-lead(s, "Mở slide này khi hội đồng hỏi: code em tổ chức như thế nào?");
+head(s, "Code Architecture");
 const arch = [
   ["Người chơi", "FPSMovement, PlayerHealth, PlayerMagnetController, InventorySystem, PlayerEconomy, PlayerVisuals", BLUE],
   ["Vật thể", "MagneticObject (gộp cả bốn loại trong một lớp, phân biệt bằng enum), MagneticAura, CombatVFX", RED],
@@ -763,34 +735,34 @@ const arch = [
   ["Giao diện", "HUDController, MatchResultPanel, LoadingScreen, ControlsOverlay, SettingsUI, RadialMenuController", MUTED],
 ];
 for (let i = 0; i < 5; i++) {
-  const cy = 1.42 + i * 0.7;
+  const cy = 1.07 + i * 0.7;
   card(s, { x: L, y: cy, w: 9.1, h: 0.63 });
   s.addShape(pres.ShapeType.ellipse, { x: L + 0.16, y: cy + 0.21, w: 0.2, h: 0.2, fill: { color: arch[i][2] }, line: { width: 0 } });
   s.addText(arch[i][0], { x: L + 0.46, y: cy, w: 1.55, h: 0.63, fontFace: F, fontSize: 11.5, bold: true, color: DARK, valign: "middle", margin: 0, isTextBox: true });
   s.addText(arch[i][1], { x: L + 2.0, y: cy, w: 6.95, h: 0.63, fontFace: F, fontSize: 10.5, color: INK, valign: "middle", margin: 0, isTextBox: true });
 }
-s.addText("45 tệp mã nguồn, khoảng 20.000 dòng do sinh viên tự viết — chưa tính thư viện Photon và các gói bên thứ ba.", {
-  x: L, y: 4.95, w: 8.2, h: 0.24, fontFace: F, fontSize: 9.5, italic: true, color: MUTED, margin: 0, isTextBox: true,
+s.addText("49 tệp mã nguồn, khoảng 21.000 dòng do học viên tự viết — chưa tính thư viện Photon và các gói bên thứ ba.", {
+  x: L, y: 4.6, w: 8.2, h: 0.24, fontFace: F, fontSize: 9.5, italic: true, color: MUTED, margin: 0, isTextBox: true,
 });
 
 // D4 — tài nguyên bên thứ ba
 s = pres.addSlide({ masterName: "VTC_CONTENT", sectionTitle: "Du phong" });
-head(s, "Dự phòng 4 — khai báo tài nguyên bên thứ ba");
-lead(s, "Mở slide này khi hội đồng hỏi: phần nào em tự làm, phần nào đi lấy?");
+head(s, "Credits");
 tbl(s, [
   hdrRow(["Hạng mục", "Nguồn", "Giấy phép"]),
-  ["Mã nguồn gameplay toàn bộ", "Sinh viên tự viết", "—"],
-  ["Thiết kế lối chơi và cân bằng", "Sinh viên tự thiết kế", "—"],
-  ["Hiệu ứng hình ảnh trong trận", "Sinh viên tự dựng bằng mã", "—"],
+  ["Mã nguồn, lối chơi, hiệu ứng, giao diện", "Học viên tự làm", "—"],
   ["Khung mạng Photon Fusion 2", "Photon Engine", "Miễn phí dưới 100 CCU"],
-  ["Mô hình môi trường, nhân vật", "Unity Asset Store", "Theo giấy phép Asset Store"],
-  ["Bầu trời Fantasy Skybox FREE", "Unity Asset Store", "Miễn phí, cho phép dùng thương mại"],
+  ["Mô hình hòn đảo", "Sinh bằng Meshy AI", "Có ghi nguồn Meshy"],
+  ["Nhân vật và hoạt ảnh", "Mixamo — Adobe", "Miễn phí, dùng thương mại"],
+  ["Đá, cây", "Asset Store: Manufactura K4, Pixel Games", "Giấy phép Asset Store"],
+  ["Cỏ, hoa, bụi cây", "Quaternius", "CC0, dùng tự do"],
+  ["Bầu trời", "Asset Store: Render Knight", "Gói miễn phí"],
   ["Nhạc nền", "Pixabay", "Pixabay Content License"],
-  ["Lồng tiếng thông báo", "Tạo bằng ElevenLabs", "Cho phép dùng trong sản phẩm"],
-], { x: L, y: 1.45, w: 9.1, colW: [3.6, 2.8, 2.7], rowH: 0.4, size: 11 });
-card(s, { x: L, y: 4.6, w: 9.1, h: 0.5, fill: "F3F7FD" });
+  ["Giọng thông báo", "Sinh bằng ElevenLabs", "Có ghi nguồn elevenlabs.io"],
+], { x: L, y: 1.05, w: 9.1, colW: [3.0, 3.6, 2.5], rowH: 0.31, size: 10 });
+card(s, { x: L, y: 4.25, w: 9.1, h: 0.5, fill: "F3F7FD" });
 s.addText("Danh sách đầy đủ nằm ở Phụ lục B của báo cáo và trong tệp CREDITS.md kèm theo mã nguồn.", {
-  x: L + 0.18, y: 4.6, w: 8.75, h: 0.5, fontFace: F, fontSize: 11, color: INK, valign: "middle", margin: 0, isTextBox: true,
+  x: L + 0.18, y: 4.25, w: 8.75, h: 0.5, fontFace: F, fontSize: 11, color: INK, valign: "middle", margin: 0, isTextBox: true,
 });
 
 pres.writeFile({ fileName: "MagnetoDome_Slide.pptx" }).then(function () {

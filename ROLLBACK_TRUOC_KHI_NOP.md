@@ -88,11 +88,18 @@ Phím `K` tự sát cũng cùng cơ chế.
 
 ## 5. Kiểm tra cuối, theo thứ tự
 
-1. ⬜ Bật lại `Build Visual At Runtime`
-2. ⬜ Trả hai tảng đá về `None` và tắt `Freeze In Air`
+> 📋 Hướng dẫn build bản nộp **từng bước kèm gắn icon** nằm ở [VIEC_CAN_LAM.md](VIEC_CAN_LAM.md) mục A.
+
+1. ✅ Bật lại `Build Visual At Runtime` *(kiểm file scene 14/10: đang là `1`)*
+2. ✅ Trả hai tảng đá về `None` và tắt `Freeze In Air` *(kiểm 14/10: không còn tảng nào khác mặc định)*
+2b. ✅ Gắn icon: Player Settings → `Default Icon` ← `Assets/Textures/GameIcon.png` *(14/10, qua `BuildNop.cs`)*
+
+> ✅ **14/10: bước 5, 7, 9, 10 đã xong** — Claude build bằng `Assets/Editor/BuildNop.cs` ra
+> `Build_Nop/` + `Build_Nop.zip`. Bước 7 (F12) đảm bảo bằng code: phím nằm trong
+> `#if DEVELOPMENT_BUILD`. **Còn bước 6 và 8 — phải chơi thật mới kiểm được.**
 3. ✅ `fallRespawnDelay` về `20` trên 4 prefab `Tree9_2/3/4/5` *(xong 10/10)*
 4. ✅ Tắt object `PhotoCamera` trong `TestScene` *(đã xoá 09/10)*
-5. ⬜ Bỏ tick `Development Build`
+5. ✅ Bỏ tick `Development Build` *(14/10, qua `BuildNop.cs`)*
 6. ⬜ Vào trận thử: vòng lửa giữa map **có đổi màu** khi đứng vào không
 7. ⬜ Bấm `F12` trong bản build: **không được** có gì xảy ra
 8. ⬜ Chơi trọn một trận 2 máy, kết thúc phải về được menu

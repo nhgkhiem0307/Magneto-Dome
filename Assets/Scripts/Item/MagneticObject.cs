@@ -1117,6 +1117,7 @@ public class MagneticObject : NetworkBehaviour
             if (health != null)
             {
                 health.TakeDamage(CurrentDamage);
+                health.RegisterHit(shooterOwner, PlayerHealth.KnockCause.Projectile);
             }
 
             // HẤT VĂNG NGƯỜI TRÚNG ĐẠN.
@@ -1584,6 +1585,7 @@ public class MagneticObject : NetworkBehaviour
                     float distance = Vector3.Distance(transform.position, hit.transform.position);
                     float damageMultiplier = 1f - (distance / explosionRadius);
                     health.TakeDamage(tntDamage * Mathf.Clamp01(damageMultiplier));
+                    health.RegisterHit(shooterOwner, PlayerHealth.KnockCause.Explosion);
                 }
 
                 // Đẩy văng nhân vật dùng CharacterController theo hướng vụ nổ

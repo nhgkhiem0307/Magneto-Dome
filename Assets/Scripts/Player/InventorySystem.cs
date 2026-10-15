@@ -282,14 +282,44 @@ public class InventorySystem : NetworkBehaviour
             return false;
         }
 
-        // Đặt trước mặt, ngang tầm chân người chơi.
-        // transform.forward chính là hướng thân người đang quay, đã đồng bộ sẵn qua mạng.
+        // Đặt trước mặt. transform.forward chính là hướng thân người đang quay, đã đồng bộ sẵn qua mạng.
         Vector3 spawnPosition = transform.position + transform.forward * emBarrierDistance;
         Quaternion spawnRotation = Quaternion.LookRotation(transform.forward, Vector3.up);
+
+        // Gốc của bức tường nằm ở MẶT ĐẤT (từ 14/10), nên phải dò xuống tìm đất.
+        // Gốc nhân vật thì cao hơn chân khoảng 1m — đặt thẳng vào đó là tường lơ lửng,
+        // còn thả trên dốc thì tường chìm một nửa hoặc treo giữa trời.
+        spawnPosition = FindGroundBelow(spawnPosition);
 
         Runner.Spawn(emBarrierPrefab, spawnPosition, spawnRotation, Object.InputAuthority);
 
         Debug.Log("<color=cyan>[TƯỜNG ĐIỆN TỪ] Đã thả tường chắn trước mặt</color>");
         return true;
+    }
+
+    // Bắn tia thẳng xuống, lấy chỗ chạm đất đầu tiên. Bỏ qua mọi thứ có Rigidbody (vật thể
+    // từ tính nằm lăn lóc) và nhân vật — không thì tường sẽ dựng trên nóc một tảng đá.
+    private Vector3 FindGroundBelow(Vector3 point)
+    {
+        const float rayUp = 1.5f;
+        const float rayLength = 6f;
+
+        RaycastHit[] hits = Physics.RaycastAll(point + Vector3.up * rayUp, Vector3.down, rayLength,
+                                               Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+
+        float best = float.MaxValue;
+        Vector3 ground = point + Vector3.down * 1f;   // không thấy đất: lấy tầm chân nhân vật
+
+        foreach (RaycastHit hit in hits)
+        {
+            if (hit.rigidbody != null) continue;
+            if (hit.collider is CharacterController) continue;
+            if (hit.distance < best)
+            {
+                best = hit.distance;
+                ground = hit.point;
+            }
+        }
+        return ground;
     }
 }

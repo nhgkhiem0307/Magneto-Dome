@@ -200,6 +200,47 @@ public class PlayerHealth : NetworkBehaviour
     /// <summary>Số giây còn lại trước khi sống lại, 0 nếu không trong trạng thái chờ.</summary>
     public float RespawnSecondsLeft => NetworkReady ? (RespawnTimer.RemainingTime(Runner) ?? 0f) : 0f;
 
+    // ==================== AI ĐÃ HẤT MÌNH KHỎI ĐẢO (thêm 14/10) ====================
+    //
+    // Cái chết duy nhất là rơi khỏi đảo, nên "ai hạ mình" = người ĐẨY mình gần nhất trước
+    // lúc rơi. Mỗi cú đẩy từ đối thủ (đấm, đạn, nổ TNT) ghi đè tên người đẩy và bấm lại
+    // đồng hồ nhớ. Rơi trong khoảng nhớ đó thì tính cho họ; quá lâu thì là tự rơi.
+    // Bảng chết (DeathScreen) đọc KilledBy / KilledByCause để hiện ra.
+
+    public enum KnockCause : byte { None = 0, Melee = 1, Projectile = 2, Explosion = 3 }
+
+    [Tooltip("Bị đẩy xong bao nhiêu giây mà rơi thì vẫn tính cho người đẩy. "
+           + "Rơi từ mép đảo xuống tới vùng chết mất khoảng 2–3 giây.")]
+    public float attackerMemory = 6f;
+
+    [Networked] private PlayerRef LastAttacker { get; set; }
+    [Networked] private byte LastAttackCause { get; set; }
+    [Networked] private TickTimer LastAttackTimer { get; set; }
+
+    /// <summary>Người đã hất mình khỏi đảo ở lần chết gần nhất. PlayerRef.None = tự rơi.</summary>
+    [Networked] public PlayerRef KilledBy { get; set; }
+
+    /// <summary>Bằng đòn gì — ép kiểu sang KnockCause để đọc.</summary>
+    [Networked] public byte KilledByCause { get; set; }
+
+    /// <summary>
+    /// Ghi nhận một cú đẩy từ đối thủ. Gọi ở mọi chỗ gây lực văng lên người chơi:
+    /// đấm (PlayerMagnetController), đạn và nổ TNT (MagneticObject).
+    /// Chỉ Host ghi; bỏ qua nếu không rõ ai đẩy hoặc tự mình gây ra (TNT nổ sát mặt).
+    /// </summary>
+    public void RegisterHit(PlayerMagnetController attacker, KnockCause cause)
+    {
+        if (!HasStateAuthority) return;
+        if (attacker == null || attacker.Object == null) return;
+
+        PlayerRef who = attacker.Object.InputAuthority;
+        if (who == Object.InputAuthority) return;
+
+        LastAttacker = who;
+        LastAttackCause = (byte)cause;
+        LastAttackTimer = TickTimer.CreateFromSeconds(Runner, attackerMemory);
+    }
+
     private CharacterController controller;
     private Renderer[] cachedRenderers;
     private bool _wasBlinking;
@@ -305,6 +346,12 @@ public class PlayerHealth : NetworkBehaviour
 
         IsAlive = false;
 
+        // Chốt lại ai đã hất mình, TRƯỚC khi báo GameManager — bảng chết đọc hai ô này.
+        bool recentlyHit = LastAttackTimer.IsRunning && !LastAttackTimer.Expired(Runner);
+        KilledBy = recentlyHit ? LastAttacker : PlayerRef.None;
+        KilledByCause = recentlyHit ? LastAttackCause : (byte)KnockCause.None;
+        LastAttackTimer = TickTimer.None;
+
         string teamName = Team == 0 ? "Đỏ" : "Xanh";
         Debug.Log($"<color=red><b>[LOẠI]</b> Player {Object.InputAuthority} (đội {teamName}) đã bị hạ gục</color>");
 
@@ -371,18 +418,9 @@ public class PlayerHealth : NetworkBehaviour
         // Muốn có giáp ở round sau thì phải mua lại.
         CurrentArmor = 0f;
 
-        // Tắt CharacterController trước khi dịch chuyển, nếu không nó sẽ kéo nhân vật
-        // về chỗ cũ. Đúng cái bẫy đã gặp hồi spawn lần đầu.
-        if (controller != null) controller.enabled = false;
-        transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw, 0f));
-        if (controller != null) controller.enabled = true;
-
         FPSMovement movement = GetComponent<FPSMovement>();
         if (movement != null)
         {
-            // Báo hướng nhìn mới, để máy của chính người chơi đặt lại góc camera cho khớp.
-            movement.SpawnYaw = yaw;
-
             // Hiệu lực Nước Tăng Lực bị xoá khi sang round mới, giống như giáp.
             movement.ClearEnergyDrink();
 
@@ -396,6 +434,46 @@ public class PlayerHealth : NetworkBehaviour
         // Số chai còn trong TÚI thì vẫn giữ - chỉ cái đang cầm sẵn mới bị bỏ.
         PlayerMagnetController magnet = GetComponent<PlayerMagnetController>();
         if (magnet != null) magnet.HasGasolineEquipped = false;
+
+        TeleportTo(position, yaw);
+    }
+
+    /// <summary>
+    /// Rơi khỏi đảo NGOÀI pha chiến đấu (đang mua đồ, chờ round): KHÔNG tính là chết.
+    /// Chỉ đưa về điểm xuất phát — giữ nguyên giáp, đồ vừa mua, điện tích; địch không được
+    /// điểm. Pha mua đồ là vùng an toàn, giống CS/Valorant. Chỉ GameManager gọi vào. (14/10)
+    ///
+    /// Trước đây vùng chết chỉ được kiểm trong pha chiến đấu, nên rơi lúc mua đồ là rơi mãi
+    /// dưới vực, rồi pha chiến đấu vừa mở thì bị tính chết ngay: mất 5 giây + địch +8 tiến độ.
+    /// </summary>
+    public void RescueToSpawn(Vector3 position, float yaw)
+    {
+        if (!HasStateAuthority) return;
+        if (!IsAlive) return;
+
+        LastAttackTimer = TickTimer.None;
+        TeleportTo(position, yaw);
+    }
+
+    // Dịch chuyển tức thời nhân vật — dùng chung cho hồi sinh và kéo về khi rơi.
+    private void TeleportTo(Vector3 position, float yaw)
+    {
+        // Tắt CharacterController trước khi dịch chuyển, nếu không nó sẽ kéo nhân vật
+        // về chỗ cũ. Đúng cái bẫy đã gặp hồi spawn lần đầu.
+        if (controller != null) controller.enabled = false;
+        transform.SetPositionAndRotation(position, Quaternion.Euler(0f, yaw, 0f));
+        if (controller != null) controller.enabled = true;
+
+        FPSMovement movement = GetComponent<FPSMovement>();
+        if (movement != null)
+        {
+            // Báo hướng nhìn mới, để máy của chính người chơi đặt lại góc camera cho khớp.
+            movement.SpawnYaw = yaw;
+
+            // Xoá đà rơi và lực văng còn sót — không thì người đang rơi 30 m/s sẽ mang
+            // nguyên tốc độ đó về điểm xuất phát, cắm thẳng xuống đất hoặc trượt đi.
+            movement.ClearMotion();
+        }
 
         // Đổi giá trị này để OnRespawned được gọi trên mọi máy
         RespawnCount++;

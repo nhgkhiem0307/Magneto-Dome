@@ -83,7 +83,7 @@ public class HUDController : MonoBehaviour
     public TMP_Text energyDrinkTimerText;
 
     [Header("Thông báo")]
-    [Tooltip("Hiện khi người chơi bị loại khỏi round.")]
+    [Tooltip("KHÔNG CÒN DÙNG từ 14/10 — thay bằng DeathScreen. Giữ lại để không mất liên kết.")]
     public GameObject deadPanel;
 
     [Tooltip("Đồng hồ đếm ngược tới lúc sống lại. Chỉ hiện khi đang nằm chờ.")]
@@ -226,9 +226,8 @@ public class HUDController : MonoBehaviour
     // self     = nhân vật của chính mình, dùng riêng cho bảng "đã bị loại"
     private void UpdateHealthAndArmor(FPSMovement displayed, FPSMovement self)
     {
-        // Bảng báo bị loại phải xét THEO MÌNH, không theo người đang xem nhờ
-        PlayerHealth myHealth = self.GetComponent<PlayerHealth>();
-        if (deadPanel != null) deadPanel.SetActive(myHealth != null && !myHealth.IsAlive);
+        // Bảng "DEAD" cũ — từ 14/10 thay bằng DeathScreen (tự dựng bằng code). Luôn tắt.
+        if (deadPanel != null && deadPanel.activeSelf) deadPanel.SetActive(false);
 
         PlayerHealth health = displayed.GetComponent<PlayerHealth>();
         if (health == null) return;
@@ -363,19 +362,11 @@ public class HUDController : MonoBehaviour
         PlayerHealth selfHealth = self.GetComponent<PlayerHealth>();
 
         // --- ĐẾM NGƯỢC HỒI SINH ---
-        if (respawnCountdownText != null)
+        // Từ 14/10 do DeathScreen lo (vòng đếm ngược tròn). Ô cũ luôn tắt — vẫn giữ field
+        // để không mất liên kết trong Inspector, phòng khi cần quay lại.
+        if (respawnCountdownText != null && respawnCountdownText.gameObject.activeSelf)
         {
-            PlayerHealth myHealth = selfHealth;
-
-            if (myHealth != null && myHealth.IsWaitingToRespawn)
-            {
-                respawnCountdownText.gameObject.SetActive(true);
-                respawnCountdownText.text = $"Respawning in {Mathf.CeilToInt(myHealth.RespawnSecondsLeft)}s";
-            }
-            else
-            {
-                respawnCountdownText.gameObject.SetActive(false);
-            }
+            respawnCountdownText.gameObject.SetActive(false);
         }
 
         // --- TIẾN ĐỘ CHIẾM KHU ---

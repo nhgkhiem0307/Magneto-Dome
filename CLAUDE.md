@@ -46,9 +46,16 @@ GDD *(`GDD.md` ở thư mục gốc — trước đây là `GDD.txt`)* là bản
 
 | Index | Đường dẫn | Vai trò |
 |---|---|---|
-| 0 | `Assets/Scenes/SampleScene.unity` | Scene mặc định, chưa dùng |
-| 1 | `Assets/MenuScene.unity` | Menu + Lobby + ghép trận |
-| 2 | `Assets/TestScene.unity` | **Scene gameplay chính** |
+| 0 | `Assets/MenuScene.unity` | Menu + Lobby + ghép trận — **scene chạy đầu tiên khi mở game** |
+| 1 | `Assets/TestScene.unity` | **Scene gameplay chính** |
+
+> *(Đối chiếu `EditorBuildSettings.asset` ngày 14/10.)* `Assets/Scenes/SampleScene.unity` vẫn
+> nằm trong project nhưng **không còn trong danh sách build** — bảng cũ ghi nó là số 0 là sai.
+
+**Icon game:** `Assets/Textures/GameIcon.png` (512×512, vuông) — **đã gắn** vào Player Settings → `Default Icon` 14/10.
+
+**Build bản nộp:** chạy `Assets/Editor/BuildNop.cs` (menu `Magneto-Dome → Build bản nộp`, hoặc dòng lệnh
+`-executeMethod BuildNop.Build` khi Unity đang tắt). Tự gắn icon + tắt Development Build, ra `../Build_Nop`.
 
 > Ngoài ra còn `Assets/_Recovery/` chứa 7 bản backup scene do Unity tự tạo khi crash (21–27/07/2026). **Không xoá** — đây là phao cứu sinh nếu scene hỏng.
 
@@ -87,6 +94,9 @@ Sẽ chuyển sang `NetworkBehaviour` cùng lúc làm Shop.
 Assets/
 ├── NetworkRunnerHandler.cs      # Khởi tạo Fusion Runner, Host/Client, UI panel menu
 ├── RoomPlayer.cs                # NetworkBehaviour: đồng bộ NickName + Team trong lobby
+├── Editor/
+│   └── BuildNop.cs              # Build BẢN NỘP 1 lệnh: gắn icon, tắt Development Build, ra ../Build_Nop
+│                                #   (menu Magneto-Dome → Build bản nộp). Chỉ chạy trong Editor, không vào game
 └── Scripts/
     ├── Player/
     │   ├── FPSMovement.cs               # [Fusion] WASD + xoay + Dash(Q) + trọng lực + AddImpact()
@@ -100,13 +110,19 @@ Assets/
     ├── Item/
     │   ├── MagneticObject.cs            # Điện tích, 4 loại vật thể, va chạm, nổ TNT
     │   ├── MagneticAura.cs              # Hiệu ứng hào quang theo điện tích
+    │   ├── EMBarrier.cs                 # [Fusion] Tường tạm 10s của EM Barrier Core. Hình tự dựng bằng mã
+    │   │                                #   (lớp lồng EMBarrier.Visual) + shader Resources/Shaders/HexShield.shader
     │   └── ItemData.cs                  # ScriptableObject định nghĩa vật phẩm
     ├── MenuUI/
     │   ├── RoomItemUI.cs
-    │   └── PingDisplay.cs           # Hiện ping góc trên phải, tự dựng UI bằng code, F4 ẩn/hiện
+    │   ├── PingDisplay.cs           # Hiện ping góc trên phải, tự dựng UI bằng code, F4 ẩn/hiện
+    │   └── DeathScreen.cs           # Màn hình khi chết (14/10): ai hất mình + đòn gì, vòng đếm ngược,
+    │                                #   địch +8, mẹo chơi. Tự dựng UI bằng code. Thay DeadPanel cũ của HUD
     └── Dummy/
         ├── DummyGravity.cs              # Bản sao FPSMovement cho bù nhìn tập bắn
         └── DummyMagnetTarget.cs
+                                         # 14/10: con bù nhìn đã XOÁ khỏi TestScene. Prefab vẫn giữ ở
+                                         #   Assets/Prefab/Dummy.prefab — kéo vào scene là dùng lại được
 ```
 
 Ngoài ra `Assets/Photon/`, `Assets/ParrelSync/`, `Assets/Resources/` (asset store), `Assets/TutorialInfo/` là **code bên thứ ba — không sửa**.
@@ -186,7 +202,8 @@ tác động lên bạn càng mạnh, nên cùng một cú đấm sẽ hất b�
 |---|---|
 | Thanh đo | Điện tích `0 → 100`. Đầy 100% **KHÔNG chết** |
 | Lực văng | Nhân tuyến tính `x1.0` (sạch điện) → `x4.0` (đầy điện) ⚠️ *mặc định trong code là 5, nhưng `Player.prefab` đang để **4** — Inspector mới là thứ chạy thật* |
-| Cái chết **duy nhất** | Rơi khỏi đảo (`GameManager.CheckKillZone`) |
+| Cái chết **duy nhất** | Rơi khỏi đảo (`GameManager.CheckKillZone`) — **chỉ tính trong pha chiến đấu** |
+| Rơi ngoài pha chiến đấu | **Không chết** — `PlayerHealth.RescueToSpawn()` kéo về điểm xuất phát, giữ giáp/đồ, địch không được điểm *(chốt 14/10)* |
 | Hết giờ Combat (**5 phút**) | Đội có **tiến độ chiếm khu cao hơn** thắng round. Bằng nhau thì **HOÀ**, không ai được điểm |
 | Sang round mới | Xả sạch điện về 0 |
 
@@ -456,11 +473,11 @@ rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
 
 | Vừa thay đổi | Cập nhật những file này |
 |---|---|
-| **Con số cân bằng** *(Inspector, prefab, hằng số trong code)* | `BALANCE.md` · `CLAUDE.md` Mục 4 nếu số đó có trong đặc tả · `NOP_BAI/[...BM06] Báo cáo tốt nghiệp.docx` Phụ lục A · `NOP_BAI/[...BM08] Final Project.pptx` slide 7, 8, 18 |
+| **Con số cân bằng** *(Inspector, prefab, hằng số trong code)* | `BALANCE.md` · `CLAUDE.md` Mục 4 nếu số đó có trong đặc tả · `NOP_BAI/[...BM06] Báo cáo tốt nghiệp.docx` Phụ lục A · `NOP_BAI/[...BM08] Final Project.pptx` slide 7, 8 và slide 17 *(Balance Sheet)* |
 | **Luật chơi, cơ chế mới, bỏ cơ chế** | `CLAUDE.md` Mục 4 · `GDD.md` · `BaoCao` chương 2 · `Slide` slide 6–9 |
 | **Phím điều khiển** | `CLAUDE.md` Mục 4 bảng phím · `ControlsOverlay.cs` *(tự đọc KeyCode nên thường không phải sửa, nhưng phải kiểm)* · `TRAILER_SCRIPT.md` nếu ảnh hưởng tới cách quay |
-| **Thêm / xoá / đổi vai trò script** | `CLAUDE.md` Mục 3 *(cây thư mục + bảng đã-networked-chưa)* · `PROGRESS.md` Mục 5 bản đồ code · `Slide` dự phòng 3 |
-| **Tài nguyên bên thứ ba** *(asset, nhạc, font, giọng)* | `CREDITS.md` · `BaoCao` Phụ lục B · `Slide` dự phòng 4 |
+| **Thêm / xoá / đổi vai trò script** | `CLAUDE.md` Mục 3 *(cây thư mục + bảng đã-networked-chưa)* · `PROGRESS.md` Mục 5 bản đồ code · `Slide` 18 *(Code Architecture)* |
+| **Tài nguyên bên thứ ba** *(asset, nhạc, font, giọng)* | `CREDITS.md` · `BaoCao` Phụ lục B · `Slide` 19 *(Credits)* |
 | **Câu thoại / giọng thông báo** | `VOICE_BRIEF.md` · `CREDITS.md` mục 3b |
 | **Thay đổi TẠM để test hoặc chụp ảnh** | `ROLLBACK_TRUOC_KHI_NOP.md` — ghi ngay lúc thay, đừng tin trí nhớ |
 | **Sửa xong một lỗi đã biết** | `CLAUDE.md` Mục 7 · `PROGRESS.md` |
@@ -479,8 +496,9 @@ rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
 | `VOICE_BRIEF.md` | Chỉ đạo giọng ARENA CONTROL, prompt ElevenLabs | Khi làm thêm câu thoại |
 | `TRAILER_SCRIPT.md` | Kịch bản trailer, cách quay, chính sách HUD | Khi quay trailer |
 | `ROLLBACK_TRUOC_KHI_NOP.md` | Mọi thứ phải trả lại trước khi nộp | **Đọc trước khi build bản nộp** |
-| `NOP_BAI/[ĐT-QĐ04-BM06] Báo cáo tốt nghiệp.docx` | Báo cáo 49 trang, 4 chương + 2 phụ lục, 10 hình | Nộp chính |
-| `NOP_BAI/[ĐT-QĐ04-BM08] Final Project.pptx` | 16 slide bảo vệ + 4 slide dự phòng | Buổi bảo vệ |
+| `VIEC_CAN_LAM.md` | **Danh sách việc còn lại**, ngắn gọn, kèm hướng dẫn build bản nộp từng bước | Chủ project — **mở ra đầu tiên** |
+| `NOP_BAI/[ĐT-QĐ04-BM06] Báo cáo tốt nghiệp.docx` | Báo cáo 53 trang *(Word đếm, 14/10)*, 4 chương + 2 phụ lục, 10 hình, 16 bảng. Có Danh mục hình/bảng tự sinh — sửa nội dung xong nhớ `Ctrl+A` → `F9` | Nộp chính |
+| `NOP_BAI/[ĐT-QĐ04-BM08] Final Project.pptx` | 15 slide bảo vệ + 4 slide phụ cuối *(Timeline, Balance Sheet, Code Architecture, Credits — từ 15/10 không còn ghi chữ "Dự phòng" trên slide)*. Tiêu đề kiểu pha Việt–Anh. **Không có slide demo** — demo trực tiếp bằng game (bỏ 15/10), ghi chú cách demo nằm ở slide 12 | Buổi bảo vệ |
 | `SlideBuilder/` | **Script sinh ra file .pptx.** Sửa slide thì sửa ở đây rồi chạy lại | Xem `SlideBuilder/README.md` |
 | `NOP_BAI/` | **Thư mục nộp bài** — gom đủ 6 biểu mẫu theo tên chính thức của trường | Nộp cho Bộ Môn |
 
@@ -499,6 +517,8 @@ rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
 > 📌 **Thông tin học viên dùng chung cho mọi biểu mẫu:** Nguyễn Hoàng Gia Khiêm ·
 > MSHV **144010124020** · Lớp **K24M-GAME1** · Ngành Công nghệ thông tin ·
 > Chuyên ngành Lập trình Game · Khoá **K24** · Cơ sở **Đà Nẵng**.
+> **Giảng viên hướng dẫn: cô Phạm Thị Hằng** *(chốt 14/10)* — đã điền ở báo cáo (2 bìa + Lời cảm ơn)
+> và bìa slide. Các ô "(Ký và ghi rõ họ tên)" trong biểu mẫu thì **để trống** — cô ký và viết tay.
 
 ⚠️ Hai file `.docx` và `.pptx` là **định dạng nhị phân**, sửa khác với sửa file `.md`:
 - `.docx` — đọc được bằng cách giải nén `word/document.xml`; sửa thì dùng thư viện, hoặc
@@ -561,8 +581,8 @@ Chủ project dùng linh hoạt cả hai cách:
   còn nhãn nào ghi "MÁU"; các nhãn HUD đều là `New Text` rồi được `HUDController` ghi
   lúc chạy. *(Lưu ý khi tự kiểm: TextMeshPro lưu chữ ở khoá `m_text` chữ thường,
   grep `m_Text` kiểu cũ sẽ không ra gì.)*
-- `Canvas / ShopPanel / TitleText / Text` ghi `Buying phase` viết thường, lệch với mọi
-  nhãn khác đang viết hoa. Nhãn tĩnh, code không ghi đè. Sửa chữ trong Unity.
+- ~~`Canvas / ShopPanel / TitleText / Text` ghi `Buying phase` viết thường~~ — **đã sửa
+  14/10** thành `BUYING PHASE`, sửa thẳng file `TestScene.unity` lúc Unity tắt.
 - ✅ **HỆ SỐ LỰC VĂNG TRÊN HUD — đã xong 11/10.** Trước đó code vẫn chạy nhưng ô
   `HUDController.knockbackText` để trống nên không bao giờ hiện ra. Nay đã gán:
   `Canvas / HUD / Group_BottomLeft / KnockbackText`, cỡ chữ 36, màu đỏ `#EE525A`.
@@ -631,3 +651,15 @@ xong) và **lúc kết thúc trận** (Fusion đang tắt, object đã despawn m
 → **Bài học chung:** với Fusion, "có tồn tại" và "dùng được" là hai chuyện khác nhau.
 Danh sách như `PlayerHealth.AllPlayers` thì an toàn hơn vì chỉ thêm vào trong `Spawned()`,
 nhưng `GetComponent<PlayerHealth>()` thì **không** bảo đảm gì cả.
+
+**14. Trong `NetworkBehaviour`, chữ `Object` là object MẠNG của Fusion** *(bẫy Fusion — gặp 14/10)*
+Viết `Object.Destroy(x)` bên trong một lớp kế thừa `NetworkBehaviour` (kể cả **lớp lồng** bên trong
+nó) sẽ báo lỗi biên dịch `CS0120` / `CS0176`: tên `Object` bị hiểu là thuộc tính `Object`
+(kiểu `NetworkObject`) của Fusion, không phải `UnityEngine.Object`.
+→ Cách chữa: ghi đủ tên `UnityEngine.Object.Destroy(...)`. Gặp ở `EMBarrier.Visual.Dispose()`.
+
+**15. `line` là từ khoá dành riêng của HLSL — đừng đặt làm tên biến trong shader** *(gặp 14/10)*
+Báo lỗi khó hiểu: `syntax error: unexpected token 'line'`. Đó là kiểu dữ liệu của geometry shader.
+Các tên khác cũng dính: `point`, `triangle`, `lineadj`, `triangleadj`, `sample`.
+Kèm theo: trong khối `Properties`, chữ trong `[Header(...)]` **không được có dấu gạch ngang** —
+báo `Parse error ... expecting TVAL_ID`.

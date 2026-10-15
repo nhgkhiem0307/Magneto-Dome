@@ -28,7 +28,13 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 | `combatDuration` | **300** | code | Pha chiến đấu (giây) |
 | `roundEndDuration` | **5** | Inspector | Nghỉ giữa round (giây) |
 | `respawnDelay` | **5** | code | Chết bao lâu thì sống lại (giây) |
-| `killZoneY` | **-20** | Inspector | Rơi thấp hơn mức này là chết |
+| `killZoneY` | **-20** | Inspector | Rơi thấp hơn mức này là chết — **chỉ trong pha chiến đấu**. Pha khác thì được kéo về điểm xuất phát *(14/10)* |
+
+`Player.prefab` — `PlayerHealth`
+
+| Ô | Giá trị | Nguồn | Ý nghĩa |
+|---|---|---|---|
+| `attackerMemory` | **6** | code | Bị đối thủ đẩy xong bao nhiêu giây mà rơi thì vẫn tính là họ hạ mình (hiện tên trên bảng chết). Quá lâu thì tính là tự rơi *(14/10)* |
 
 ## Khu chiếm đóng
 
@@ -88,6 +94,22 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 | `aimAssistRadius` | **1.2** | Inspector | Bán kính hỗ trợ ngắm |
 | `aimAssistAngle` | **12** | Inspector | Góc hỗ trợ ngắm xa |
 | `closeAssistAngle` | **70** | Inspector | Góc hỗ trợ ngắm gần |
+
+## Tường EM Barrier *(thêm 14/10)*
+
+`EMBarrier.prefab` — `EMBarrier` · khoảng cách thả nằm ở `Player.prefab` — `InventorySystem`
+
+| Ô | Giá trị | Nguồn | Ý nghĩa |
+|---|---|---|---|
+| `lifetime` | **10** | Inspector | Tồn tại bao nhiêu giây. 2 giây cuối nhấp nháy báo sắp hết |
+| `panelSize` | **4 × 3** | code | Rộng × cao tấm khiên (mét). Va chạm tự khớp theo số này |
+| `hoverHeight` | **0.3** | code | Tấm khiên lơ lửng cách đất. Va chạm vẫn chạm sát đất → cao tổng **3.3m** |
+| `colliderThickness` | **0.35** | code | Độ dày va chạm. Hình thì mỏng như tờ giấy, nhưng va chạm mỏng quá thì vật bay nhanh xuyên qua |
+| `emBarrierDistance` | **3** | Inspector | Thả cách người chơi bao nhiêu mét |
+
+> ⚠️ **Trước 14/10 tường thực ra chỉ cao 2.5m trên mặt đất**, dày 0.5m: khối hộp 4×3 đặt tâm ở
+> gốc nhân vật (cao hơn chân ~1m), nên 0.5m chân tường chìm dưới đất. Giờ tường tự dò mặt đất,
+> đứng đúng trên đó → **che cao hơn 0.8m so với trước**.
 
 ## Đạn — prefab vật thể từ tính
 

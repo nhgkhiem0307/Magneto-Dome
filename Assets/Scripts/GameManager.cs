@@ -147,8 +147,9 @@ public class GameManager : NetworkBehaviour
         ConsumeDebugRoundRequest();
 #endif
 
-        // KillZone kiểm tra liên tục trong lúc đánh nhau
-        if (Phase == GamePhase.Combat)
+        // KillZone kiểm tra ở MỌI pha (trừ lúc trận đã xong). Trước 14/10 chỉ kiểm trong
+        // pha chiến đấu, nên rơi lúc mua đồ là rơi mãi dưới vực — xem CheckKillZone.
+        if (Phase != GamePhase.MatchEnd)
         {
             CheckKillZone();
         }
@@ -160,6 +161,9 @@ public class GameManager : NetworkBehaviour
                 break;
 
             case GamePhase.BuyPhase:
+                // Đường chết duy nhất trong pha này là phím tự sát lúc test (rơi thì được
+                // kéo về, không chết). Vẫn phải hồi sinh, không thì nằm chết tới hết pha.
+                CheckRespawns();
                 if (PhaseTimer.Expired(Runner)) StartCombat();
                 break;
 
@@ -573,18 +577,29 @@ public class GameManager : NetworkBehaviour
         return true;
     }
 
-    // Map là đảo lơ lửng nên rơi khỏi rìa phải chết, không thì kẹt dưới vực mãi
+    // Map là đảo lơ lửng nên rơi khỏi rìa phải xử lý, không thì kẹt dưới vực mãi.
+    //
+    // CHỈ pha chiến đấu mới tính là CHẾT. Rơi lúc mua đồ / chờ round / hết round thì chỉ
+    // kéo về điểm xuất phát: không mất gì, địch không được điểm. (14/10)
     private void CheckKillZone()
     {
         foreach (PlayerHealth p in PlayerHealth.AllPlayers)
         {
             if (p == null || !p.IsAlive) continue;
+            if (p.transform.position.y >= killZoneY) continue;
 
-            if (p.transform.position.y < killZoneY)
+            if (Phase == GamePhase.Combat)
             {
                 Debug.Log($"<color=red>[KILLZONE] Player {p.Object.InputAuthority} rơi khỏi đảo</color>");
                 p.Die();
+                continue;
             }
+
+            NetworkRunnerHandler handler = NetworkRunnerHandler.Instance;
+            if (handler == null) continue;
+
+            p.RescueToSpawn(handler.GetSpawnPosition(p.Team, 0), handler.GetSpawnYaw(p.Team));
+            Debug.Log($"<color=cyan>[KILLZONE] Player {p.Object.InputAuthority} rơi lúc {Phase} — kéo về điểm xuất phát, không tính chết</color>");
         }
     }
 

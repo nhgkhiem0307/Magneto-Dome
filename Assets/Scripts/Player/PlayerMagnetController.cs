@@ -890,6 +890,10 @@ public class PlayerMagnetController : NetworkBehaviour
         FPSMovement enemyMove = target.GetComponent<FPSMovement>();
         DummyGravity dummyGrav = target.GetComponent<DummyGravity>();
 
+        // Ghi tên mình vào nạn nhân — rơi khỏi đảo ngay sau đó thì bảng chết của họ hiện tên mình.
+        PlayerHealth victimHealth = target.GetComponent<PlayerHealth>();
+        if (victimHealth != null) victimHealth.RegisterHit(this, PlayerHealth.KnockCause.Melee);
+
         if (currentGlovePolarity == targetPolarity)
         {
             Debug.Log("<color=red>CÙNG DẤU! Đấm văng đối thủ!</color>");

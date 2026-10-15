@@ -1,9 +1,54 @@
 # TIẾN ĐỘ — Magneto-Dome
 
 > Ghi cho session sau. Đọc file này trước, rồi đọc [CLAUDE.md](CLAUDE.md) để nắm đặc tả và quy tắc.
-> **Cập nhật:** 23/09/2026 · **Deadline:** 25/09/2026 (còn 2 ngày)
+> **Cập nhật:** 14/10/2026 · **Deadline:** hạn 12/10 đã được lùi — **chưa biết ngày mới**
 
-> ### 🔥 CÒN ĐÚNG NHỮNG VIỆC NÀY (rà lại trực tiếp trong file ngày 25/09)
+> ### 📋 DANH SÁCH VIỆC CÒN LẠI ĐÃ CHUYỂN SANG [VIEC_CAN_LAM.md](VIEC_CAN_LAM.md) *(từ 14/10)*
+> File này giữ **nhật ký**, file kia giữ **việc phải làm** — đừng chép danh sách việc vào đây nữa.
+>
+> **Đã xong 14/10:** báo cáo có Danh mục bảng (16) + Danh mục hình (10) tự sinh kèm số trang,
+> xoá danh sách bảng gõ tay bị sai, tách 7 ảnh khỏi style chú thích · tạo icon
+> `Assets/Textures/GameIcon.png` *(chưa gắn — chờ chủ project làm trong Player Settings)* ·
+> sửa bảng scene build trong CLAUDE.md *(SampleScene không còn trong build)* ·
+> **build bản nộp chính thức** bằng `Assets/Editor/BuildNop.cs` chạy dòng lệnh: icon đã gắn,
+> Development Build tắt (0 file .pdb), ra `Build_Nop/` + `Build_Nop.zip` 214MB. Còn thiếu: chơi thử 2 máy ·
+> điền tên GVHD **cô Phạm Thị Hằng** vào báo cáo (2 bìa + Lời cảm ơn, "thầy/cô" → "cô") và bìa slide
+> *(sửa `make_slide.js` rồi dựng lại — slide 13 vẫn chưa có video nên không mất gì)* ·
+> đổi toàn bộ **"sinh viên" → "học viên"** (4 chỗ trong slide, 1 câu trong báo cáo) cho khớp biểu mẫu trường ·
+> nhãn cửa hàng `Buying phase` → `BUYING PHASE` *(sau khi đã build `Build_Nop`)* ·
+> **CREDITS truy nguồn bằng đối chiếu GUID với bộ nhớ đệm Asset Store**: đá = Manufactura K4,
+> cây = Pixel Games; `Nature` = Quaternius *Ultimate Stylized Nature Pack* (CC0) — truy ra nhờ
+> đường dẫn sót trong `AllModels.blend`. ParrelSync, QuickOutline xác nhận MIT. Tra điều khoản
+> Meshy (gói free = CC BY 4.0) và ElevenLabs (gói free = ghi `elevenlabs.io`, phi thương mại).
+> Phụ lục B báo cáo thêm 3 dòng; slide dự phòng 4 sửa 2 chỗ sai (nhân vật ghi nhầm Asset Store,
+> thiếu Meshy). Còn lại: nguồn 13 file hiệu ứng âm thanh — chỉ chủ project biết ·
+> **EM Barrier có hình riêng**: tấm khiên ghép ô lục giác lơ lửng 0.3m trên lõi kim loại, màu
+> trung tính trắng–xanh lơ, 4×3m. Dựng bằng mã (`EMBarrier.Visual`) + shader mới `HexShield.shader`.
+> Có hiệu ứng lan ra lúc thả, gợn sóng khi trúng (đồng bộ mạng qua `HitCount`), nhấp nháy 2 giây
+> cuối, tan về lõi. Tường giờ tự dò mặt đất (`InventorySystem.FindGroundBelow`) — trước đó chìm 0.5m.
+> Đã xem trước bằng ảnh chụp từ Unity chạy ngầm. **Chưa test trong trận thật.** ·
+> **Xoá con bù nhìn khỏi TestScene** (đã có sẵn `Assets/Prefab/Dummy.prefab`, bản trong scene chỉ khác
+> tên + vị trí nên không mất gì) · **build lại `Build_Nop` + zip 214MB** — đã có tường mới, nhãn
+> `BUYING PHASE`, không còn bù nhìn ·
+> **Sửa lỗi rơi trong pha mua đồ**: trước đó vùng chết chỉ kiểm trong pha chiến đấu → rơi lúc mua
+> đồ là rơi mãi dưới vực, combat vừa mở thì chết luôn (mất 5s + địch +8). Giờ rơi ngoài pha chiến
+> đấu → `RescueToSpawn` kéo về điểm xuất phát, giữ giáp/đồ. Kèm: `CheckRespawns` chạy cả trong pha
+> mua (phím K lúc test), `FPSMovement.ClearMotion()` xoá đà rơi mỗi lần dịch chuyển ·
+> **Bảng chết mới `DeathScreen.cs`** (thay chữ "DEAD"): ai hất mình + bằng đòn gì (đấm/đạn/TNT,
+> ghi qua `PlayerHealth.RegisterHit`, nhớ 6 giây), vòng đếm ngược, "địch +8", mẹo chơi. Đã xem
+> trước bằng ảnh chụp. **Chưa test trong trận thật.** Đã build lại `Build_Nop` + zip 214MB (14/10) có cả hai thay đổi.
+
+> **Đã xong 15/10:** bỏ slide demo (slide 13 cũ) — chủ project demo trực tiếp bằng game.
+> Deck còn 15 + 4 dự phòng. Mục "06 DEMO TRỰC TIẾP" vẫn giữ trong slide Nội dung để số mục
+> 7–9 không lệch; cách demo + mẹo bấm F1 chuyển vào ghi chú người nói của slide 12 ·
+> **Tiêu đề slide kiểu pha Việt–Anh**: 3. Tech stack · 4. … — Magnetic Gloves / Ammo Types /
+> Overload Mode / Match Format / Netcode · 5. … — Workflow / Top 3 Bugs. 4 slide cuối bỏ chữ
+> "Dự phòng N" + dòng "Mở slide này khi hội đồng hỏi…", đổi tên Timeline / Balance Sheet /
+> Code Architecture / Credits, kéo nội dung lên cho đỡ trống · trailer xong (`trailer/Magneto-Dome_Trailer_v3.mp4`) ·
+> sửa số cũ trên slide: 45 → **49 tệp** mã nguồn, 20.000 → **21.000 dòng**, báo cáo 48 → **53 trang**;
+> ghi chú slide Kết quả thay "hai ô đỏ phải đo" bằng số đo thật (85 FPS 1920×1080, ping 16 ms).
+
+> ### 🗄️ *(CŨ — 25/09, giữ để tra cứu)* CÒN ĐÚNG NHỮNG VIỆC NÀY
 > | # | Việc | Ai làm |
 > |---|---|---|
 > | 1 | **Viết báo cáo** — chưa có chữ nào. Rủi ro lớn nhất | Chủ project |
@@ -1106,6 +1151,7 @@ Xem **CLAUDE.md mục 5** — 7 bẫy đã gặp kèm cách chữa (CharacterCon
 Assets/
 ├── NetworkRunnerHandler.cs   Lobby, gửi input, spawn, quay về menu. DontDestroyOnLoad singleton
 ├── RoomPlayer.cs             Đồng bộ tên + đội trong phòng chờ
+├── Editor/BuildNop.cs        Build bản nộp 1 lệnh (icon + tắt Development Build). Chỉ Editor  (14/10)
 └── Scripts/
     ├── GameManager.cs        Vòng đấu, tính điểm, hồi sinh, KillZone, Overtime
     ├── ShopManager.cs        Giao dịch qua RPC, Host duyệt        (trên Player.prefab)

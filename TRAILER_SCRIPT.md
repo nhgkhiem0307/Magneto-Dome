@@ -149,7 +149,7 @@ lớp trên scale 250–300% và kéo sao cho thanh điện vào giữa khung, g
 |---|---|
 | **Quay gì** | Một cú đấm hất người chơi khỏi rìa đảo, họ rơi xuyên qua biển mây |
 | **Cách quay** | Đứng gần rìa, người kia đấm. Quay từ máy **người bị hất** để thấy cú rơi |
-| **Chữ hiện** | `CHỈ CÓ MỘT CÁCH ĐỂ CHẾT` |
+| **Chữ hiện** | `CHỈ CÓ MỘT CÁCH ĐỂ CHẾT` | | `RÌA MAP LÀ NƠI NGUY HIỂM NHẤT` |
 | **Lưu ý** | Cảnh đắt nhất của trailer. Quay ít nhất 5 lần, chọn cú bay xa và đẹp nhất |
 
 ### Cảnh 6 — Dồn dập · 0:37 → 0:43 *(6 giây)*

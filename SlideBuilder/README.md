@@ -27,8 +27,9 @@ nhiêu lần ảnh vẫn còn.
 Muốn đổi ảnh thì **thay file trong `img/`** rồi chạy lại script, không động vào `.pptx`.
 Thêm ảnh mới thì dùng hàm `picImg()` trong `make_slide.js`.
 
-> Khung duy nhất còn để trống là **slide 13 (Demo)** — chỗ đó dành cho video, phải chèn tay.
-> Chèn xong thì đừng chạy lại script nữa, hoặc `Save As` ra tên khác để giữ.
+> **Không còn khung nào phải chèn tay.** Slide demo (từng là slide 13) đã **bỏ ngày 15/10** vì
+> chủ project demo trực tiếp bằng game. Mục "06 DEMO TRỰC TIẾP" vẫn nằm trong slide Nội dung;
+> cách demo ghi trong phần ghi chú người nói của slide 12. Chạy lại script lúc nào cũng an toàn.
 
 ## Ba file ảnh kèm theo là gì
 
