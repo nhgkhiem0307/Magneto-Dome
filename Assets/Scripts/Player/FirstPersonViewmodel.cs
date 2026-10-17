@@ -463,6 +463,12 @@ public class FirstPersonViewmodel : MonoBehaviour
     private float _fireRecoilTimer;
     private float _punchTimer, _fireTimer, _pushTimer;
 
+    // Khựng hình khi đấm trúng (17/10) — xem RequestHitStop
+    [Header("Khựng hình khi đấm trúng")]
+    [Tooltip("Camera giật thêm đúng lúc khựng (cùng đơn vị Kick của CameraShake).")]
+    public float hitStopKick = 0.5f;
+    private float _hitStop, _pendingHitStop;
+
     // Pháp tuyến LÒNG BÀN TAY, ghi theo toạ độ bàn tay. Dùng để xoay bàn tay hướng lòng
     // về phía vật khi đẩy.
     private Vector3 _lPalmLocal, _rPalmLocal;
@@ -1340,6 +1346,19 @@ public class FirstPersonViewmodel : MonoBehaviour
     }
 
     /// <summary>Bắn vật đang cầm: hai tay đẩy ra rồi giật ngược.</summary>
+    /// <summary>
+    /// Khựng hình khi đấm trúng: dừng mọi chuyển động của tay trong <paramref name="seconds"/> giây.
+    ///
+    /// CHỜ TỚI LÚC NẮM ĐẤM ĐANG DUỖI RA mới khựng. Cú đấm mở đầu bằng nhịp rút tay về; khựng ngay
+    /// lúc bấm thì tay đứng sững ở tư thế co lại — trông như bị lag chứ không phải đòn nặng. Đợi
+    /// qua ~30% nhịp thọc ra thì tay đang vươn, khựng ở đó mới ra cảm giác "đấm trúng thứ gì đặc".
+    /// </summary>
+    public void RequestHitStop(float seconds)
+    {
+        if (!_built || seconds <= 0f) return;
+        _pendingHitStop = seconds;
+    }
+
     public void PlayFire()
     {
         if (!_built) return;
@@ -1398,6 +1417,20 @@ public class FirstPersonViewmodel : MonoBehaviour
         if (FPSMovement.Local != _movement) return;
 
         float dt = Time.deltaTime;
+
+        // Khựng hình: bắt đầu khi nắm đấm đã duỗi được ~30% (hoặc ngay nếu không có cú đấm nào
+        // đang diễn), rồi giữ nguyên tư thế — không bước lò xo, không đếm giờ — tới hết nhịp khựng.
+        if (_pendingHitStop > 0f && _punchTimer <= punchHold * 0.7f)
+        {
+            _hitStop = _pendingHitStop;
+            _pendingHitStop = 0f;
+            if (_movement != null) _movement.KickCamera(hitStopKick);
+        }
+        if (_hitStop > 0f)
+        {
+            _hitStop -= dt;
+            return;
+        }
 
         UpdateSway(dt);
         BuildTargets(dt);

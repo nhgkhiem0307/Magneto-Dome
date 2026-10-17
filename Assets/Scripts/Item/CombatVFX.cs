@@ -217,7 +217,8 @@ public static class CombatVFX
     /// Luồng khí bay TỚI ĐÚNG NGƯỜI TRÚNG là thứ nối hai cái đó lại. Hỗ trợ ngắm vẫn y
     /// nguyên, người chơi chỉ thấy "luồng khí đánh trúng".
     /// </summary>
-    public static void QiStrike(Vector3 from, Vector3 to, Color color)
+    /// <param name="power01">Điện tích của người trúng (0..1) — càng nhiễm điện nổ càng to, khớp với lực văng.</param>
+    public static void QiStrike(Vector3 from, Vector3 to, Color color, float power01 = 0f)
     {
         if (Additive == null) return;
         if ((to - from).sqrMagnitude < 0.0001f) return;
@@ -226,7 +227,75 @@ public static class CombatVFX
 
         GameObject go = new GameObject("VFX QiBolt");
         go.transform.position = from;
-        go.AddComponent<QiBolt>().Play(from, to, color);
+        go.AddComponent<QiBolt>().Play(from, to, color, power01);
+    }
+
+    /// <summary>
+    /// CÚ ĐẤM TRÚNG (17/10) — mạnh tay hơn Impact thường, và TO DẦN theo điện tích của người trúng.
+    ///
+    /// Game này lực văng tăng theo điện tích (x1 → x4), nên hiệu ứng cũng phải nói được điều đó:
+    /// đấm người sạch điện thì nổ vừa, đấm người 90% điện thì nổ to gấp rưỡi — người chơi đọc
+    /// được "cú này sẽ hất xa" ngay tại khoảnh khắc trúng.
+    ///
+    /// Bốn lớp: cục sáng chớp tại chỗ · vòng sóng màu · vòng sóng trắng thứ hai TRỄ NHỊP 0,06 giây
+    /// (hai nhịp đọc thành "bùm-bùm", một vụ va chạm có độ nặng) · nhiều tia lửa hơn.
+    /// </summary>
+    public static void PunchImpact(Vector3 at, Vector3 dir, Color color, float power01)
+    {
+        if (Additive == null) return;
+
+        float p = Mathf.Clamp01(power01);
+        float size = 1.5f * (1f + 0.8f * p);
+        Vector3 d = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector3.forward;
+        Quaternion face = Quaternion.FromToRotation(Vector3.up, d);
+
+        GameObject flash = new GameObject("VFX PunchFlash");
+        flash.transform.position = at;
+        flash.AddComponent<MuzzleFlash>().Play(at, d, color, 0.9f * (1f + 0.6f * p), 0.14f);
+
+        GameObject ring1 = new GameObject("VFX PunchRing");
+        ring1.transform.SetPositionAndRotation(at, face);
+        ring1.AddComponent<ShockwaveRing>().Play(size, color, 0.34f, size * 0.24f, 12f);
+
+        // Vòng thứ hai: trắng hơn, rộng hơn, mảnh hơn, KHÔNG có đèn (đèn đã có ở hai lớp trên)
+        GameObject ring2 = new GameObject("VFX PunchRing2");
+        ring2.transform.SetPositionAndRotation(at, face);
+        ring2.AddComponent<ShockwaveRing>().Play(size * 1.5f, Color.Lerp(color, Color.white, 0.6f), 0.4f,
+                                                 size * 0.12f, 0f, 0.06f);
+
+        GameObject sparks = new GameObject("VFX PunchSparks");
+        sparks.transform.position = at;
+        sparks.AddComponent<SparkBurst>().Play(at, d, color, size, 9 + Mathf.RoundToInt(10f * p), 0.3f);
+    }
+
+    /// <summary>
+    /// TIA NẠP ĐIỆN (17/10): tia laze thường + tia sét lách tách quấn quanh + chỗ vật trúng loé sáng.
+    ///
+    /// Tia thẳng trơn thì đọc thành "laze" của game bắn súng viễn tưởng. Thêm sợi điện ngoằn
+    /// ngoèo quấn quanh là đọc ra ngay "điện từ" — đúng chủ đề găng tay từ tính. Còn vật trúng
+    /// phải PHẢN ỨNG (tia lửa + vòng sóng màu điện tích vừa nạp): trước đây vật bị bắn đứng im
+    /// như không có gì xảy ra, mắt không nối được tia với kết quả.
+    /// </summary>
+    public static void ChargeBeam(Vector3 from, Vector3 to, Color color)
+    {
+        if (Additive == null) return;
+
+        Beam(from, to, color);
+
+        float len = Vector3.Distance(from, to);
+        GameObject arcs = new GameObject("VFX BeamArcs");
+        arcs.transform.position = from;
+        arcs.AddComponent<ArcCrackle>().Play(from, to, color, 0.26f, 2, Mathf.Clamp(0.06f + len * 0.012f, 0.08f, 0.35f));
+
+        // Vật trúng: vòng sóng vuông góc với tia + tia lửa bắn ngược về phía người bắn
+        Vector3 back = (from - to).sqrMagnitude > 0.0001f ? (from - to).normalized : Vector3.up;
+        GameObject ring = new GameObject("VFX BeamHitRing");
+        ring.transform.SetPositionAndRotation(to, Quaternion.FromToRotation(Vector3.up, back));
+        ring.AddComponent<ShockwaveRing>().Play(0.9f, color, 0.3f, 0.16f, 5f);
+
+        GameObject sparks = new GameObject("VFX BeamHitSparks");
+        sparks.transform.position = to;
+        sparks.AddComponent<SparkBurst>().Play(to, back, color, 0.6f, 7, 0.22f);
     }
 
     /// <summary>Nổ ra tại chỗ trúng: vòng sóng vuông góc hướng đánh + tia văng toả ra.</summary>
@@ -247,6 +316,309 @@ public static class CombatVFX
         GameObject sparks = new GameObject("VFX QiSparks");
         sparks.transform.position = at;
         sparks.AddComponent<SparkBurst>().Play(at, d, color, size);
+    }
+
+    // ==================== NỔ TNT + CAN XĂNG (17/10) ====================
+    //
+    // Lửa, khói, tàn lửa cần hàng chục đốm MỀM bay theo quỹ đạo riêng - LineRenderer không làm nổi,
+    // nên phần này dùng Particle System dựng bằng code. Không lặp lại lỗi tụt FPS của biển mây cũ:
+    // mỗi vụ nổ chỉ ~60 hạt, sống tối đa 2 giây rồi tự huỷ (stopAction = Destroy).
+
+    private static Material _blobAdd, _blobAlpha;
+    private static Texture2D _blobTex;
+
+    /// <summary>Ảnh đốm tròn mềm cho hạt (khác SoftLine — cái đó chỉ mềm theo bề ngang sợi).</summary>
+    private static Texture2D BlobTexture
+    {
+        get
+        {
+            if (_blobTex != null) return _blobTex;
+            const int size = 64;
+            _blobTex = new Texture2D(size, size, TextureFormat.RGBA32, true)
+            {
+                name = "CombatVFX Blob (runtime)",
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+                hideFlags = HideFlags.DontSave,
+            };
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x + 0.5f) / size * 2f - 1f, dy = (y + 0.5f) / size * 2f - 1f;
+                    float a = Mathf.Clamp01(1f - Mathf.Sqrt(dx * dx + dy * dy));
+                    a = a * a * (3f - 2f * a);
+                    _blobTex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+                }
+            _blobTex.Apply();
+            return _blobTex;
+        }
+    }
+
+    private static Material MakeBlobMaterial(bool additive)
+    {
+        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        if (shader == null) return null;
+        Material m = new Material(shader) { name = additive ? "CombatVFX BlobAdd" : "CombatVFX BlobAlpha", hideFlags = HideFlags.DontSave };
+        m.SetFloat("_Surface", 1f);
+        m.SetFloat("_Blend", additive ? 2f : 0f);
+        m.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+        m.SetFloat("_DstBlend", additive ? (float)BlendMode.One : (float)BlendMode.OneMinusSrcAlpha);
+        m.SetFloat("_ZWrite", 0f);
+        m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        m.renderQueue = (int)RenderQueue.Transparent;
+        m.mainTexture = BlobTexture;
+        if (m.HasProperty("_BaseMap")) m.SetTexture("_BaseMap", BlobTexture);
+        if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", Color.white);
+        return m;
+    }
+
+    /// <summary>Đốm cộng sáng (lửa, tàn lửa, chớp).</summary>
+    private static Material BlobAdd => _blobAdd != null ? _blobAdd : (_blobAdd = MakeBlobMaterial(true));
+    /// <summary>Đốm che sáng (khói, xăng) — khói phải TỐI hơn nền, cộng sáng không làm được.</summary>
+    private static Material BlobAlpha => _blobAlpha != null ? _blobAlpha : (_blobAlpha = MakeBlobMaterial(false));
+
+    /// <summary>Dựng một hệ hạt phát MỘT LOẠT rồi tự huỷ. Trả về để chỉnh thêm.</summary>
+    private static ParticleSystem Burst(string name, Vector3 at, Material mat, int count, float delay,
+                                        Vector2 life, Vector2 speed, Vector2 size, float gravity,
+                                        Gradient colors, AnimationCurve sizeOverLife, float shapeRadius)
+    {
+        GameObject go = new GameObject(name);
+        go.transform.position = at;
+        ParticleSystem ps = go.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        var main = ps.main;
+        main.duration = 0.5f;
+        main.loop = false;
+        main.playOnAwake = false;
+        main.startDelay = delay;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(life.x, life.y);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(speed.x, speed.y);
+        main.startSize = new ParticleSystem.MinMaxCurve(size.x, size.y);
+        main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        main.gravityModifier = gravity;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.maxParticles = count;
+        main.stopAction = ParticleSystemStopAction.Destroy;
+
+        var em = ps.emission;
+        em.rateOverTime = 0f;
+        em.SetBursts(new[] { new ParticleSystem.Burst(0f, (short)count) });
+
+        var sh = ps.shape;
+        sh.shapeType = ParticleSystemShapeType.Sphere;
+        sh.radius = Mathf.Max(0.01f, shapeRadius);
+
+        var col = ps.colorOverLifetime;
+        col.enabled = true;
+        col.color = new ParticleSystem.MinMaxGradient(colors);
+
+        var sol = ps.sizeOverLifetime;
+        sol.enabled = true;
+        sol.size = new ParticleSystem.MinMaxCurve(1f, sizeOverLife);
+
+        ParticleSystemRenderer r = go.GetComponent<ParticleSystemRenderer>();
+        r.sharedMaterial = mat;
+        r.shadowCastingMode = ShadowCastingMode.Off;
+        r.receiveShadows = false;
+        return ps;
+    }
+
+    private static Gradient Grad(params (float t, Color c)[] keys)
+    {
+        var g = new Gradient();
+        var ck = new GradientColorKey[keys.Length];
+        var ak = new GradientAlphaKey[keys.Length];
+        for (int i = 0; i < keys.Length; i++)
+        {
+            ck[i] = new GradientColorKey(keys[i].c, keys[i].t);
+            ak[i] = new GradientAlphaKey(keys[i].c.a, keys[i].t);
+        }
+        g.SetKeys(ck, ak);
+        return g;
+    }
+
+    /// <summary>
+    /// VỤ NỔ TNT (17/10). Năm lớp: quả cầu lửa · khói bốc lên · tàn lửa văng · vòng sóng ĐÚNG bán kính
+    /// sát thương (giữ nguyên — người chơi học tầm nổ bằng mắt) · vòng trắng loang nhanh.
+    /// Mọi cỡ tính theo bán kính nổ, nên đổi explosionRadius thì vụ nổ to nhỏ theo.
+    /// </summary>
+    public static void Explosion(Vector3 center, float radius)
+    {
+        if (Additive == null || BlobAdd == null) return;
+        float k = radius / 6f;   // 6m là bán kính chuẩn đã cân hình
+        Color orange = new Color(1f, 0.55f, 0.12f);
+
+        // 0. Chớp sáng lớn ở tâm đúng khoảnh khắc nổ - một đốm to cỡ cả vùng nổ, tắt trong 0,2 giây
+        Burst("VFX TNT Flash", center + Vector3.up * 0.8f * k, BlobAdd, 1, 0f,
+            new Vector2(0.2f, 0.2f), Vector2.zero, new Vector2(radius * 3f, radius * 3f), 0f,
+            Grad((0f, new Color(4f, 3.6f, 2.8f, 1f)), (1f, new Color(2f, 1f, 0.3f, 0f))),
+            new AnimationCurve(new Keyframe(0f, 0.5f), new Keyframe(1f, 1f)), 0.01f).Play();
+
+        // 1. Quả cầu lửa: trắng chói → vàng → cam → đỏ sẫm rồi tắt. To cỡ ~2/3 vùng nổ.
+        ParticleSystem fire = Burst("VFX TNT Fire", center + Vector3.up * 0.5f * k, BlobAdd, 24, 0f,
+            new Vector2(0.55f, 0.9f), new Vector2(3f * k, 9f * k), new Vector2(5.5f * k, 8.5f * k), -0.08f,
+            // Đốm hạt mềm dần ra rìa nên phần THẤY RÕ chỉ cỡ một nửa kích thước - số to là cố ý
+            Grad((0f, new Color(3f, 2.6f, 2f, 1f)), (0.12f, new Color(2.2f, 1.2f, 0.35f, 1f)),
+                 (0.45f, new Color(1.6f, 0.45f, 0.08f, 0.85f)), (1f, new Color(0.4f, 0.06f, 0.02f, 0f))),
+            new AnimationCurve(new Keyframe(0f, 0.35f), new Keyframe(0.25f, 1f), new Keyframe(1f, 1.25f)),
+            radius * 0.12f);
+        var fireLimit = fire.limitVelocityOverLifetime;   // bung nhanh rồi khựng lại như lửa thật
+        fireLimit.enabled = true;
+        fireLimit.limit = 1.0f;
+        fireLimit.dampen = 0.2f;
+        // Lửa LUÔN vẽ sau cùng (đè lên khói). Không thì khói che sáng vẽ đè lên trước lửa,
+        // thành một cái lỗ tối giữa quả cầu lửa. Số càng nhỏ càng được vẽ sau (nằm trên).
+        fire.GetComponent<ParticleSystemRenderer>().sortingFudge = -20f;
+        fire.Play();
+
+        // 2. Khói: trễ một nhịp sau lửa, bốc lên chậm, nở ra rồi tan
+        ParticleSystem smoke = Burst("VFX TNT Smoke", center + Vector3.up * 0.8f * k, BlobAlpha, 16, 0.15f,
+            new Vector2(1.7f, 2.6f), new Vector2(1.5f * k, 4f * k), new Vector2(6f * k, 9.5f * k), -0.15f,
+            Grad((0f, new Color(0.30f, 0.27f, 0.25f, 0f)), (0.2f, new Color(0.28f, 0.26f, 0.24f, 0.75f)),
+                 (0.55f, new Color(0.40f, 0.38f, 0.37f, 0.5f)), (1f, new Color(0.55f, 0.55f, 0.55f, 0f))),
+            new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(1f, 2.0f)),
+            radius * 0.18f);
+        smoke.GetComponent<ParticleSystemRenderer>().sortingFudge = 20f;   // nằm dưới lửa
+        var smokeLimit = smoke.limitVelocityOverLifetime;
+        smokeLimit.enabled = true;
+        smokeLimit.limit = 0.6f;
+        smokeLimit.dampen = 0.12f;
+        smoke.Play();
+
+        // 3. Tàn lửa: vệt sáng kéo dài theo hướng bay, rơi theo trọng lực
+        ParticleSystem embers = Burst("VFX TNT Embers", center, BlobAdd, 36, 0f,
+            new Vector2(0.6f, 1.3f), new Vector2(7f * k, 16f * k), new Vector2(0.14f, 0.28f), 1.2f,
+            Grad((0f, new Color(3f, 2.4f, 1.2f, 1f)), (0.5f, new Color(2.2f, 0.9f, 0.2f, 1f)), (1f, new Color(1f, 0.2f, 0.05f, 0f))),
+            new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 0.4f)),
+            radius * 0.08f);
+        ParticleSystemRenderer er = embers.GetComponent<ParticleSystemRenderer>();
+        er.renderMode = ParticleSystemRenderMode.Stretch;
+        er.velocityScale = 0.06f;
+        er.lengthScale = 1.5f;
+        embers.Play();
+
+        // 4. Vòng sóng ĐÚNG bán kính sát thương (như cũ) — đèn chớp mạnh hơn cho vụ nổ có sức nặng
+        GameObject ring = new GameObject("VFX Shockwave");
+        ring.transform.position = center;
+        ring.AddComponent<ShockwaveRing>().Play(radius, orange, 0.45f, 0.6f, 30f);
+
+        // 5. Vòng trắng mảnh loang nhanh hơn, rộng hơn: "áp suất" thoát ra trước cả lửa
+        GameObject ring2 = new GameObject("VFX Shockwave2");
+        ring2.transform.position = center + Vector3.up * 0.3f;
+        ring2.AddComponent<ShockwaveRing>().Play(radius * 1.35f, new Color(1f, 0.95f, 0.85f), 0.28f, 0.25f, 0f);
+    }
+
+    /// <summary>
+    /// ĐỔ CAN XĂNG lên một vật (17/10): xăng màu hổ phách bắn tung + chớp lửa nhỏ quanh vật + vòng cam
+    /// dưới chân. Nói rõ "vật này vừa bị biến thành thùng nổ" cho MỌI người thấy, không chỉ người đổ.
+    /// </summary>
+    public static void GasolineSplash(Vector3 center, float objRadius)
+    {
+        if (Additive == null || BlobAdd == null) return;
+        float r = Mathf.Max(0.3f, objRadius);
+        Color amber = new Color(1f, 0.62f, 0.12f);
+
+        ParticleSystem fuel = Burst("VFX Fuel", center + Vector3.up * r * 0.5f, BlobAlpha, 20, 0f,
+            new Vector2(0.55f, 0.9f), new Vector2(2.5f, 5f), new Vector2(0.09f, 0.18f), 1.6f,
+            Grad((0f, new Color(1f, 0.7f, 0.2f, 0.95f)), (0.7f, new Color(0.95f, 0.55f, 0.1f, 0.85f)), (1f, new Color(0.8f, 0.4f, 0.05f, 0f))),
+            new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 0.7f)),
+            r * 0.4f);
+        var fs = fuel.shape;
+        fs.shapeType = ParticleSystemShapeType.Hemisphere;   // bắn tung LÊN, không xuống đất
+        fs.rotation = new Vector3(-90f, 0f, 0f);
+        ParticleSystemRenderer fr = fuel.GetComponent<ParticleSystemRenderer>();
+        fr.renderMode = ParticleSystemRenderMode.Stretch;
+        fr.velocityScale = 0.05f;
+        fr.lengthScale = 1.2f;
+        fuel.Play();
+
+        ParticleSystem flare = Burst("VFX FuelFlare", center, BlobAdd, 10, 0.05f,
+            new Vector2(0.35f, 0.6f), new Vector2(0.6f, 1.6f), new Vector2(r * 0.6f, r * 1.0f), -0.3f,
+            Grad((0f, new Color(2.6f, 1.6f, 0.4f, 0f)), (0.2f, new Color(2.4f, 1.2f, 0.25f, 0.9f)), (1f, new Color(0.8f, 0.15f, 0.03f, 0f))),
+            new AnimationCurve(new Keyframe(0f, 0.5f), new Keyframe(1f, 1.1f)),
+            r * 0.7f);
+        flare.Play();
+
+        GameObject ring = new GameObject("VFX FuelRing");
+        ring.transform.position = center - Vector3.up * r * 0.6f;
+        ring.AddComponent<ShockwaveRing>().Play(r * 2.2f, amber, 0.45f, 0.22f, 8f);
+    }
+
+    /// <summary>
+    /// Tàn lửa lách tách bốc lên LIÊN TỤC từ vật đã bị đổ xăng (17/10). Gắn làm con của vật; bay theo vật
+    /// khi bị ném, và vì hạt sống trong toạ độ THẾ GIỚI nên để lại một vệt tàn lửa sau lưng nó.
+    /// Trả về hệ hạt để MagneticObject bật / tắt (vật bị cất vào túi, đã nổ, sang round mới).
+    /// </summary>
+    public static ParticleSystem CreateHazardEmbers(Transform parent, float objRadius)
+    {
+        if (BlobAdd == null) return null;
+        float r = Mathf.Max(0.3f, objRadius);
+
+        GameObject go = new GameObject("VFX HazardEmbers");
+        go.transform.SetParent(parent, false);
+        ParticleSystem ps = go.AddComponent<ParticleSystem>();
+        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        var main = ps.main;
+        main.loop = true;
+        main.playOnAwake = false;
+        main.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 1.1f);
+        main.startSpeed = new ParticleSystem.MinMaxCurve(0.4f, 1.2f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.18f, 0.4f);
+        main.gravityModifier = -0.25f;   // bốc lên như tàn lửa nóng
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.maxParticles = 32;
+
+        var em = ps.emission;
+        em.rateOverTime = 16f;
+
+        var sh = ps.shape;
+        sh.shapeType = ParticleSystemShapeType.Sphere;
+        sh.radius = r * 0.7f;
+
+        var col = ps.colorOverLifetime;
+        col.enabled = true;
+        col.color = new ParticleSystem.MinMaxGradient(Grad(
+            (0f, new Color(3f, 2.2f, 0.8f, 0f)), (0.15f, new Color(2.8f, 1.5f, 0.3f, 1f)), (1f, new Color(1f, 0.15f, 0.03f, 0f))));
+
+        var noise = ps.noise;   // lắc lư như bị gió thổi, không bay thẳng tắp
+        noise.enabled = true;
+        noise.strength = 0.6f;
+        noise.frequency = 1.2f;
+
+        ParticleSystemRenderer rend = go.GetComponent<ParticleSystemRenderer>();
+        rend.sharedMaterial = BlobAdd;
+        rend.shadowCastingMode = ShadowCastingMode.Off;
+        rend.receiveShadows = false;
+
+        // Quầng nóng màu cam phập phồng quanh vật - mấy chấm tàn lửa thôi thì đứng xa không thấy.
+        // Là hệ hạt CON nên Play / Stop của cha điều khiển luôn nó.
+        GameObject glowGo = new GameObject("Glow");
+        glowGo.transform.SetParent(go.transform, false);
+        ParticleSystem glow = glowGo.AddComponent<ParticleSystem>();
+        glow.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var gm = glow.main;
+        gm.loop = true;
+        gm.playOnAwake = false;
+        gm.startLifetime = 0.9f;
+        gm.startSpeed = 0f;
+        gm.startSize = new ParticleSystem.MinMaxCurve(r * 2.2f, r * 2.8f);
+        gm.simulationSpace = ParticleSystemSimulationSpace.Local;   // dính theo vật
+        gm.maxParticles = 6;
+        var ge = glow.emission;
+        ge.rateOverTime = 4f;
+        var gs = glow.shape;
+        gs.enabled = false;
+        var gc = glow.colorOverLifetime;
+        gc.enabled = true;
+        gc.color = new ParticleSystem.MinMaxGradient(Grad(
+            (0f, new Color(1.6f, 0.5f, 0.08f, 0f)), (0.5f, new Color(1.6f, 0.5f, 0.08f, 0.22f)), (1f, new Color(1.4f, 0.3f, 0.05f, 0f))));
+        ParticleSystemRenderer gr = glowGo.GetComponent<ParticleSystemRenderer>();
+        gr.sharedMaterial = BlobAdd;
+        gr.shadowCastingMode = ShadowCastingMode.Off;
+        gr.receiveShadows = false;
+        return ps;
     }
 
     /// <summary>Vòng sóng xung kích loang ra từ tâm vụ nổ, kèm một nháy sáng.</summary>
@@ -469,10 +841,12 @@ public class ShockwaveRing : MonoBehaviour
     private Color _color;
     private float _width = 0.6f;
     private float _lightPower = 14f;
+    private float _delay;   // (17/10) chờ bấy nhiêu giây rồi mới loang — để làm nhịp "bùm-bùm"
 
     public void Play(float radius, Color color, float duration,
-                     float width = 0.6f, float lightPower = 14f)
+                     float width = 0.6f, float lightPower = 14f, float delay = 0f)
     {
+        _delay = Mathf.Max(0f, delay);
         _duration = Mathf.Max(0.05f, duration);
         _life = _duration;
         _radius = radius;
@@ -492,17 +866,29 @@ public class ShockwaveRing : MonoBehaviour
 
         // NHÁY SÁNG. Vụ nổ mà không làm sáng cảnh xung quanh thì trông như một hình vẽ
         // dán lên màn hình, không phải một sự kiện xảy ra trong thế giới.
-        _flash = gameObject.AddComponent<Light>();
-        _flash.type = LightType.Point;
-        _flash.color = color;
-        _flash.range = radius * 2.5f;
-        _flash.shadows = LightShadows.None;   // đèn chớp mà đổ bóng thì rất tốn
+        // Không cần đèn thì không tạo — mỗi đèn chớp là thêm một nguồn sáng phải tính
+        if (lightPower > 0f)
+        {
+            _flash = gameObject.AddComponent<Light>();
+            _flash.type = LightType.Point;
+            _flash.color = color;
+            _flash.range = radius * 2.5f;
+            _flash.shadows = LightShadows.None;   // đèn chớp mà đổ bóng thì rất tốn
+        }
 
         Apply(1f);
+        if (_delay > 0f) _line.enabled = false;
     }
 
     private void Update()
     {
+        if (_delay > 0f)
+        {
+            _delay -= Time.deltaTime;
+            if (_delay > 0f) return;
+            _line.enabled = true;
+        }
+
         _life -= Time.deltaTime;
 
         if (_life <= 0f)
@@ -565,12 +951,14 @@ public class QiBolt : MonoBehaviour
     private Color _color;
     private float _t;
     private bool _impacted;
+    private float _power;
 
-    public void Play(Vector3 from, Vector3 to, Color color)
+    public void Play(Vector3 from, Vector3 to, Color color, float power01 = 0f)
     {
         _from = from;
         _to = to;
         _color = color;
+        _power = power01;
 
         _glow = Make(gameObject);
 
@@ -607,7 +995,7 @@ public class QiBolt : MonoBehaviour
         if (!_impacted && _t >= Travel)
         {
             _impacted = true;
-            CombatVFX.Impact(_to, _to - _from, _color);
+            CombatVFX.PunchImpact(_to, _to - _from, _color, _power);
         }
 
         if (_t >= Travel + Linger)
@@ -663,8 +1051,8 @@ public class QiBolt : MonoBehaviour
 /// </summary>
 public class SparkBurst : MonoBehaviour
 {
-    private const int Count = 9;
-    private const float Duration = 0.26f;
+    private int Count = 9;            // (17/10) chỉnh được: cú đấm mạnh văng nhiều tia hơn
+    private float Duration = 0.26f;
 
     private LineRenderer[] _lines;
     private Vector3[] _dirs;
@@ -674,8 +1062,10 @@ public class SparkBurst : MonoBehaviour
     private float _size;
     private float _life;
 
-    public void Play(Vector3 at, Vector3 hitDir, Color color, float size)
+    public void Play(Vector3 at, Vector3 hitDir, Color color, float size, int count = 9, float duration = 0.26f)
     {
+        Count = Mathf.Max(1, count);
+        Duration = Mathf.Max(0.05f, duration);
         _at = at;
         _color = color;
         _size = size;
@@ -744,6 +1134,105 @@ public class SparkBurst : MonoBehaviour
             l.startColor = start;
             l.endColor = c;
             l.widthMultiplier = 0.02f + 0.1f * fade;
+        }
+    }
+}
+
+/// <summary>
+/// Tia sét lách tách quấn quanh tia nạp điện (17/10).
+///
+/// Mỗi sợi là một LineRenderer ~14 điểm nối từ tay tới vật, lệch ngẫu nhiên khỏi đường thẳng
+/// và VẼ LẠI HÌNH mỗi 0,035 giây — chính sự giật cục đổi hình đó là thứ mắt đọc thành "điện".
+/// Lệch nhiều ở giữa, bằng 0 ở hai đầu (nhân với sin), nên sợi điện luôn cắm đúng vào ngón tay
+/// và vào vật, không lơ lửng.
+/// </summary>
+public class ArcCrackle : MonoBehaviour
+{
+    private const int Points = 14;
+
+    private LineRenderer[] _arcs;
+    private Vector3 _from, _to;
+    private Color _color;
+    private float _life, _duration, _amp, _nextJitter;
+
+    public void Play(Vector3 from, Vector3 to, Color color, float duration, int strands, float amplitude)
+    {
+        _from = from;
+        _to = to;
+        _color = color;
+        _duration = Mathf.Max(0.05f, duration);
+        _life = _duration;
+        _amp = amplitude;
+
+        _arcs = new LineRenderer[Mathf.Max(1, strands)];
+        for (int i = 0; i < _arcs.Length; i++)
+        {
+            GameObject go = new GameObject("Arc");
+            go.transform.SetParent(transform, false);
+            LineRenderer l = go.AddComponent<LineRenderer>();
+            l.sharedMaterial = CombatVFX.Additive;
+            l.useWorldSpace = true;
+            l.positionCount = Points;
+            l.numCapVertices = 0;
+            l.numCornerVertices = 0;
+            l.shadowCastingMode = ShadowCastingMode.Off;
+            l.receiveShadows = false;
+            l.textureMode = LineTextureMode.Stretch;
+            _arcs[i] = l;
+        }
+
+        Jitter();
+        Apply(1f);
+    }
+
+    private void Update()
+    {
+        _life -= Time.deltaTime;
+        if (_life <= 0f)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
+        if (Time.time >= _nextJitter) Jitter();
+        Apply(_life / _duration);
+    }
+
+    private void Jitter()
+    {
+        _nextJitter = Time.time + 0.035f;
+
+        Vector3 dir = _to - _from;
+        Vector3 fwd = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector3.forward;
+        Vector3 right = Vector3.Cross(fwd, Vector3.up);
+        if (right.sqrMagnitude < 0.0001f) right = Vector3.Cross(fwd, Vector3.right);
+        right.Normalize();
+        Vector3 up = Vector3.Cross(right, fwd);
+
+        Vector3[] pts = new Vector3[Points];
+        foreach (LineRenderer l in _arcs)
+        {
+            for (int i = 0; i < Points; i++)
+            {
+                float t = (float)i / (Points - 1);
+                float taper = Mathf.Sin(t * Mathf.PI);
+                Vector3 off = (right * Random.Range(-1f, 1f) + up * Random.Range(-1f, 1f)) * (_amp * taper);
+                pts[i] = Vector3.Lerp(_from, _to, t) + off;
+            }
+            l.SetPositions(pts);
+        }
+    }
+
+    private void Apply(float t01)
+    {
+        foreach (LineRenderer l in _arcs)
+        {
+            // Chập chờn: mỗi sợi mỗi khung hình sáng một khác — điện không bao giờ sáng đều
+            Color c = Color.Lerp(_color, Color.white, 0.3f) * 2.6f;   // giữ màu điện tích, không trắng bệch
+            c.a = t01 * Random.Range(0.55f, 1f);
+            l.startColor = c;
+            l.endColor = c;
+            l.widthMultiplier = 0.045f * (0.5f + 0.5f * t01);
         }
     }
 }

@@ -80,10 +80,21 @@ public class MagneticObject : NetworkBehaviour
     [Range(0f, 1f)]
     public float bounceRiseDamp = 0.2f;
 
-    [Tooltip("Nhân trọng lực RIÊNG cho lúc đang bay là đạn. Trọng lực project chỉ -3 nên đạn " +
-             "lơ lửng rất lâu; để 2-3 sẽ làm đường đạn phẳng và dứt khoát hơn mà không phải " +
-             "đụng vào trọng lực chung của cả game. 1 = không đổi gì.")]
-    public float bulletGravityMultiplier = 2f;
+    [Tooltip("Nhân trọng lực RIÊNG cho lúc đang bay là đạn (trọng lực project là -3). " +
+             "Nhỏ hơn 1 = đạn rơi CHẬM, bay xa hơn trước khi chạm đất. " +
+             "16/10: hạ 2 → 0.5 — trước đó đạn bắn ngang chạm đất sau ~30m, chưa tới nửa đảo; " +
+             "giờ bay được ~76m, ngang cả đảo. 1 = không đổi gì, 0 = bay thẳng tuyệt đối.")]
+    public float bulletGravityMultiplier = 0.5f;
+
+    [Tooltip("Nhân trọng lực TỪ LÚC VẬT HẾT LÀM ĐẠN cho tới khi chạm đất (16/10). " +
+             "Trọng lực project chỉ -3 nên vật đâm người xong cứ lơ lửng trôi lững lờ; " +
+             "2.5 = rơi với gia tốc 7.5, gần trọng lực thật. KHÔNG áp lên vật đang nằm yên, " +
+             "vật tung bằng phím V hay vật bị nổ hất bay. 1 = tắt.")]
+    public float afterBulletGravityMultiplier = 2.5f;
+
+    // Đang ở giai đoạn "vừa hết làm đạn, chưa chạm đất". Chỉ Host mô phỏng vật lý nên
+    // không cần [Networked].
+    private bool _fallingAfterBullet;
 
     [Tooltip("Chạm vào mặt có pháp tuyến hướng lên hơn mức này thì coi là ĐẤT/GỜ (lướt qua, " +
              "giữ nguyên hướng bay). Thấp hơn thì coi là TƯỜNG (dội lại bình thường). " +
@@ -547,9 +558,39 @@ public class MagneticObject : NetworkBehaviour
     {
         AudioManager.Explosion(transform.position);
 
-        // Vòng sóng loang đúng bằng bán kính sát thương thật, nên người chơi HỌC ĐƯỢC
-        // tầm nổ bằng mắt thay vì phải đoán. Đây là lý do không phóng đại con số cho đẹp.
-        CombatVFX.Shockwave(transform.position, explosionRadius, new Color(1f, 0.55f, 0.12f));
+        // (17/10) Lửa + khói + tàn lửa + vòng sóng. Vòng sóng vẫn loang ĐÚNG bằng bán kính sát
+        // thương thật, nên người chơi HỌC ĐƯỢC tầm nổ bằng mắt — không phóng đại con số cho đẹp.
+        CombatVFX.Explosion(transform.position, explosionRadius);
+
+        // Rung camera người đứng gần: càng gần càng mạnh, xa quá 3 lần bán kính thì thôi.
+        // FPSMovement.Local là nhân vật của người ngồi trước MÁY NÀY, nên mỗi máy tự rung đúng mình.
+        FPSMovement local = FPSMovement.Local;
+        if (local != null)
+        {
+            float d = Vector3.Distance(local.transform.position, transform.position);
+            float reach = explosionRadius * 3f;
+            if (d < reach) local.ShakeCamera(Mathf.Lerp(0.7f, 0.1f, d / reach));
+        }
+
+        UpdateHazardEmbers();
+    }
+
+    // ---------- Tàn lửa trên vật đã bị đổ xăng (17/10) ----------
+    private ParticleSystem _hazardEmbers;
+
+    /// <summary>Vật này là đồ bị đổ xăng thành TNT (không phải thùng TNT có sẵn của map).</summary>
+    private bool IsConvertedTNT => CurrentType == ObjectType.TNT && objectType != ObjectType.TNT;
+
+    // Bật tàn lửa khi vật là thùng-xăng VÀ đang hiện trên map; tắt khi bị cất vào túi, đã nổ,
+    // hoặc sang round mới trở lại thành vật thường.
+    private void UpdateHazardEmbers()
+    {
+        bool on = Object != null && Object.IsValid && IsConvertedTNT && !IsStored && !IsDestroyed;
+        if (on && _hazardEmbers == null) _hazardEmbers = CombatVFX.CreateHazardEmbers(transform, GetBoundingRadius());
+        if (_hazardEmbers == null) return;
+
+        if (on && !_hazardEmbers.isPlaying) _hazardEmbers.Play();
+        else if (!on && _hazardEmbers.isPlaying) _hazardEmbers.Stop(true, ParticleSystemStopBehavior.StopEmitting);
     }
 
     // Bật/tắt phần nhìn thấy được và phần va chạm. Chạy trên mọi máy.
@@ -559,6 +600,7 @@ public class MagneticObject : NetworkBehaviour
     private void ApplyStoredState()
     {
         bool visible = !IsStored && !IsDestroyed;
+        UpdateHazardEmbers();
 
         if (cachedRenderers != null)
         {
@@ -627,7 +669,12 @@ public class MagneticObject : NetworkBehaviour
         if (CurrentType == ObjectType.TNT && objectType != ObjectType.TNT)
         {
             AudioManager.ConvertTNT(transform.position);
+
+            // (17/10) Xăng bắn tung + chớp lửa + vòng cam — mọi máy đều thấy vật vừa bị chế thành thùng nổ
+            CombatVFX.GasolineSplash(transform.position, GetBoundingRadius());
         }
+
+        UpdateHazardEmbers();
     }
 
     // Fusion gọi trên MỌI máy khi vật bị xoá khỏi mạng.
@@ -878,6 +925,22 @@ public class MagneticObject : NetworkBehaviour
         rb.AddForce(Physics.gravity * (bulletGravityMultiplier - 1f), ForceMode.Acceleration);
     }
 
+    // Vừa hết làm đạn mà còn lơ lửng thì cho rơi nhanh — xem afterBulletGravityMultiplier.
+    // Tự tắt khi: chạm đất (OnCollisionEnter), lại thành đạn, bị cầm / cất túi (kinematic),
+    // ngủ đông, hoặc sang round mới.
+    private void ApplyAfterBulletGravity()
+    {
+        if (!_fallingAfterBullet) return;
+        if (isMovingAsBullet || rb.isKinematic || IsStored || IsSleeping)
+        {
+            _fallingAfterBullet = false;
+            return;
+        }
+        if (Mathf.Approximately(afterBulletGravityMultiplier, 1f)) return;
+
+        rb.AddForce(Physics.gravity * (afterBulletGravityMultiplier - 1f), ForceMode.Acceleration);
+    }
+
     public override void FixedUpdateNetwork()
     {
         if (!HasStateAuthority) return;
@@ -887,6 +950,7 @@ public class MagneticObject : NetworkBehaviour
         // Phải chạy TRƯỚC bước xét tốc độ bên dưới, vì cả hai đều làm đổi vận tốc.
         DampBounceRise();
         ApplyBulletGravity();
+        ApplyAfterBulletGravity();
 
         // Ghi nhớ hướng SAU khi đã xử lý va chạm, để lần chạm kế tiếp dựng lại đúng
         // hướng đã được sửa chứ không phải hướng bị lệch.
@@ -1069,6 +1133,20 @@ public class MagneticObject : NetworkBehaviour
         // Nếu để mọi máy cùng tính thì nạn nhân sẽ bị trừ máu nhiều lần.
         if (Object == null || !Object.IsValid || !HasStateAuthority) return;
 
+        // Đang rơi nhanh sau khi hết làm đạn mà chạm ĐẤT (mặt hướng lên) -> thôi rơi nhanh.
+        // Chạm tường thì vẫn rơi tiếp, vì vẫn còn đang lơ lửng.
+        if (_fallingAfterBullet)
+        {
+            for (int i = 0; i < collision.contactCount; i++)
+            {
+                if (collision.GetContact(i).normal.y > groundNormalThreshold)
+                {
+                    _fallingAfterBullet = false;
+                    break;
+                }
+            }
+        }
+
         // ĐANG NGỦ MÀ BỊ ĐÂM -> tỉnh dậy và văng đi theo cú đâm.
         //
         // Phải xét TRƯỚC dòng chặn bên dưới. Vật đang ngủ thì isMovingAsBullet = false,
@@ -1214,6 +1292,9 @@ public class MagneticObject : NetworkBehaviour
         {
             rb.useGravity = true;
             rb.linearDamping = 0.05f; // Giá trị mặc định của Unity 6
+
+            // Bắt đầu giai đoạn rơi nhanh — không thì vật đâm người xong trôi lững lờ (16/10)
+            _fallingAfterBullet = !rb.isKinematic;
         }
     }
 
@@ -1633,6 +1714,7 @@ public class MagneticObject : NetworkBehaviour
         IsDestroyed = false;
         IsStored = false;
         isMovingAsBullet = false;
+        _fallingAfterBullet = false;
         shooterOwner = null;
         WasCounteredInFlight = false;
         BulletArmTimer = TickTimer.None;

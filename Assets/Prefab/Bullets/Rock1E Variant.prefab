@@ -111,7 +111,7 @@ MonoBehaviour:
   minBulletSpeed: 3
   bulletArmTime: 0.25
   bounceRiseDamp: 0.05
-  bulletGravityMultiplier: 2
+  bulletGravityMultiplier: 0.5
   groundNormalThreshold: 0.5
   groundHitSpeedRetain: 0.85
   enableAutoSleep: 1

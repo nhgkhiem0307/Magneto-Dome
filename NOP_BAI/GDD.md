@@ -1,6 +1,6 @@
 # GAME DESIGN DOCUMENT — MAGNETO-DOME
 
-> **Bản cập nhật:** 24/08/2026 · Viết lại theo đúng game đã dựng.
+> **Bản cập nhật:** 16/10/2026 · Viết lại theo đúng game đã dựng — mọi con số đã đối chiếu với prefab/scene.
 > Bản gốc `GDD.txt` (viết trước khi lập trình) giữ nguyên để đối chiếu.
 > **Chương 8** liệt kê mọi thay đổi so với bản gốc kèm lý do.
 
@@ -55,9 +55,12 @@ Thể loại FPS truyền thống đã bão hòa ở phần *cách bắn*. Đề
 | Phím | Chức năng |
 |---|---|
 | `WASD` + chuột | Di chuyển, xoay góc nhìn (`CharacterController`) |
+| `Space` | Nhảy — **lái được khi đang ở trên không** |
 | `Q` | Lướt (Dash), có hồi chiêu |
+| `F1` | Bật/tắt bảng hướng dẫn điều khiển *(tự hiện ở pha chuẩn bị)* |
+| `F4` | Bật/tắt ô hiển thị ping |
 
-**Giá trị:** `moveSpeed 13` · `dashForce 100` · `dashCooldown 1s` · `gravity -9.81`
+**Giá trị:** `moveSpeed 7` · `jumpHeight 1` · `airControl 0.8` · `dashForce 70` · `dashCooldown 1s` · `gravity -9.81` · `mass 3` *(chia vào mọi lực đẩy)*
 
 > Hai kỹ năng `E` (Blink) và `R` (Phòng thủ) trong bản GDD gốc đã **bỏ**. Xem Chương 8.
 
@@ -69,17 +72,21 @@ Thể loại FPS truyền thống đã bão hòa ở phần *cách bắn*. Đề
 | Chuột trái | Vật trung tính → **nạp điện**. Vật đã có điện → cùng dấu **ĐẨY**, trái dấu **HÚT về tay** |
 | Chuột phải | Tay trống → **cận chiến**. Đang cầm vật → **bắn đi** |
 | `V` | Tung vật đang cầm lên không |
-| `Z` / `X` / `C` | Rút đạn Normal / Heavy / Spike từ túi |
+| `Z` / `X` / `C` | Rút đạn Normal / Heavy / **TNT** từ túi *(ô `C` tạm là TNT vì bản đồ hiện chưa có vật Spike)* |
 | `Tab` (giữ) | Radial Menu — rê chuột chọn, thả phím để dùng |
+| `F` | Nhặt vật phía trước vào túi / cất vật đang cầm vào túi |
 | `B` | Mở Shop (chỉ trong Buy Phase) |
+| `Esc` | Mở bảng Settings |
 
 ## 2.3. Cận chiến (chuột phải, tay trống)
 
 | Điều kiện | Kết quả |
 |---|---|
-| < 4m, **cùng dấu** | Đấm đẩy văng đối thủ (`meleePushForce 200`) |
-| < 4m, **trái dấu** | Nảy bật nhẹ cả hai bên |
-| 4–20m, **trái dấu** | Kéo áp sát — lướt nhanh về phía đối thủ (`grapplePullForce 100`) |
+| < 6m, **cùng dấu** | Đấm đẩy văng đối thủ (`meleePushForce 200`) |
+| < 6m, **trái dấu** | Nảy bật nhẹ cả hai bên |
+| 6–60m, **trái dấu** | Kéo áp sát — lướt nhanh về phía đối thủ (`grapplePullForce 250`) |
+
+`meleeRange 6` · `dashLockRange 60` · `meleeCooldown 0.35s`. Đấm, kéo áp sát và hỗ trợ ngắm đều **bỏ qua đồng đội** khi chọn mục tiêu.
 
 ## 2.4. Hệ sinh thái đạn
 
@@ -113,8 +120,11 @@ Bốn loại vật thể dùng chung một lớp `MagneticObject` với `enum Ob
 | Nguồn | Lực |
 |---|---|
 | Đấm cận chiến | 200 |
-| Trúng đạn | 120 × (sát thương ÷ 10) |
-| Nổ TNT | `explosionForce × 2` |
+| Trúng đạn | 120 × (sát thương ÷ 10) × 1.2 |
+| Nổ TNT | `explosionForce` 15 × 2 = 30 |
+
+Cả ba đều nhân tiếp hệ số toàn cục `knockbackMultiplier 0.95` và hệ số Quá Tải (×1 → ×4), rồi chia cho khối lượng nhân vật.
+**Không có sát thương đồng đội:** đạn trúng đồng đội dừng lại như đâm tường; TNT bỏ qua đồng đội của người ném (chính người ném vẫn dính).
 
 **Nút chỉnh sát thương toàn cục:** `chargeGainMultiplier = 1.5` nhân mọi lượng điện nhận vào, tại một chỗ duy nhất.
 
@@ -146,7 +156,11 @@ Giữa bản đồ có một **khu chiếm đóng** hình trụ (`radius 13`, `h
 
 ## 3.3. Hồi sinh
 
-Chết **không** còn là bị loại hết round. Sau **5 giây** người chơi sống lại tại điểm xuất phát, sạch điện. Cái chết lấy đi **thời gian** và **vị trí**, không lấy đi trận đấu.
+Chết **không** còn là bị loại hết round. Sau **5 giây** người chơi sống lại tại điểm xuất phát, sạch điện, **bất tử 2 giây** (nhân vật nhấp nháy). Cái chết lấy đi **thời gian** và **vị trí**, không lấy đi trận đấu.
+
+**Màn hình khi chết** cho biết ai đã hất mình khỏi đảo và bằng đòn gì (đấm / đạn / TNT — tính cho người đẩy gần nhất trong 6 giây trước khi rơi, quá lâu thì là tự rơi), vòng đếm ngược hồi sinh, hậu quả "đội địch +8 tiến độ" và một mẹo chơi. Trong lúc chờ, người chơi quan sát trận qua mắt đồng đội.
+
+**Rơi ngoài pha chiến đấu không tính là chết** — rơi lúc mua đồ hay lúc chờ round thì được kéo ngay về điểm xuất phát, giữ nguyên đồ đã mua, địch không được điểm.
 
 Nhờ vậy lực văng có thể mạnh tay mà không gây ức chế.
 
@@ -159,7 +173,7 @@ Nhờ vậy lực văng có thể mạnh tay mà không gây ức chế.
 
 | Mục | Giá trị |
 |---|---|
-| Tiền khởi đầu | $500 |
+| Tiền khởi đầu | $300 |
 | Thắng round | +$150 |
 | Thua round | +$100 |
 | Trần ví | $750 |
@@ -186,9 +200,14 @@ Radial Menu **không làm chậm thời gian** ở cả offline lẫn online —
 
 ## 4.1. Sảnh chờ
 
-- Host tạo phòng → sinh **mã PIN** ngẫu nhiên (Session Name)
-- Client vào phòng bằng mã PIN
-- Đồng bộ tên người chơi và đội (Đỏ/Xanh) qua `[Rpc]`, tối đa 2 người/đội
+- Ba cách vào phòng: **ghép trận nhanh** (Global Matchmaking), **danh sách phòng** đang mở, hoặc nhập **mã phòng**
+- Host tạo phòng → sinh mã phòng ngẫu nhiên (Session Name); phòng chờ có nút **COPY** mã để gửi bạn bè
+- **Hai thể thức: 2v2 (chính) và 1v1.** Ghép trận nhanh hỏi trước muốn đấu thể thức nào và chỉ ghép vào phòng đúng thể thức đó. Phòng tự tạo mở ở 2v2, chủ phòng đổi bằng nút **1V1 / 2V2** trong phòng chờ. Phòng đang đông hơn sức chứa thể thức mới thì không đổi được — phải **kick** bớt người trước
+- Đồng bộ tên người chơi và đội (Đỏ/Xanh) qua `[Rpc]`, tối đa 2 người/đội (1 người/đội ở 1v1). Mỗi người hiện thành một **thẻ** theo đội, có đánh dấu **YOU** và **vương miện** cho chủ phòng
+- **Chỉ chủ phòng xếp đội**: tự đổi đội cho mình, hoặc bấm thẻ người khác để chuyển họ sang đội kia. Người chơi khác không tự đổi được — chặn ở phía Host, không chỉ ẩn nút
+- Chủ phòng có nút **KICK** trên thẻ người khác (bấm hai lần để chắc chắn). Người bị kick thấy câu báo rõ ràng, không bị hiểu nhầm là chủ phòng thoát, và **không vào lại được** phòng đó
+- Phòng chờ báo một dòng khi có người vào/ra/bị kick hoặc chủ phòng đổi thể thức; dưới nút Start nhắc khi hai đội lệch người (chỉ nhắc, không chặn)
+- Chủ phòng bấm bắt đầu → phòng **khoá lại**, người đến muộn không vào giữa trận được
 - Region cố định **`asia`**, cấu hình ở `PhotonAppSettings.asset`
 
 ## 4.2. Kiến trúc
@@ -240,6 +259,9 @@ Lý do: bốn loại vật thể chia sẻ khoảng 90% logic (điện tích, va
 | `CameraShake` | Rung camera: đi bộ, Dash, bắn vật |
 | `PlayerEconomy` | Tiền, thưởng cuối round |
 | `NetworkInputData` | Struct gói input gửi qua mạng |
+| `FirstPersonViewmodel` | Tay cầm găng ở góc nhìn thứ nhất |
+| `GlovePolarityColor` · `GloveArcs` | Màu găng theo cực, tia điện quanh găng |
+| `PlayerInteract` | Phím `F`: nhặt vật phía trước vào túi, hoặc cất vật đang cầm |
 
 **Vật thể** — `Assets/Scripts/Item/`
 
@@ -247,7 +269,8 @@ Lý do: bốn loại vật thể chia sẻ khoảng 90% logic (điện tích, va
 |---|---|
 | `MagneticObject` | Điện tích, 4 loại, va chạm, nổ, ngủ đông, reset round |
 | `MagneticAura` | Hào quang theo điện tích |
-| `EMBarrier` | Tường điện từ |
+| `EMBarrier` | Tường điện từ — tấm khiên lục giác tự dựng bằng mã + shader `HexShield` |
+| `CombatVFX` | Hiệu ứng va chạm, nổ |
 | `ItemData` | ScriptableObject định nghĩa vật phẩm |
 
 **Hệ thống**
@@ -263,14 +286,18 @@ Lý do: bốn loại vật thể chia sẻ khoảng 90% logic (điện tích, va
 | `GameSettings` | Class tĩnh: độ nhạy chuột, fullscreen |
 | `CursorLock` | **Trọng tài duy nhất** quyết định khoá/thả con trỏ |
 | `RoundBarrier` | Rào spawn, suy từ `GameManager.Phase` |
+| `CloudBank` | Biển mây quanh đảo, dựng một lưới duy nhất cho nhẹ máy |
+| `CinematicCamera` | Camera quay trailer / chụp poster (chỉ có trong Editor và bản Development) |
 
 **Giao diện** — `Assets/Scripts/MenuUI/`
 
-`HUDController` · `ShopUI` · `ShopItemButton` · `SettingsUI` · `SpectatorController` · `RoomItemUI` · `ButtonClickSound` · `Billboard`
+`HUDController` · `ShopUI` · `ShopItemButton` · `SettingsUI` · `SpectatorController` · `RoomItemUI` · `ButtonClickSound` · `Billboard` · `MatchResultPanel` (bảng kết quả trận) · `LoadingScreen` · `ControlsOverlay` (bảng phím F1) · `PingDisplay` · `DeathScreen` (màn hình khi chết) · `MenuBackdrop` (nền menu 3D) · `LobbyView` (phòng chờ dạng thẻ) · `ModePicker` (chọn 1v1/2v2 khi ghép trận) · `BuffScreenFX` (hiệu ứng màn hình khi dùng vật phẩm buff)
+
+Tổng cộng **53 tệp** mã nguồn gameplay tự viết, khoảng 24.000 dòng.
 
 **Công cụ Editor**
 
-`EnvironmentScatter` — rải trang trí hàng loạt bằng raycast, có vùng cấm mọc.
+`EnvironmentScatter` — rải trang trí hàng loạt bằng raycast, có vùng cấm mọc · `MagneticObjectInspector` — giao diện Inspector cho vật thể · `PhotoFlyCamera` — camera bay tự do để chụp ảnh · `BuildNop` — build bản nộp bằng một lệnh.
 
 ---
 
@@ -291,19 +318,22 @@ Lý do: bốn loại vật thể chia sẻ khoảng 90% logic (điện tích, va
 ## 6.2. Đồ hoạ
 
 - **URP 17.3.0**, Bloom + Tonemapping ACES
-- Shader tự viết: **Gradient Sky** (bầu trời chuyển màu, có màu riêng cho vực bên dưới) và **Force Field** (rào chắn, tường điện từ)
+- Bầu trời: skybox **Fantasy Skybox FREE** (Render Knight); **biển mây** quanh đảo dựng bằng `CloudBank`
+- Shader tự viết: **Barrier Curtain** (rào chắn đầu round — màn năng lượng theo màu đội, che kín tầm nhìn, gợn sóng khi chạm, tan rã khi vào trận), **Cloud Floor** (đáy biển mây trải tới chân trời) và **Hex Shield** (tường điện từ dạng ô lục giác). *Force Field* — shader rào cũ, chỉ còn làm dự phòng
+- **Không lộ giới hạn bản đồ:** rào chắn chỉ tan bên ngoài mép đảo nên không thấy đầu tường; biển mây có thêm đáy mây mềm tan vào chân trời nên nhìn ra không thấy chỗ mây hết
 - Sương mù Exponential Squared, màu khớp chân trời
+- **Màn hình chính** dùng cảnh 3D thật của hòn đảo làm nền, camera bay vòng chậm, tông màu xanh riêng cho menu
 
 ## 6.3. Cài đặt
 
-Slider Master / BGM / SFX · Slider độ nhạy chuột · Dropdown độ phân giải · Toggle Fullscreen. Lưu vào `PlayerPrefs`, nhớ giữa các lần chơi và tự theo sang scene trận.
+Slider Master / BGM / SFX · Slider độ nhạy chuột · Dropdown độ phân giải · Toggle Fullscreen. Lưu vào `PlayerPrefs`, nhớ giữa các lần chơi và tự theo sang scene trận. Mở bảng Settings thì **tạm ẩn mọi giao diện phía sau** cho đỡ rối mắt. Nút **Quit Game** thoát hẳn game, có bảng hỏi lại phủ tối màn hình (nút Huỷ được chọn sẵn để lỡ tay bấm Enter không thoát nhầm).
 
 ## 6.4. Yêu cầu phi chức năng
 
 | Mã | Yêu cầu |
 |---|---|
-| NFR-1 | ≥ 60 FPS trên PC mục tiêu trong pha va chạm vật lý phức tạp |
-| NFR-2 | Ping < 100ms tại region `asia`, nội suy mượt qua Fusion 2 |
+| NFR-1 | ≥ 60 FPS ở 1920×1080 trên PC mục tiêu — **đạt 85 FPS** (RX 6600, bản build) |
+| NFR-2 | Ping < 100ms tại region `asia` — **đo được 16 ms** |
 | NFR-3 | Phản hồi thị giác tức thì khi đổi cực găng; Radial Menu không trễ khung hình |
 
 ---
@@ -312,7 +342,7 @@ Slider Master / BGM / SFX · Slider độ nhạy chuột · Dropdown độ phân
 
 **Ưu điểm:** lối chơi từ tính độc đáo · Chế độ Quá Tải khiến cái chết đến từ vị trí thay vì từ con số · Khu chiếm đóng ép giao tranh vào một chỗ do người thiết kế chọn · Kiến trúc mạng Host Mode ổn định.
 
-**Hạn chế:** giới hạn 1 bản đồ · Yêu cầu phần cứng xử lý vật lý đa đối tượng · Chưa có danh sách phòng (vào phòng bằng mã PIN).
+**Hạn chế:** giới hạn 1 bản đồ · Yêu cầu phần cứng xử lý vật lý đa đối tượng · Bản đồ chưa có vật thể Spike · Chưa có chế độ chơi đơn với máy.
 
 **Hướng phát triển:** thanh điện tích nổi trên đầu mọi người · hitstop khi trúng đòn mạnh · vệt sáng theo đường đạn · thêm bản đồ · thêm vật phẩm Shop.
 
@@ -330,7 +360,7 @@ Găng tay từ tính hai cực · không súng đạn · hút/đẩy theo dấu 
 
 | # | GDD gốc | Thực tế | Lý do |
 |---|---|---|---|
-| 1 | **Thanh máu HP.** Đạn gây 10/20/25/35 HP | **Chế độ Quá Tải.** Trúng đòn nạp điện, lực văng ×1→×5, chỉ chết khi rơi khỏi đảo | Thanh máu khiến bối cảnh "đảo bay" thành trang trí. Quá Tải biến vực thành cơ chế thật, và tạo được sự leo thang tự nhiên trong round |
+| 1 | **Thanh máu HP.** Đạn gây 10/20/25/35 HP | **Chế độ Quá Tải.** Trúng đòn nạp điện, lực văng ×1→×4, chỉ chết khi rơi khỏi đảo | Thanh máu khiến bối cảnh "đảo bay" thành trang trí. Quá Tải biến vực thành cơ chế thật, và tạo được sự leo thang tự nhiên trong round |
 | 2 | **Thắng round = hạ gục toàn đội địch** | **Chiếm khu ở giữa** | Không còn ai chết vì hết máu, nên cần mục tiêu khác. Khu chiếm đóng còn ép giao tranh vào một chỗ cố định thay vì để hai bên né rìa vực |
 | 3 | **Chết = bị loại hết round** | **Hồi sinh sau 5 giây** | Bị hất khỏi map mà mất cả round thì rất ức chế (ngồi nhìn hết round). Có hồi sinh thì lực văng được phép mạnh tay |
 | 4 | Pha Combat không giới hạn giờ | **300 giây (5 phút)** | Hệ quả bắt buộc của #1: không ai chết vì hết máu thì round có thể kéo dài vô tận |
@@ -344,7 +374,6 @@ Găng tay từ tính hai cực · không súng đạn · hút/đẩy theo dấu 
 | Grapple vẽ **xích từ trường** bằng LineRenderer | Cách hiện tại (lướt nhanh về phía địch) đơn giản và ít lỗi hơn. Thuần thẩm mỹ |
 | Tách lớp `HeavyObject` / `SpikeObject` / `ExplosiveObject` | Xem 5.1 |
 | Tách `PlayerCameraController`, `NetworkLobbyManager` | Logic quá nhỏ để tách file |
-| **Danh sách phòng** | Vào phòng bằng mã PIN đã chạy tốt. Danh sách phòng là tiện lợi, không phải yêu cầu, mà lại là code mạng chưa từng test |
 
 ## 8.4. Ánh xạ lại — giữ tên, đổi ý nghĩa
 
@@ -359,7 +388,7 @@ Công thức "tối đa 50%" giữ nguyên ở cả hai.
 
 ## 8.5. Thêm mới, không có trong GDD gốc
 
-`PlayerVisuals` (nhãn quan địch/bạn) · `CameraShake` · cơ chế **ngủ đông vật thể** (chữa việc vật trượt mãi trên địa hình gồ ghề) · `CursorLock` (trọng tài con trỏ) · `SpectatorController` (quan sát khi chết) · `EnvironmentScatter` (công cụ rải trang trí) · `Billboard` · hai shader tự viết · reset toàn bộ bản đồ mỗi round.
+`PlayerVisuals` (nhãn quan địch/bạn) · `CameraShake` · cơ chế **ngủ đông vật thể** (chữa việc vật trượt mãi trên địa hình gồ ghề) · `CursorLock` (trọng tài con trỏ) · `SpectatorController` (quan sát khi chết) · `EnvironmentScatter` (công cụ rải trang trí) · `Billboard` · bốn shader tự viết · reset toàn bộ bản đồ mỗi round · **danh sách phòng + ghép trận nhanh** · **màn hình khi chết** cho biết ai hạ mình · **phòng chờ dạng thẻ**, chỉ chủ phòng xếp đội · **thể thức 1v1** bên cạnh 2v2 + nút kick · **menu nền 3D** · biển mây `CloudBank` · không có sát thương đồng đội · rơi lúc mua đồ không tính chết.
 
 ## 8.6. Kết luận đối chiếu
 
@@ -367,4 +396,4 @@ Game **đi đúng hướng ở phần bản sắc** và **đổi hướng có ch
 
 Mọi thay đổi đều đi theo một mạch: bản GDD gốc mô tả một FPS truyền thống được khoác lớp áo từ tính lên trên. Trong quá trình dựng, phần từ tính chứng minh nó đủ sức làm **trung tâm** chứ không phải lớp áo — nên các hệ thống vay mượn từ FPS truyền thống (thanh máu, hạ gục để thắng) bị thay bằng hệ thống mọc ra từ chính cơ chế từ tính (nhiễm điện, lực văng, rơi khỏi đảo).
 
-Phần bị cắt (`E`, `R`, cắm dính, xích LineRenderer, danh sách phòng) đều là **tính năng phụ**, cắt để dồn thời gian cho phần cốt lõi — không có phần nào thuộc về bản sắc của game.
+Phần bị cắt (`E`, `R`, cắm dính, xích LineRenderer) đều là **tính năng phụ**, cắt để dồn thời gian cho phần cốt lõi — không có phần nào thuộc về bản sắc của game.

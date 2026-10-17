@@ -45,8 +45,110 @@
 > Overload Mode / Match Format / Netcode · 5. … — Workflow / Top 3 Bugs. 4 slide cuối bỏ chữ
 > "Dự phòng N" + dòng "Mở slide này khi hội đồng hỏi…", đổi tên Timeline / Balance Sheet /
 > Code Architecture / Credits, kéo nội dung lên cho đỡ trống · trailer xong (`trailer/Magneto-Dome_Trailer_v3.mp4`) ·
-> sửa số cũ trên slide: 45 → **49 tệp** mã nguồn, 20.000 → **21.000 dòng**, báo cáo 48 → **53 trang**;
+> sửa số cũ trên slide: 45 → **49 tệp** (16/10: **50 tệp**, thêm MenuBackdrop) mã nguồn, 20.000 → **21.000 dòng**, báo cáo 48 → **53 trang**;
 > ghi chú slide Kết quả thay "hai ô đỏ phải đo" bằng số đo thật (85 FPS 1920×1080, ping 16 ms).
+> **Chủ project đã chơi thử trọn trận 2 máy bằng `Build_Nop` (15/10): ổn** — gồm EM Barrier mới,
+> bảng chết mới, kéo về khi rơi lúc mua đồ. Buổi demo: có người chơi cùng làm đối thủ, mạng đã kiểm.
+> **Truy đủ nguồn 18/18 file âm thanh** qua nhãn ẩn `Zone.Identifier` Windows gắn vào file tải
+> từ Internet (ghi URL trang gốc). 7 Freesound (5 CC0; `explode.wav` lucas-post **CC BY 4.0**, `death.wav`
+> AlexMurphy53 **CC BY-NC 4.0** — bắt buộc ghi tên), 2 Kenney CC0, 9 Pixabay. Đã thêm vào CREDITS,
+> Phụ lục B báo cáo (vẫn 53 trang) và slide Credits.
+
+> **Đã xong 16/10 — làm mới MenuScene:** nền là **cảnh 3D thật** của hòn đảo (bản sao chỉ có hình,
+> 4.190 vật thể, 0 object mạng) với camera bay vòng chậm (`MenuBackdrop.cs`), ánh sáng + bầu trời +
+> sương mù chép từ TestScene. Logo chữ MAGNETO / D O M E / gạch đỏ–xanh / "2V2 MAGNETIC ARENA".
+> Menu chính dời sang trái để lộ đảo; lớp phủ tối dần về bên trái (`MenuOverlay.png`); màn hình phụ
+> có lớp tối nhẹ cho dễ đọc. Sửa thanh cuộn Room List hình chữ L, sửa chữ mẫu đội Đỏ/Xanh bị ghi
+> ngược trong scene. Thay Hình 3.3 + 3.4 trong báo cáo bằng ảnh menu mới. Sửa bằng công cụ Editor
+> chạy ngầm (đã xoá sau khi xong). **Chưa test trong Unity / bản build. `Build_Nop` CHƯA có menu mới.**
+> · Menu: **nắng xoay theo camera** (đảo không bao giờ ngược sáng) + **chỉnh màu tông xanh** chỉ cho menu.
+> · **Phòng chờ mới `LobbyView.cs`**: thẻ người chơi, YOU, vương miện chủ phòng, mã phòng to + COPY,
+>   "Waiting for host to start..." cho Client. **Chỉ chủ phòng được đổi đội** (chặn ở RPC phía Host);
+>   Host bấm thẻ để chuyển người khác sang đội kia. `RoomPlayer.IsHost` mới (`[Networked]`).
+>   Hình 3.4 báo cáo thay bằng phòng chờ mới.
+> · **Settings tạm ẩn giao diện phía sau** khi mở; nền bảng đổi sang màu trơn (cả 2 scene).
+> · Xoá chữ `z` thừa gõ nhầm cuối `RoomPlayer.cs` (11:25) — có nó là cả project không biên dịch được.
+> · Sương mù trong trận: đã chụp thử 4 mức, khác biệt nhỏ — **chờ chủ project chỉ ra chỗ xa bị xấu**.
+> · Báo cáo: sửa câu "người chơi chọn đội" thành luật mới (chủ phòng xếp đội), cập nhật lại mục lục (vẫn 53 trang).
+> · **Đã build lại `Build_Nop` + zip 214MB (16/10)** — có menu 3D, phòng chờ mới, Settings ẩn nền, luật đổi đội.
+> · **Rà GDD toàn bộ (16/10)** — nhiều chỗ cũ từ 24/08: tốc độ 13→**7**, dash 100→**70**, tiền đầu 500→**$300**,
+>   tầm cận chiến 4m/4–20m→**6m/6–60m**, grapple 100→**250**, Z/X/C ô C là **TNT**, thêm phím Space/F/Esc/F1/F4, lực văng ×5→**×4**,
+>   "chưa có danh sách phòng"→**đã có**, bầu trời là Fantasy Skybox (không còn Gradient Sky), danh sách lớp thêm 14 lớp mới.
+>   Kéo theo: `CLAUDE.md` (tầm cận chiến 3m/3–8m sai, phím `B` ghi "chưa làm", thiếu `F`/`Esc`), báo cáo ("ba mét"→sáu mét,
+>   Phụ lục A hệ số lực đẩy 0.975→0.95), slide (3m/3–8m→6m/6–60m), `BALANCE.md` (thêm mục Kinh tế + `dashLockRange`).
+> · **Đường bay đạn (16/10):** tốc độ +20% (đẩy 50→60, bắn 45→54; hút giữ nguyên 49); đạn đang bay
+>   rơi chậm (`bulletGravityMultiplier` 2→0.5, ~76m thay vì ~30m); vật hết làm đạn rơi nhanh tới khi
+>   chạm đất (`afterBulletGravityMultiplier` 2.5, ô mới). Báo cáo 2.5.2 vốn viết "giảm trọng lực khi
+>   bay" — giờ code mới khớp (trước đó code lại TĂNG ×2).
+> · **Sửa nút Close bảng Settings bấm không ăn:** khung `Panel` nằm sau nút trong danh sách nên chặn
+>   cú bấm. Sắp lại thứ tự trong `SettingsPanel.prefab` (dùng chung menu + trong trận). Ghi bẫy #16.
+> · **Nút Quit Game trong Settings (16/10):** cạnh nút Close, bảng hỏi lại "QUIT GAME?" phủ tối toàn
+>   màn hình. Dựng bằng code (`SettingsUI.BuildQuitUI`) từ bản sao nút Leave Match + `LeaveConfirmPanel`
+>   nên cùng tông, không phải sửa prefab. Editor thì dừng Play, bản build thì `Application.Quit()`.
+> · **Sửa bảng "Leave match?" đếm ngược đè tiêu đề:** số giây chuyển sang nút (`Confirm (3)`), bảng nới
+>   500 → 620, câu cảnh báo ép một dòng (dài quá thì tự thu nhỏ chữ).
+> · **Đã build lại `Build_Nop` + zip 214MB (16/10, 21:07)** — có đủ: đạn mới, nút Close, Quit Game, bảng rời trận.
+> · **Sửa chữ "MOVE TO RED/BLUE" trên thẻ phòng chờ lòi ra ngoài viền thẻ** (sau bản build 21:07): khung chữ
+>   lùi vào thẳng mép với chữ YOU, nới 200 → 240.
+> · **Thể thức 1v1 / 2v2 + nút Kick (16/10, sau bản build 21:07):** ghép trận nhanh hỏi 1v1 hay 2v2
+>   (`ModePicker.cs` mới, tự dựng bằng code); phòng chờ có nút 1V1/2V2 cho chủ phòng; phòng đông hơn sức
+>   chứa thì không đổi được, phải kick bớt; nút KICK bấm hai lần; Room List ghi thể thức + sức chứa thật.
+>   Phòng 1v1 chặn người thứ 3 bằng `OnConnectRequest`. Đã kiểm bằng ảnh chụp, **chưa thử 2 máy**.
+>   Báo cáo: sửa mục 1.2.3 (bỏ câu "một chế độ chơi duy nhất 2v2"), mục đường vào trận, phòng chờ,
+>   Bảng 3.6, chụp lại Hình 3.4 — vẫn 53 trang, mục lục đã cập nhật. Slide + GDD: 51 → **52 tệp**, ~22.500 dòng
+>   (sinh lại .pptx).
+> · **Đã build lại `Build_Nop` + zip 214MB (16/10, 21:53)** — có thêm 1v1/2v2 + Kick và sửa chữ "MOVE TO".
+> · **Cải thiện phòng chờ (sau bản build 21:53):** người bị kick không vào lại được phòng (sổ đen theo
+>   `ConnectionToken`); dòng báo "X joined / left / was kicked", "Host switched the room to 1v1",
+>   "Blue team is full"; gợi ý dưới nút Start khi lệch người hoặc ở một mình (không chặn); phòng 1v1 thẻ nằm
+>   giữa vùng thẻ. Kiểm bằng ảnh chụp, **chưa thử 2 máy**.
+> · **Cú đẩy (chuột trái) chếch lên một góc cố định ~1.9°:** `pushUpwardBias` 0.055 → **0.033** (3/5, chủ project
+>   chọn), và góc không còn đổi theo hướng nhìn (trước đó nhìn dốc xuống thì chếch tới ~30°). `pushLiftOffset` 0.3 → **0.5** và đổi nghĩa thành "nâng TỚI 0.5m tính từ mặt
+>   đất" (hàm `GroundGap`) — vật đang nảy trên không không bị giật lên thêm.
+> · **Rải lại đạn trên TestScene (16/10):** vẫn **38 viên** (23 đá Heavy + 15 cây Normal), dời 8 viên:
+>   `Rock6C (1)` nằm TRÊN điểm spawn Đỏ và `Rock6B` sát spawn Xanh → đưa vào mép trong khu chiếm đóng (khu
+>   trước đó không có viên nào); `Rock1D (1)` từ góc căn cứ Đỏ → mép trái vùng giữa (đang trống); 5 vật chồng
+>   lên rào chắn → lùi vào căn cứ (chủ project thử thì chồng rào không sao, nhưng vị trí mới vẫn ổn nên giữ).
+>   Phân bố mới: căn cứ Đỏ 10 · căn cứ Xanh 10 · giữa-trái 8 · giữa-phải 8 · trong khu 2. Mép vật gần nhất
+>   cách người spawn ≥ **2,4 m**, không cặp nào đè nhau. Xoay **ngẫu nhiên trục Y** cho 32 viên đứng thẳng,
+>   6 viên nghiêng cố ý (`Rock1D (4)`, `Rock4A (1)`, `Rock4B (2)`, `Rock5B (2)`, hai `Rock6C` lật úp) giữ nguyên;
+>   hạ các viên lơ lửng cho chạm đất (`Rock1B (1)` hở 0,31m...). Sao lưu scene cũ:
+>   `C:\mdtmp\map\TestScene_TRUOC_KHI_DOI_DA.unity`. ⚠️ Bản sao đảo ở MenuScene vẫn mang vị trí đá CŨ (chỉ là nền).
+> · **Nâng cấp rào chắn + giấu giới hạn bản đồ (17/10):** rào thành màn năng lượng theo màu đội, đặc ~99%
+>   (trước trận hai đội không thấy nhau — đã thử với người nộm đặt phía sau), lưới lục giác, vạch sáng chân
+>   tường, gợn sóng khi chạm, tan rã từ dưới lên khi vào trận (va chạm vẫn tắt ngay). Không thấy đầu tường vì
+>   chỉ tan ngoài mép đảo. Biển mây: thêm **đáy mây** trải tới chân trời, làm mềm viền ảnh mây (có cụm cạnh
+>   thẳng), cụm mây mờ khi camera lọt vào. Shader mới `BarrierCurtain`, `CloudFloor`; ảnh `CloudPuffs.png`
+>   bật Read/Write. Không sửa scene — mọi thứ dựng bằng code. Kiểm bằng ảnh chụp, **chưa đo FPS** (đáy mây
+>   và rào đều là lớp trong suốt phủ rộng; tụt FPS thì tắt `CloudBank.buildCloudFloor` trước). Việc "sương mù
+>   giới hạn tầm nhìn" treo từ 16/10 coi như được thay bằng đáy biển mây.
+>   Thêm cùng ngày: tường chạy tiếp xuống dưới vách đảo, chìm dần vào biển mây (đứng mép đảo nhìn xuống vẫn thấy).
+>   Mỗi ô lục giác lệch màu nhẹ (sáng tối ±20%, sắc ±6°) + vài ô thỉnh thoảng loé sáng — chủ project thấy các ô đều màu quá.
+> · **Nâng hiệu ứng tia nạp điện + cú đấm (17/10, sau bản build 18:14):** tia laze có 2 sợi sét lách tách
+>   quấn quanh (`ArcCrackle`), vật trúng loé vòng sóng + tia lửa (`CombatVFX.ChargeBeam`). Cú đấm trúng nổ
+>   to hơn và **to dần theo điện tích nạn nhân** — chớp sáng, hai vòng sóng lệch nhịp, 9→19 tia lửa
+>   (`CombatVFX.PunchImpact`). **Khựng hình** 0,06 giây trên máy người đấm (`PlayerMagnetController.hitStopDuration`,
+>   `FirstPersonViewmodel.RequestHitStop`) — chỉ dừng tay viewmodel + giật camera, KHÔNG dùng `Time.timeScale`
+>   (dừng thời gian trên Host là lệch mô phỏng mạng). Chờ nắm đấm duỗi ~30% mới khựng.
+> · **Nổ TNT + can xăng có hiệu ứng (17/10, sau bản build 18:14):** `CombatVFX.Explosion` — chớp trắng lớn,
+>   quả cầu lửa vàng→cam→đỏ, khói xám bốc lên ~2 giây, tàn lửa văng thành vệt, vòng sóng ĐÚNG bán kính sát
+>   thương (giữ như cũ) + vòng trắng loang nhanh; camera rung theo khoảng cách (≤ 3 lần bán kính). Can xăng:
+>   `CombatVFX.GasolineSplash` lúc đổ (xăng hổ phách bắn tung + chớp lửa + vòng cam) và **tàn lửa + quầng cam
+>   lách tách liên tục** trên vật suốt lúc còn là thùng nổ (`CreateHazardEmbers`, bay theo khi bị ném; tắt khi
+>   cất túi / đã nổ / sang round). Lần đầu dùng **Particle System** dựng bằng code (lửa/khói cần đốm mềm) —
+>   ~60 hạt mỗi vụ nổ, tự huỷ. Bẫy gặp: khói (che sáng) vẽ đè lên trước lửa → lỗ tối giữa quả cầu lửa; chữa
+>   bằng `ParticleSystemRenderer.sortingFudge` (lửa -20, khói +20).
+> · **Hiệu ứng màn hình khi tự dùng vật phẩm buff (17/10):** `BuffScreenFX.cs` mới. Nước tăng lực: viền loé xanh
+>   chanh + vệt tốc độ ở rìa + góc nhìn phình +8° một nhịp (`CameraShake.AddFovPunch`, gọi qua
+>   `FPSMovement.PunchFov`); suốt 15 giây hiệu lực viền phập phồng nhịp tim, **3 giây cuối nháy nhanh**. Bộ xả
+>   điện: viền xanh lơ + tia điện chạy quanh mép + rung nhẹ. Giữa màn hình luôn để trống. Chỉ người dùng thấy.
+>   **Sửa lỗi cũ:** tiếng "dùng đồ" trước đây chỉ phát trên máy Host (`UseConsumable` chạy trên Host mà lại xét
+>   `HasInputAuthority`) → Client dùng đồ không nghe gì. Giờ đi qua bộ đếm `[Networked] ConsumableUseCount` tới
+>   đúng máy người dùng. Slide + GDD: 52 → **53 tệp**, ~24.000 dòng (sinh lại .pptx).
+> · **Đã build lại `Build_Nop` + zip 214MB (17/10, 21:35)** — có thêm hiệu ứng tia nạp điện, cú đấm + khựng hình,
+>   nổ TNT, can xăng, hiệu ứng dùng đồ.
+> · **Đã build lại `Build_Nop` + zip 214MB (17/10, 18:14)** — có đủ: 1v1/2v2 + Kick, cải thiện phòng chờ, cú đẩy ngang,
+>   map rải lại đá, rào chắn mới, biển mây vô tận. Shader `Barrier Curtain` + `Cloud Floor` đã vào bản build.
 
 > ### 🗄️ *(CŨ — 25/09, giữ để tra cứu)* CÒN ĐÚNG NHỮNG VIỆC NÀY
 > | # | Việc | Ai làm |

@@ -140,7 +140,7 @@ MonoBehaviour:
   bulletArmTime: 0.25
   hitCooldown: 0.6
   bounceRiseDamp: 0.2
-  bulletGravityMultiplier: 2
+  bulletGravityMultiplier: 0.5
   groundNormalThreshold: 0.5
   groundHitSpeedRetain: 0.85
   startPolarity: 0

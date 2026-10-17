@@ -18,7 +18,7 @@ Ngôn ngữ làm việc: **tiếng Việt** (cả trao đổi lẫn comment tron
 
 | Mục | Giá trị |
 |---|---|
-| Thể loại | FPS đối kháng 2v2, Round-based Tactical Arena PvP |
+| Thể loại | FPS đối kháng 2v2, Round-based Tactical Arena PvP. Có thêm thể thức **1v1** *(16/10)* |
 | Bối cảnh | "Sky Arena" — hòn đảo lơ lửng giữa không trung |
 | Điểm độc đáo | Không có súng đạn. Dùng **găng tay từ tính** hút/đẩy vật thể trong map làm đạn |
 | Làm một mình | Có — không có team |
@@ -93,7 +93,8 @@ Sẽ chuyển sang `NetworkBehaviour` cùng lúc làm Shop.
 ```
 Assets/
 ├── NetworkRunnerHandler.cs      # Khởi tạo Fusion Runner, Host/Client, UI panel menu
-├── RoomPlayer.cs                # NetworkBehaviour: đồng bộ NickName + Team trong lobby
+├── RoomPlayer.cs                # NetworkBehaviour: đồng bộ NickName + Team trong lobby. Giữ chế độ 1v1/2v2
+│                                #   (ô RoomTeamSize trên RoomPlayer của chủ phòng) + hàm Kick()
 ├── Editor/
 │   └── BuildNop.cs              # Build BẢN NỘP 1 lệnh: gắn icon, tắt Development Build, ra ../Build_Nop
 │                                #   (menu Magneto-Dome → Build bản nộp). Chỉ chạy trong Editor, không vào game
@@ -116,8 +117,16 @@ Assets/
     ├── MenuUI/
     │   ├── RoomItemUI.cs
     │   ├── PingDisplay.cs           # Hiện ping góc trên phải, tự dựng UI bằng code, F4 ẩn/hiện
-    │   └── DeathScreen.cs           # Màn hình khi chết (14/10): ai hất mình + đòn gì, vòng đếm ngược,
-    │                                #   địch +8, mẹo chơi. Tự dựng UI bằng code. Thay DeadPanel cũ của HUD
+    │   ├── DeathScreen.cs           # Màn hình khi chết (14/10): ai hất mình + đòn gì, vòng đếm ngược,
+    │   │                            #   địch +8, mẹo chơi. Tự dựng UI bằng code. Thay DeadPanel cũ của HUD
+    │   ├── MenuBackdrop.cs          # (16/10) Camera bay vòng quanh đảo làm nền menu + nắng xoay theo camera
+    │   │                            #   + chỉnh màu tông xanh (Volume tạo lúc chạy). Trên Main Camera của MenuScene
+    │   ├── LobbyView.cs             # (16/10) Phòng chờ dạng thẻ người chơi: YOU, vương miện chủ phòng, COPY mã
+    │   │                            #   phòng, Host bấm thẻ để chuyển đội, nút 1V1/2V2, nút KICK. Trên RoomLobbyPanel
+    │   ├── ModePicker.cs            # (16/10) Bảng hỏi "1v1 hay 2v2?" khi bấm Ghép Trận. Tự dựng bằng code,
+    │   │                            #   không gắn vào scene — NetworkRunnerHandler gọi ModePicker.Show()
+    │   └── BuffScreenFX.cs          # (17/10) Hiệu ứng trên màn hình khi tự dùng Nước tăng lực / Bộ xả điện.
+    │                                #   Tự dựng bằng code; InventorySystem gọi qua bộ đếm mạng ConsumableUseCount
     └── Dummy/
         ├── DummyGravity.cs              # Bản sao FPSMovement cho bù nhìn tập bắn
         └── DummyMagnetTarget.cs
@@ -126,6 +135,92 @@ Assets/
 ```
 
 Ngoài ra `Assets/Photon/`, `Assets/ParrelSync/`, `Assets/Resources/` (asset store), `Assets/TutorialInfo/` là **code bên thứ ba — không sửa**.
+
+### ⚠️ MenuScene có một BẢN SAO hòn đảo làm nền *(16/10)*
+
+Object `MenuBackdrop_Island` trong `MenuScene` là bản sao **chỉ có hình** của nhóm `Environment`
+trong TestScene — đã lột hết `NetworkObject`, `Rigidbody`, va chạm và script gameplay (chỉ giữ
+`CloudBank` cho biển mây). Kèm theo: ánh sáng, bầu trời `FS000_Day_03`, sương mù chép từ TestScene;
+lớp phủ tối `Assets/Textures/MenuOverlay.png`; logo chữ `MD_Logo` dựng sẵn trong scene.
+
+- **TUYỆT ĐỐI không đặt `NetworkObject` nào vào MenuScene.** Menu có Fusion Runner chạy (phòng chờ),
+  object mạng thừa trong scene có thể bị đăng ký nhầm.
+- **Sửa đảo trong TestScene thì bản sao ở menu KHÔNG tự cập nhật.** Thường không sao (chỉ là nền),
+  nhưng nếu đổi hẳn hình dáng đảo thì phải chép lại.
+
+### Phòng chờ — CHỈ CHỦ PHÒNG được đổi đội *(chốt 16/10)*
+
+Client không tự đổi đội được. Chủ phòng đổi đội cho chính mình (nút Switch Team) hoặc bấm vào
+thẻ của người khác để chuyển họ sang đội kia (khi đội kia còn chỗ, tối đa `RoomPlayer.TeamSize` = 2).
+- Chốt chặn thật ở **phía Host**: `RoomPlayer.RPC_RequestTeamChange` bỏ qua yêu cầu nếu `!IsHost`.
+  Ẩn nút ở Client (`LobbyView`) chỉ là lớp giao diện.
+- `RoomPlayer.IsHost` là `[Networked]` — Client không tự biết ai là Host.
+- Host đổi đội người khác bằng `RoomPlayer.TryMoveToTeam()` — Host giữ quyền ghi mọi RoomPlayer nên không cần RPC.
+
+### Thể thức 1v1 / 2v2 + nút Kick *(chốt 16/10)*
+
+- **Ghép trận nhanh:** bấm nút thì hỏi 1v1 hay 2v2 (`ModePicker`), chỉ ghép vào phòng đúng thể thức.
+  Nhớ lựa chọn lần trước (`PlayerPrefs` khoá `quick_match_team_size`).
+- **Tạo phòng thường:** luôn mở ở 2v2, chủ phòng đổi bằng nút **1V1 / 2V2** ở đầu phòng chờ.
+- **Đổi sang thể thức nhỏ hơn khi phòng đông hơn sức chứa → TỪ CHỐI**, hiện dòng báo "kick bớt người
+  trước". Game **không tự đuổi ai** (chủ project chốt). Đổi được thì tự dàn lại đội (ưu tiên chuyển người
+  không phải chủ phòng).
+- **Bấm Start: không chặn gì** (chủ project chốt) — như trước, kể cả lệch người.
+- Chế độ lưu ở **`RoomPlayer.RoomTeamSize` trên RoomPlayer của chủ phòng**, đọc qua `RoomPlayer.TeamSize`.
+  Kèm thuộc tính phòng Photon `"ts"` để danh sách phòng / ghép trận đọc được mà chưa cần vào phòng.
+- ⚠️ **Phòng nào cũng mở 4 chỗ trên Photon** — Fusion không đổi được số chỗ sau khi tạo. Phòng 1v1 bị chặn
+  ở người thứ 3 bằng code: `NetworkRunnerHandler.OnConnectRequest` (từ chối ngay từ cửa) + lớp thứ hai
+  trong `OnPlayerJoined`. Hiển thị sức chứa thì dùng `NetworkRunnerHandler.SessionCapacity()`, **đừng dùng
+  `session.MaxPlayers`** (luôn là 4).
+- **Kick:** nút KICK trên thẻ người khác, chỉ chủ phòng thấy, **bấm hai lần** (lần đầu hiện SURE?).
+  `RoomPlayer.Kick()` gửi RPC báo trước để máy kia tự rời phòng và hiện "You were kicked…", rồi 1,5 giây sau
+  Host cắt kết nối phòng khi máy kia không chịu rời.
+- **Người bị kick không vào lại được phòng đó** (sổ đen theo `ConnectionToken` của Fusion, xoá khi mở phòng
+  mới). Thẻ nhận dạng sinh ngẫu nhiên **mỗi lần mở game**, cố ý KHÔNG lưu `PlayerPrefs` — các clone ParrelSync
+  trên cùng máy dùng chung PlayerPrefs, lưu vào đó thì kick một clone là cấm luôn mọi clone.
+- Phòng chờ báo một dòng khi có người vào / ra / bị kick, khi chủ phòng đổi chế độ (Client thấy), và khi
+  bấm Switch Team mà đội kia đầy. Dưới nút Start có gợi ý "Teams are uneven" / "You're alone" — **chỉ nhắc,
+  không chặn**.
+- ⚠️ Font `fontMedium` của phòng chờ **không có dấu gạch dài "—"** (hiện thành khoảng trống). Dùng "·".
+
+### Rào chắn pha mua đồ + biển mây — giấu giới hạn bản đồ *(17/10)*
+
+- **Rào chắn** (`RoundBarrier.cs` + shader `Resources/Shaders/BarrierCurtain.shader`): màn năng lượng theo
+  **màu đội**, **gần như đặc (~99%)** — chủ project yêu cầu trước khi vào trận hai đội KHÔNG thấy vị trí
+  nhau. Vật liệu dựng bằng code lúc chạy (vật liệu `New Material` / shader Force Field trong scene chỉ còn
+  là dự phòng khi không tìm thấy shader mới). Gợn sóng khi người chơi áp sát hoặc vật thể đâm vào; vào trận
+  thì **va chạm tắt ngay**, hình tan từ dưới lên 0,8 giây.
+  ⚠️ **Đừng đổi cách tan sang "theo khoảng cách tới camera"** — đã thử: nhìn xiên dọc tường thì phần xa trong
+  suốt, nhìn xuyên được sang căn cứ địch. Tường chỉ tan **ngoài mép đảo** (tính từ tâm đảo, `fadeStart` 40 →
+  `fadeEnd` 85) và khi lên cao; đảo gần tròn nên mọi đường nhìn giữa hai căn cứ đều cắt tường ở chỗ đặc.
+  Phía dưới: tường **chạy tiếp xuống dưới vách đảo rồi chìm vào biển mây** (`_DepthFadeStart` 6 → `_DepthFadeEnd`
+  45m dưới mặt đảo) — chủ project muốn đứng mép đảo nhìn xuống vẫn thấy. Vạch sáng chân tường chỉ ở đúng ngang
+  mặt đất và trong bán kính đảo (`_IslandRadius` 36), không thì phần dưới vực sáng rực cả mảng.
+  Mỗi ô lục giác lệch màu nhẹ: sáng tối ±20% (`_CellBright` 0.4), sắc chỉ ±6° (`_CellHue` 0.2), ~7% ô thỉnh
+  thoảng loé (`_Sparkle`). ⚠️ Đừng tăng `_CellHue` — đã thử ±13°: màu đỏ bão hoà xoay vài độ là ra ô màu ô liu /
+  hồng tím như vải vụn. Đường viền ô giữ một màu.
+- **Biển mây** (`CloudBank.cs`) có thêm 3 thứ, đều bật/tắt được trong Inspector:
+  - `buildCloudFloor` — **đáy biển mây** (shader `CloudFloor.shader`): tấm mây mềm dưới các cụm, tan vào
+    màu chân trời → nhìn ra / nhìn xuống không còn thấy khoảng trời phẳng lì giữa các cụm.
+    `floorHorizonColor` phải khớp màu trời ngay trên chân trời, lệch là lộ đường kẻ ngang.
+  - `softenPuffEdges` — ảnh `CloudPuffs.png` có cụm vẽ sát mép ô với cạnh gần thẳng đứng; script tạo bản sao
+    viền tan dần lúc chạy. **Cần ảnh bật Read/Write** (đã bật trong `.meta` 17/10).
+  - `nearFadeSize` — cụm mây mờ đi khi camera lọt vào (lúc rơi khỏi đảo).
+  Đáy biển mây là object ẩn (`HideAndDontSave`) — không thấy trong Hierarchy, không ghi vào scene.
+  MenuScene cũng có `CloudBank` nên nền menu tự có đáy biển mây.
+
+**Bảng Settings tạm ẩn mọi giao diện phía sau khi mở** (`SettingsUI.HideEverythingBehind`): ẩn các
+object anh em trong cùng Canvas + các Canvas gốc có thứ tự vẽ thấp hơn (HUD, màn hình chết). Đóng
+lại thì trả đúng những thứ đang hiện lúc mở. Nền bảng đổi từ ảnh `dd_template` (có màu sẵn, chỉnh alpha
+không ăn) sang màu trơn xanh đậm 60% — sửa trên cả MenuScene lẫn TestScene.
+
+**Nút Quit Game** *(16/10)* nằm bên trái nút Close, có ở cả menu lẫn trong trận. Bấm vào thì hiện bảng
+"QUIT GAME?" phủ tối toàn màn hình, nút Cancel được chọn sẵn, `Esc` chỉ đóng bảng này. Cả nút lẫn bảng
+**dựng bằng code lúc chạy** (`SettingsUI.BuildQuitUI`), là **bản sao** nút Leave Match và
+`LeaveConfirmPanel` — không có trong prefab, đừng đi tìm trong Hierarchy. Dòng cảnh báo đổi theo hoàn
+cảnh: chủ phòng thoát thì báo trận/phòng sẽ kết thúc cho mọi người.
+Bảng "Leave match?" cũng được sửa: số giây đếm ngược nằm trên nút (`Confirm (3)`), câu cảnh báo luôn
+một dòng — trước đây số giây chèn vào dòng thứ hai làm câu phình lên đè tiêu đề.
 
 ### Script sẽ tạo trong tương lai
 Các file này GDD có nhắc tới nhưng **chưa tồn tại**, sẽ tạo dần khi làm multiplayer:
@@ -156,15 +251,19 @@ GDD sẽ được sửa lại cho khớp code sau, không phải ngược lại.
 | `V` | Tung hứng vật đang cầm lên không |
 | `Z` / `X` / `C` | Rút đạn Normal / Heavy / **TNT** từ túi ra tay. *(Ô `C` tạm là TNT từ 19/09 vì map chưa có vật Spike — đổi lại ở `PlayerHotbarController.ThirdSlotType`)* |
 | `Tab` (giữ) | Mở Radial Menu, xoay chuột chọn, thả phím để dùng |
-| `B` | Mở Shop (chỉ trong Buy Phase) — *chưa làm* |
+| `B` | Mở Shop (chỉ trong Buy Phase) |
+| `F` | Nhặt vật phía trước vào túi / cất vật đang cầm vào túi (`PlayerInteract.interactKey`) |
+| `Esc` | Mở/đóng bảng Settings |
 | `F1` | Bật/tắt bảng hướng dẫn điều khiển *(tự hiện ở pha chuẩn bị)*. Phím phụ `H` cho Editor |
 | `F4` | Bật/tắt ô hiển thị **ping** ở góc trên bên phải *(`PingDisplay.cs`)* |
 
 ### Cận chiến (chuột phải, tay trống)
 
-- **Khoảng cách < 3m, cùng dấu** → Đấm đẩy văng đối thủ (Repel Punch).
-- **Khoảng cách < 3m, trái dấu** → Nảy bật nhẹ cả hai bên.
-- **Khoảng cách 3–8m, trái dấu** → Kéo áp sát (Grapple): lướt nhanh về phía đối thủ.
+- **Khoảng cách < 6m, cùng dấu** → Đấm đẩy văng đối thủ (Repel Punch).
+- **Khoảng cách < 6m, trái dấu** → Nảy bật nhẹ cả hai bên.
+- **Khoảng cách 6–60m, trái dấu** → Kéo áp sát (Grapple): lướt nhanh về phía đối thủ.
+  > *(Đối chiếu prefab 16/10: `meleeRange 6`, `dashLockRange 60` — bản cũ ghi 3m / 3–8m là sai.
+  > Mặc định trong code là 4 và 20, nhưng Inspector đè lên.)*
   > GDD mô tả có "xích từ trường" vẽ bằng LineRenderer. **Chốt: giữ cách làm hiện tại** (`DashToEnemyRoutine` trong `PlayerMagnetController.cs`) vì đơn giản hơn. Có thể thêm LineRenderer sau nếu còn thời gian.
 
 ### Hệ sinh thái đạn (vật thể từ tính)
@@ -657,6 +756,20 @@ Viết `Object.Destroy(x)` bên trong một lớp kế thừa `NetworkBehaviour`
 nó) sẽ báo lỗi biên dịch `CS0120` / `CS0176`: tên `Object` bị hiểu là thuộc tính `Object`
 (kiểu `NetworkObject`) của Fusion, không phải `UnityEngine.Object`.
 → Cách chữa: ghi đủ tên `UnityEngine.Object.Destroy(...)`. Gặp ở `EMBarrier.Visual.Dispose()`.
+
+**16. Trong giao diện Unity, object nằm SAU trong danh sách con sẽ CHẶN CÚ BẤM của object nằm trước** *(gặp 16/10)*
+Unity vẽ object con theo thứ tự từ trên xuống trong Hierarchy — cái sau đè lên cái trước, và ảnh
+nào có `Raycast Target` nằm trên cùng thì nhận cú bấm. Triệu chứng: nút Close của bảng Settings bấm
+không ăn, vì khung nền `Panel` (phủ gần hết màn hình) nằm SAU nút trong danh sách và chờm lên nó.
+→ Cách chữa: khung nền phải là con ĐẦU TIÊN, các nút nằm sau. Đã sắp lại trong `SettingsPanel.prefab`.
+→ Nút "bấm không ăn" thì kiểm thứ tự anh em trước tiên, trước khi nghi code.
+
+**17. Hai vật TRONG SUỐT to bị vẽ sai thứ tự — vật ở xa đè lên vật ở gần** *(gặp 17/10)*
+Unity xếp thứ tự vẽ các vật trong suốt theo khoảng cách từ camera tới **tâm** object, không theo từng điểm.
+Biển mây là MỘT lưới rộng hàng trăm mét có tâm ở giữa đảo, nên đứng ở giữa map thì "tâm mây" gần hơn tâm
+bức tường rào → mây vẽ SAU tường → mây phía bên kia hiện đè lên trước màn chắn.
+→ Cách chữa: đặt `renderQueue` cố định cho thứ cần luôn nằm trên (tường rào 3050 > mây 3000; đáy biển mây
+2990 < mây). Gặp vật trong suốt "nhảy lên trước" bất chợt thì nghi thứ tự vẽ trước tiên.
 
 **15. `line` là từ khoá dành riêng của HLSL — đừng đặt làm tên biến trong shader** *(gặp 14/10)*
 Báo lỗi khó hiểu: `syntax error: unexpected token 'line'`. Đó là kiểu dữ liệu của geometry shader.

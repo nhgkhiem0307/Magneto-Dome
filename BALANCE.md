@@ -85,15 +85,30 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 | `meleePushForce` | **200** | Inspector | Lực đấm |
 | `meleeCooldown` | **0.35** | Inspector | Hồi chiêu đấm (giây) |
 | `grapplePullForce` | **250** | Inspector | Lực kéo áp sát |
+| `dashLockRange` | **60** | Inspector | Tầm xa nhất để khoá mục tiêu kéo áp sát (mặc định code 20). Kéo áp sát xảy ra khi địch ở xa hơn `meleeRange` và gần hơn số này |
 | `pullForce` | **49** | Inspector | Tốc độ hút vật về tay, m/s. Nâng 36 → 49 ngày 10/10 (+35%). ⚠️ Ô này còn nhân vào cú phản đòn khi hút nhầm Spike — xem `spikePullBoost` |
 | `spikePullBoost` | **1.5** | Inspector | Hút nhầm bóng gai thì nó lao ngược lại với lực `pullForce × 1.5`. Từ 10/10 là `49 × 1.5 = 73.5` (trước 54) — cú phạt Spike mạnh lên 35% theo pullForce, **có chủ ý** |
-| `pushSpeed` | **50** | Inspector | Tốc độ đẩy vật |
+| `pushSpeed` | **60** | Inspector | Tốc độ đẩy vật (chuột trái, vật cùng dấu). Nâng 50 → 60 ngày 16/10 (+20%) |
+| `pushLiftOffset` | **0.5** | Inspector | Trước khi đẩy, nâng vật **TỚI** độ cao này (m) tính từ mặt đất, để bay qua gờ đất. Vật đang nảy trên không, đã cao sẵn thì không nâng thêm. Đổi 0.3 → 0.5 ngày 16/10 |
+| `pushUpwardBias` | **0.033** | Inspector | Cú đẩy chếch lên một góc **cố định ~1.9°**, nhìn lên hay xuống cũng vậy. Hạ 0.055 → 0.033 (= 3/5) ngày 16/10. Trước 16/10 góc này đổi theo hướng nhìn: nhìn dốc xuống thì chếch tới ~30° — đã sửa |
+| `fireSpeed` | **54** | Inspector | Tốc độ bắn vật đang cầm (chuột phải). Nâng 45 → 54 ngày 16/10 (+20%) |
 | `shootRange` | **50** | Inspector | Tầm với của găng |
 | `heldObjectSize` | **1.2** | Inspector | Cạnh dài nhất của vật cầm trên tay |
 | `heldObjectThickness` | **0.55** | code | Bề ngang tối đa của vật cầm trên tay |
 | `aimAssistRadius` | **1.2** | Inspector | Bán kính hỗ trợ ngắm |
 | `aimAssistAngle` | **12** | Inspector | Góc hỗ trợ ngắm xa |
 | `closeAssistAngle` | **70** | Inspector | Góc hỗ trợ ngắm gần |
+
+## Kinh tế *(thêm 16/10)*
+
+`Player.prefab` — `PlayerEconomy`
+
+| Ô | Giá trị | Nguồn | Ý nghĩa |
+|---|---|---|---|
+| `startingMoney` | **300** | Inspector | Tiền đầu trận (mặc định code 500 — Inspector đè lên) |
+| `winReward` | **150** | Inspector | Thắng round |
+| `loseReward` | **100** | Inspector | Thua round |
+| `moneyCap` | **750** | Inspector | Trần ví |
 
 ## Tường EM Barrier *(thêm 14/10)*
 
@@ -122,6 +137,14 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 > sát thương chung thì sửa hệ số đó, **đừng** đi sửa từng prefab.
 
 ### Ô chung trên mọi prefab vật thể — `MagneticObject`
+
+> **16/10 — đường bay của đạn:** trọng lực project chỉ -3.
+> - `bulletGravityMultiplier` **2 → 0.5**: đạn đang bay rơi chậm (gia tốc 1.5). Bắn ngang với 54 m/s
+>   bay được ~76m trước khi chạm đất — ngang cả đảo. Trước đó ~30m, chưa tới nửa đảo.
+>   Đã sửa trên **16 prefab** + mặc định code (prefab đá không lưu ô này, tự lấy mặc định).
+> - `afterBulletGravityMultiplier` **2.5** *(ô mới, code)*: từ lúc vật hết làm đạn tới khi chạm đất
+>   thì rơi với gia tốc 7.5 — hết cảnh vật đâm người xong trôi lững lờ. Không áp lên vật nằm yên,
+>   vật tung bằng `V`, vật bị nổ hất.
 
 | Ô | Giá trị | Nguồn | Ý nghĩa |
 |---|---|---|---|

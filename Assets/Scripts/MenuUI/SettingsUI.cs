@@ -154,11 +154,45 @@ public class SettingsUI : MonoBehaviour
         // không bao giờ tắt được nó, bảng "rời trận" hiện đè MỖI LẦN mở Settings.
         if (leaveConfirmPanel != null) leaveConfirmPanel.SetActive(false);
         if (settingsPanel != null) settingsPanel.SetActive(false);
+
+        FitLeaveConfirmLayout();
+        BuildQuitUI();   // gọi SAU: bảng Quit là bản sao bảng rời trận, nên hưởng luôn bố cục đã sửa
+    }
+
+    // Bảng "Leave match?" trong prefab hẹp (500) mà câu cảnh báo dài, nên câu bị gãy làm hai
+    // dòng trong ô chỉ cao 50 — dòng thứ hai lòi xuống sát nút. Nới bảng ra 620 và ép câu
+    // luôn nằm gọn MỘT dòng, dài quá thì tự thu nhỏ chữ chứ không xuống dòng.
+    private void FitLeaveConfirmLayout()
+    {
+        if (leaveConfirmPanel == null) return;
+        RectTransform panel = (RectTransform)leaveConfirmPanel.transform;
+        panel.sizeDelta = new Vector2(Mathf.Max(panel.sizeDelta.x, 620f), panel.sizeDelta.y);
+        FitOneLine(leaveConfirmText, panel.sizeDelta.x - 40f);
+    }
+
+    private static void FitOneLine(TMP_Text t, float width)
+    {
+        if (t == null) return;
+        t.rectTransform.sizeDelta = new Vector2(width, t.rectTransform.sizeDelta.y);
+        t.textWrappingMode = TextWrappingModes.NoWrap;
+        if (!t.enableAutoSizing) t.fontSizeMax = t.fontSize;
+        t.enableAutoSizing = true;
+        t.fontSizeMin = 16f;
     }
 
     void Update()
     {
-        if (toggleKey != KeyCode.None && Input.GetKeyDown(toggleKey))
+        // Bảng "Quit Game?" đang mở thì Esc chỉ đóng bảng đó, không đóng luôn cả Settings —
+        // người ta bấm Esc là để "thôi, không thoát nữa", không phải để thoát khỏi mọi thứ.
+        if (IsQuitConfirmOpen)
+        {
+            if (toggleKey != KeyCode.None && Input.GetKeyDown(toggleKey)) CancelQuit();
+            AnimateQuitPopup();
+            return;
+        }
+
+        // Bảng chọn chế độ ghép trận (1v1/2v2) đang mở thì Esc là để đóng bảng đó
+        if (toggleKey != KeyCode.None && Input.GetKeyDown(toggleKey) && !ModePicker.IsOpen)
         {
             Toggle();
         }
@@ -214,9 +248,11 @@ public class SettingsUI : MonoBehaviour
 
         LoadCurrentValues();
         settingsPanel.SetActive(true);
+        HideEverythingBehind();
 
         // Mở Settings thì luôn bắt đầu ở bảng chính, không bao giờ ở bảng xác nhận.
         if (leaveConfirmPanel != null) leaveConfirmPanel.SetActive(false);
+        if (_quitPopup != null) _quitPopup.SetActive(false);
         _leaveCountdown = 0f;
 
         // Chỉ hiện nút Rời Trận khi đang thật sự ở trong trận.
@@ -232,6 +268,53 @@ public class SettingsUI : MonoBehaviour
 
         IsOpen = true;
         Opened?.Invoke();
+    }
+
+    // --- TẠM ẨN GIAO DIỆN PHÍA SAU KHI MỞ SETTINGS (16/10) ---
+    //
+    // Bảng Settings đè lên menu/HUD; chữ hai lớp chồng nhau thì rối mắt. Mở Settings thì ẩn:
+    //  - các object ANH EM của bảng Settings trong cùng Canvas (các bảng menu, nút...)
+    //  - các Canvas gốc KHÁC có thứ tự vẽ thấp hơn (HUD trong trận, màn hình chết...)
+    // Chỉ ghi nhớ những thứ ĐANG HIỆN lúc mở, nên lúc đóng trả lại đúng như cũ — không bật nhầm
+    // thứ vốn đang tắt. Lớp phủ nền "MD_Overlay" của menu thì giữ, nó là nền chứ không phải chữ.
+
+    private readonly List<GameObject> _hiddenSiblings = new List<GameObject>();
+    private readonly List<Canvas> _hiddenCanvases = new List<Canvas>();
+
+    private void HideEverythingBehind()
+    {
+        RestoreEverythingBehind();   // phòng trường hợp mở hai lần liền
+
+        Transform parent = settingsPanel.transform.parent;
+        if (parent != null)
+        {
+            foreach (Transform t in parent)
+            {
+                GameObject go = t.gameObject;
+                if (go == settingsPanel || !go.activeSelf || go.name == "MD_Overlay") continue;
+                go.SetActive(false);
+                _hiddenSiblings.Add(go);
+            }
+        }
+
+        Canvas own = settingsPanel.GetComponentInParent<Canvas>();
+        Canvas ownRoot = own != null ? own.rootCanvas : null;
+        int ownOrder = ownRoot != null ? ownRoot.sortingOrder : 0;
+        foreach (Canvas c in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
+        {
+            if (!c.isRootCanvas || c == ownRoot || !c.enabled) continue;
+            if (c.sortingOrder > ownOrder) continue;   // màn chờ, ô ping... nằm trên thì để yên
+            c.enabled = false;
+            _hiddenCanvases.Add(c);
+        }
+    }
+
+    private void RestoreEverythingBehind()
+    {
+        foreach (GameObject go in _hiddenSiblings) if (go != null) go.SetActive(true);
+        foreach (Canvas c in _hiddenCanvases) if (c != null) c.enabled = true;
+        _hiddenSiblings.Clear();
+        _hiddenCanvases.Clear();
     }
 
     void OnDestroy()
@@ -316,16 +399,30 @@ public class SettingsUI : MonoBehaviour
 
     private void RefreshLeaveCountdownText()
     {
-        if (leaveConfirmText == null) return;
-
         // CeilToInt để giây cuối vẫn hiện "1" thay vì "0" - đếm tới 0 là lúc hết chờ,
         // không phải một mốc để hiện ra.
         int secondsLeft = Mathf.CeilToInt(_leaveCountdown);
 
-        leaveConfirmText.text = secondsLeft > 0
-            ? $"{leaveConfirmMessage}\n{secondsLeft}"
-            : leaveConfirmMessage;
+        // Dòng cảnh báo LUÔN là một dòng cố định. (16/10) Trước đây số giây được thêm vào
+        // dòng thứ hai của chính ô này — ô chỉ cao 50 và căn giữa theo chiều dọc, nên hai
+        // dòng phình ra cả lên trên, đè lên tiêu đề "LEAVE MATCH?", đếm xong mới hết đè.
+        if (leaveConfirmText != null) leaveConfirmText.text = leaveConfirmMessage;
+
+        // Số giây chuyển sang chính nút xác nhận: "Confirm (3)" → … → "Confirm".
+        // Nút đang khoá thì nhìn là biết còn bao lâu, và không chữ nào nhảy chỗ.
+        if (leaveConfirmButton != null)
+        {
+            TMP_Text label = leaveConfirmButton.GetComponentInChildren<TMP_Text>(true);
+            if (label != null)
+            {
+                if (_leaveConfirmLabel == null) _leaveConfirmLabel = label.text.Trim();   // bỏ "\n" thừa trong prefab
+                label.text = secondsLeft > 0 ? $"{_leaveConfirmLabel} ({secondsLeft})" : _leaveConfirmLabel;
+            }
+        }
     }
+
+    // Chữ gốc trên nút xác nhận rời trận ("Confirm"), nhớ lại để ghép số giây vào.
+    private string _leaveConfirmLabel;
 
     public void Close()
     {
@@ -335,10 +432,12 @@ public class SettingsUI : MonoBehaviour
         // theo, nhưng nếu ai đó đặt nó ra ngoài thì nó sẽ nằm lơ lửng giữa màn hình sau khi
         // Settings đã đóng. Tắt tay ở đây thì đặt ở đâu cũng đúng.
         if (leaveConfirmPanel != null) leaveConfirmPanel.SetActive(false);
+        if (_quitPopup != null) _quitPopup.SetActive(false);
         _leaveCountdown = 0f;
 
         settingsPanel.SetActive(false);
         IsOpen = false;
+        RestoreEverythingBehind();
 
         // Trả chuột lại. CursorLock tự lo phần còn lại: chỉ khoá khi KHÔNG còn bảng nào
         // đang mở, và luôn thả tự do khi đang ở menu (chưa có nhân vật).
@@ -347,6 +446,209 @@ public class SettingsUI : MonoBehaviour
         // vẫn mở sẽ làm người chơi không rê chọn được nữa.
         CursorLock.Release(this);
     }
+
+    // ==================== THOÁT GAME (16/10) ====================
+    //
+    // Nút "Quit Game" cạnh nút Close + bảng hỏi lại, phủ tối toàn màn hình.
+    //
+    // Bảng hỏi lại là BẢN SAO của LeaveConfirmPanel có sẵn trong prefab (cùng khung, cùng nút
+    // đỏ, cùng kiểu chữ) — chỉ đổi chữ. Nút Quit Game là bản sao của nút Leave Match. Nhờ vậy
+    // khớp tông với bảng Settings mà không phải sửa prefab hay kéo thả gì ở cả hai scene.
+
+    private Button _quitButton, _quitConfirmButton, _quitCancelButton;
+    private GameObject _quitPopup;
+    private CanvasGroup _quitGroup;
+    private RectTransform _quitPanel;
+    private TMP_Text _quitWarn;
+    private float _quitOpenedAt;
+
+    /// <summary>Bảng "Quit game?" có đang mở không.</summary>
+    public bool IsQuitConfirmOpen => _quitPopup != null && _quitPopup.activeInHierarchy;
+
+    private void BuildQuitUI()
+    {
+        if (settingsPanel == null || _quitButton != null) return;
+
+        Button redTemplate = leaveMatchButton != null ? leaveMatchButton : closeButton;
+        if (redTemplate == null || closeButton == null || leaveConfirmPanel == null)
+        {
+            Debug.LogWarning("[SETTINGS] Thiếu nút mẫu / LeaveConfirmPanel để dựng nút Quit Game.", this);
+            return;
+        }
+
+        // --- Nút Quit Game: ngay bên trái nút Close ---
+        _quitButton = CloneButton(redTemplate, settingsPanel.transform, "QuitGameButton", "Quit Game");
+        RectTransform closeRt = (RectTransform)closeButton.transform;
+        RectTransform quitRt = (RectTransform)_quitButton.transform;
+        quitRt.anchorMin = closeRt.anchorMin;
+        quitRt.anchorMax = closeRt.anchorMax;
+        quitRt.pivot = closeRt.pivot;
+        quitRt.sizeDelta = closeRt.sizeDelta;
+        quitRt.anchoredPosition = closeRt.anchoredPosition - new Vector2(closeRt.sizeDelta.x + 50f, 0f);
+        _quitButton.gameObject.SetActive(true);
+        Bind(_quitButton, OpenQuitConfirm);
+        // Nút phải nằm SAU khung nền "Panel" trong danh sách, không thì bị chặn cú bấm (bẫy #16)
+        _quitButton.transform.SetSiblingIndex(closeButton.transform.GetSiblingIndex());
+
+        // --- Lớp tối phủ toàn màn hình ---
+        _quitPopup = new GameObject("QuitConfirmPopup", typeof(RectTransform));
+        _quitPopup.transform.SetParent(settingsPanel.transform, false);
+        RectTransform popRt = (RectTransform)_quitPopup.transform;
+        popRt.anchorMin = Vector2.zero;
+        popRt.anchorMax = Vector2.one;
+        popRt.offsetMin = popRt.offsetMax = Vector2.zero;
+
+        // Canvas riêng thứ tự cao: luôn vẽ trên mọi thứ trong bảng Settings, và có
+        // GraphicRaycaster riêng để các nút bên trong nhận được cú bấm.
+        Canvas popCanvas = _quitPopup.AddComponent<Canvas>();
+        popCanvas.overrideSorting = true;
+        popCanvas.sortingOrder = 300;
+        _quitPopup.AddComponent<GraphicRaycaster>();
+        _quitGroup = _quitPopup.AddComponent<CanvasGroup>();
+
+        // Chặn mọi cú bấm vào bảng Settings phía sau. Alpha 0.9 vì project dùng màu LINEAR —
+        // đen 75% ở đó nhìn bằng mắt chỉ tối chừng một nửa.
+        Image dim = _quitPopup.AddComponent<Image>();
+        dim.color = new Color(0.01f, 0.02f, 0.05f, 0.9f);
+
+        // --- Bảng hỏi lại: bản sao LeaveConfirmPanel ---
+        GameObject panel = Instantiate(leaveConfirmPanel, _quitPopup.transform, false);
+        panel.name = "QuitConfirmPanel";
+        panel.SetActive(true);
+        _quitPanel = (RectTransform)panel.transform;
+        _quitPanel.anchorMin = _quitPanel.anchorMax = _quitPanel.pivot = new Vector2(0.5f, 0.5f);
+        _quitPanel.anchoredPosition = Vector2.zero;
+        // Bản gốc đã được FitLeaveConfirmLayout() nới rộng + ép một dòng; gọi lại cho chắc
+        // phòng khi bảng gốc chưa qua bước đó (ví dụ lúc chụp ảnh xem trước trong Editor).
+        _quitPanel.sizeDelta = new Vector2(Mathf.Max(_quitPanel.sizeDelta.x, 620f), _quitPanel.sizeDelta.y);
+
+        foreach (TMP_Text t in panel.GetComponentsInChildren<TMP_Text>(true))
+        {
+            if (t.transform.parent != panel.transform) continue;   // chữ trong nút xử lý riêng
+            if (t.name == "Title") t.text = "QUIT GAME?";
+            else
+            {
+                _quitWarn = t;
+                FitOneLine(t, _quitPanel.sizeDelta.x - 40f);
+            }
+        }
+
+        _quitCancelButton = FindButton(panel.transform, NameCloseButton, null);
+        _quitConfirmButton = FindButton(panel.transform, NameConfirmButton, null);
+        SetButtonLabel(_quitCancelButton, "Cancel");
+        SetButtonLabel(_quitConfirmButton, "Quit");
+        if (_quitConfirmButton != null) _quitConfirmButton.interactable = true;
+        Bind(_quitCancelButton, CancelQuit);
+        Bind(_quitConfirmButton, ConfirmQuit);
+
+        _quitPopup.transform.SetAsLastSibling();
+        _quitPopup.SetActive(false);
+    }
+
+    /// <summary>Bấm nút Quit Game: hiện bảng hỏi lại.</summary>
+    public void OpenQuitConfirm()
+    {
+        if (_quitPopup == null) { ConfirmQuit(); return; }
+
+        // Hai bảng xác nhận không được chồng lên nhau
+        if (leaveConfirmPanel != null) leaveConfirmPanel.SetActive(false);
+        _leaveCountdown = 0f;
+
+        if (_quitWarn != null)
+        {
+            string note = QuitConsequence();
+            _quitWarn.text = string.IsNullOrEmpty(note) ? "Are you sure you want to leave the game?" : note;
+        }
+
+        _quitPopup.transform.SetAsLastSibling();
+        _quitPopup.SetActive(true);
+        _quitOpenedAt = Time.unscaledTime;
+        AnimateQuitPopup();
+
+        // Chọn sẵn nút HUỶ: lỡ tay bấm Enter / Space thì là "thôi", không phải "thoát"
+        if (UnityEngine.EventSystems.EventSystem.current != null && _quitCancelButton != null)
+            UnityEngine.EventSystems.EventSystem.current.SetSelectedGameObject(_quitCancelButton.gameObject);
+    }
+
+    public void CancelQuit()
+    {
+        if (_quitPopup != null) _quitPopup.SetActive(false);
+    }
+
+    /// <summary>Thoát hẳn game. Trong Editor thì dừng Play thay vì tắt Unity.</summary>
+    public void ConfirmQuit()
+    {
+        // Cài đặt vốn đã lưu ngay khi đổi, nhưng ép ghi xuống đĩa thêm lần nữa cho chắc
+        PlayerPrefs.Save();
+        Debug.Log("[SETTINGS] Thoát game.");
+
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        // Fusion tự đóng kết nối khi ứng dụng thoát: Host thoát thì máy khác nhận được
+        // tin "Host left" và về menu như bình thường; Client thoát thì trận bị huỷ êm.
+        Application.Quit();
+#endif
+    }
+
+    // Dòng cảnh báo theo đúng hoàn cảnh — thoát game không chỉ ảnh hưởng mỗi người bấm.
+    private static string QuitConsequence()
+    {
+        NetworkRunnerHandler h = NetworkRunnerHandler.Instance;
+        bool host = h != null && h.IsHost;
+
+        if (FPSMovement.Local != null)
+            return host ? "You are the host - the match will END for everyone"
+                        : "You will leave the current match";
+        if (RoomPlayer.Local != null)
+            return host ? "You are the host - the room will close for everyone"
+                        : "You will leave the room";
+        return "";
+    }
+
+    // Hiện lên: mờ dần + bảng phóng nhẹ từ 92% lên 100% trong 0.16 giây
+    private void AnimateQuitPopup()
+    {
+        if (_quitGroup == null || _quitPanel == null) return;
+        float k = Mathf.Clamp01((Time.unscaledTime - _quitOpenedAt) / 0.16f);
+        float ease = 1f - Mathf.Pow(1f - k, 3f);
+        _quitGroup.alpha = ease;
+        _quitPanel.localScale = Vector3.one * Mathf.Lerp(0.92f, 1f, ease);
+    }
+
+    private static Button CloneButton(Button template, Transform parent, string name, string label)
+    {
+        Button b = Instantiate(template, parent, false);
+        b.name = name;
+        b.onClick.RemoveAllListeners();
+        SetButtonLabel(b, label);
+        return b;
+    }
+
+    private static void SetButtonLabel(Button b, string label)
+    {
+        if (b == null) return;
+        TMP_Text t = b.GetComponentInChildren<TMP_Text>(true);
+        if (t != null) t.text = label;
+    }
+
+#if UNITY_EDITOR
+    /// <summary>Chỉ để chụp ảnh xem trước trong Editor.</summary>
+    public void PreviewQuit(bool openPopup)
+    {
+        ResolveMissingReferences();
+        BuildQuitUI();
+        if (openPopup) { OpenQuitConfirm(); _quitOpenedAt = -10f; AnimateQuitPopup(); }
+    }
+
+    /// <summary>Chỉ để chụp ảnh xem trước bảng rời trận lúc đang đếm ngược.</summary>
+    public void PreviewLeaveCountdown()
+    {
+        ResolveMissingReferences();
+        FitLeaveConfirmLayout();
+        LeaveMatch();
+    }
+#endif
 
     // --- KHỞI TẠO ---
 

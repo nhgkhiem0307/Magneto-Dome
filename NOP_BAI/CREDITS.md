@@ -115,38 +115,54 @@ thiết kế nhân vật cụ thể, không phải bấm bừa ra rồi dùng.
 
 ---
 
-## 4. Âm thanh — 18 file, `Resources/Audio/`
+## 4. Âm thanh — 18 file, `Resources/Audio/` *(truy đủ nguồn 15/10)*
 
-| File | Nguồn | Giấy phép |
+> ✅ **Cả 18 file đã có nguồn chính xác — không đoán file nào.** Cách truy: khi trình duyệt tải
+> một file từ Internet, Windows gắn vào file một **nhãn ẩn `Zone.Identifier`** ghi lại đúng địa chỉ
+> trang đã tải. Nhãn này đi theo file khi kéo vào Unity, nên đọc ra được đúng trang gốc của từng
+> file. Giấy phép từng file Freesound tra trực tiếp trên trang của file đó (Freesound **không có
+> giấy phép chung** — mỗi file một giấy phép riêng).
+
+### ⚠️ Hai file BẮT BUỘC ghi tên tác giả
+
+| File | Nguồn | Giấy phép | Phải làm |
+|---|---|---|---|
+| `explode.wav` | *"Electronic bomb.wav"* — **lucas-post**, Freesound `freesound.org/people/lucas-post/sounds/521620/` | **CC BY 4.0** | Ghi tên tác giả |
+| `death.wav` | *"Villain death.wav"* — **AlexMurphy53**, Freesound `freesound.org/people/AlexMurphy53/sounds/571387/` | **CC BY-NC 4.0** | Ghi tên tác giả + **chỉ dùng phi thương mại** — đồ án là phi thương mại nên hợp lệ. ⚠️ Nếu sau này bán game thì **phải thay file này** |
+
+### Freesound — CC0 (dùng tự do, không bắt ghi nguồn)
+
+| File | Tên gốc — tác giả | Trang |
 |---|---|---|
-| `GPBG.mp3` *(nhạc nền trong trận)* | ✅ **Pixabay** — *"Adventure Arena"* `pixabay.com/music/adventure-arena-270364/`. ⬜ tên người đăng | ✅ Pixabay Content License — không bắt ghi nguồn |
-| `pripac-relaxing-vibes-for-gaming-focus-323623.mp3` *(nhạc menu)* | **Pixabay** — tác giả **pripac**, *"Relaxing Vibes for Gaming Focus"* *(đọc từ tên file, đúng khuôn tên Pixabay đặt)* | Pixabay Content License |
-| `lasershoot.wav` | **Mattias Michael Lahoud** — *"8BIT LASER SHOT 04"* *(thẻ nhúng trong file)* | ⬜ |
-| `0ArmorHIt.ogg`, `0Hit.ogg` | ⬜ | ⬜ |
-| `charge.ogg`, `launch.mp3` | ⬜ | ⬜ |
-| `dash.wav`, `punch.wav`, `death.wav`, `explode.wav` | ⬜ | ⬜ |
-| `buy .mp3`, `buy phase.mp3`, `start.mp3`, `tnt convert.mp3`, `useitem.mp3` | ⬜ | ⬜ |
-| `click.mp3`, `error.mp3` | ⬜ | ⬜ |
+| `charge.ogg` | *"Charge up"* — SamsterBirdies | `freesound.org/people/SamsterBirdies/sounds/483883/` |
+| `dash.wav` | *"Dash Sound Effect"* — ArTiX.0 | `freesound.org/people/ArTiX.0/sounds/742717/` |
+| `lasershoot.wav` | *"Retro, Laser Shot 04.wav"* — LilMati | `freesound.org/people/LilMati/sounds/414888/` *(thẻ trong file ghi tên thật Mattias Michael Lahoud — cùng một người)* |
+| `launch.mp3` | *"Huge machine gun shoot.mp3"* — soundX360 | `freesound.org/people/soundX360/sounds/441756/` |
+| `punch.wav` | *"Punching Bag 2"* — D_Yonqui | `freesound.org/people/D_Yonqui/sounds/864752/` |
 
-> ⬜ **13 file hiệu ứng âm thanh còn lại: chỉ bạn biết.** Đã thử mọi cách ngày 14/10 — không có
-> thẻ nhúng, không có trong bộ nhớ đệm Asset Store, không còn trong thư mục Downloads.
-> Nhớ lại đã tải từ trang nào (Pixabay? freesound? Mixkit?) rồi điền vào.
+### Kenney — CC0
 
-> 💡 **Đã moi từ chính file + tra web, ngày 28/09.** Nhiều định dạng âm thanh nhúng sẵn
-> thông tin tác giả bên trong (ID3 với mp3, khối INFO với wav).
-
-### ✅ `GPBG.mp3` — nhạc nền trong trận *(đã thay 28/09)*
-
-| | |
+| File | Nguồn |
 |---|---|
-| Nguồn | **Pixabay** — https://pixabay.com/music/adventure-arena-270364/ |
-| Giấy phép | **Pixabay Content License**: dùng thương mại được, **không bắt ghi nguồn**, không cấm dùng trong game |
-| Cấm | Bán lại hoặc phát tán chính file nhạc dưới dạng độc lập — không liên quan tới việc nhúng vào game |
+| `0ArmorHIt.ogg`, `0Hit.ogg` | Bộ **Impact Sounds** của **Kenney** (`kenney.nl/assets/impact-sounds`), giấy phép **CC0** |
 
-⬜ Mở trang trên, chép **tên người đăng** vào đây. Pixabay không bắt buộc, nhưng ghi thì
-vẫn hơn, và hội đồng thấy được là có truy nguồn đàng hoàng.
+### Pixabay — Pixabay Content License (dùng được trong game, không bắt ghi nguồn)
 
-> **Bài cũ đã bị gỡ bỏ:** trước đó nhạc trận là *"In Flight"* của **Alegend** tải từ
+Tên người đăng và số hiệu đọc từ đường dẫn tải gốc *(khuôn Pixabay: `<người-đăng>-<tên-bài>-<số>`)*.
+
+| File | Tên gốc — người đăng | Số hiệu |
+|---|---|---|
+| `GPBG.mp3` *(nhạc nền trong trận)* | *"Arena"* — audiolibraryinfinite | 270364 |
+| `pripac-relaxing-vibes-for-gaming-focus-323623.mp3` *(nhạc menu)* | *"Relaxing Vibes for Gaming Focus"* — pripac | 323623 |
+| `buy .mp3` | *"Item Equip"* — freesound_community | 6904 |
+| `buy phase.mp3` | *"Cash Register Open"* — Universfield | 567194 |
+| `tnt convert.mp3` | *"Pouring Water Into Glass"* — Universfield | 116975 |
+| `click.mp3` | *"Mouse Click"* — matthewvakaliuk73627 | 290204 |
+| `error.mp3` | *"UI Error Pop"* — soundshelfstudio | 515668 |
+| `start.mp3` | *"Game Start"* — người đăng mã số 49447089 | 317318 |
+| `useitem.mp3` | *"Camera Release Sound from Exposure"* — conmsutton2016 | 236390 |
+
+> **Bài cũ đã bị gỡ bỏ (28/09):** trước đó nhạc trận là *"In Flight"* của **Alegend** tải từ
 > **freetouse.com**. Đọc kỹ điều khoản thì giấy phép miễn phí của họ **cấm dùng trong
 > "Digital Products"**, mà game chính là một Digital Product — chỉ gói trả phí mới được.
 > Đã xoá file khỏi project và thay bằng bài Pixabay ở trên.
@@ -154,28 +170,6 @@ vẫn hơn, và hội đồng thấy được là có truy nguồn đàng hoàng
 > ⚠️ Đáng ghi vào báo cáo như một bài học quy trình: **xoá khỏi ô gán là chưa đủ**, phải
 > xoá hẳn file. Thư mục `Resources/` được Unity đóng gói vào bản build **toàn bộ**, kể cả
 > file không ai dùng tới - để lại là bản nộp vẫn chứa nội dung không có quyền phát tán.
-
-### `lasershoot.wav`
-
-Thẻ trong file ghi tác giả **Mattias Michael Lahoud**, tên gốc **"8BIT LASER SHOT 04"**.
-Tra web không ra bộ asset cụ thể nào mang tên đó.
-⬜ Đủ thông tin để ghi tên tác giả trong báo cáo, nhưng nên tìm lại nguồn để biết giấy phép.
-
-### `pripac-relaxing-vibes-for-gaming-focus-323623.mp3` — nhạc menu
-
-Tên file đúng khuôn **Pixabay**: `<tác-giả>-<tiêu-đề>-<id>`, tức tác giả `pripac`, ID `323623`.
-Không mở được trang để xác nhận (Pixabay chặn truy cập tự động).
-⬜ Tự mở `pixabay.com` tra `pripac 323623` để xác nhận. Giấy phép Pixabay **cho dùng
-trong game, không bắt ghi nguồn** — nếu đúng là Pixabay thì file này an toàn.
-
-### 13 file còn lại
-
-Không có gì nhúng bên trong — không tác giả, không bản quyền, không cả tên phần mềm đã
-xuất. Không có cách nào tra ngược từ chính file; phải tìm trong **lịch sử tải của trình
-duyệt** hoặc **Package Manager → My Assets**.
-
-⚠️ **Đừng đoán rồi điền bừa.** Nếu một file hoá ra là CC-BY của người khác, ghi sai tác
-giả còn tệ hơn để trống: để trống là thiếu sót, ghi sai là khai man trong văn bản nộp.
 
 ---
 
@@ -236,11 +230,11 @@ mượn, không phải tự làm, nên vẫn phải khai báo.
 | # | Việc | Vì sao gấp |
 |---|---|---|
 | ~~1~~ | ~~Tìm lại nguồn bộ `Nature/`~~ | ✅ 14/10 — Quaternius, CC0 |
-| 2 | Điền nguồn **13 file hiệu ứng âm thanh** | Nếu có file nào CC-BY mà không ghi tên tác giả là **vi phạm giấy phép thật**. Chỉ bạn biết |
+| ~~2~~ | ~~Điền nguồn 13 file hiệu ứng âm thanh~~ | ✅ 15/10 — truy đủ 18/18 file qua nhãn `Zone.Identifier`. Hai file CC BY đã ghi tên tác giả |
 | ~~3~~ | ~~Kiểm điều khoản Meshy AI~~ | ✅ 14/10 — cứ ghi nguồn Meshy là đúng |
 | ~~4~~ | ~~Xác nhận nguồn `Tree9/`, `Rocks and Boulders 2/`~~ | ✅ 14/10 — đối chiếu GUID |
 | ~~5~~ | ~~Xác nhận giấy phép ParrelSync và QuickOutline~~ | ✅ 14/10 — cả hai MIT |
-| 6 | *(phụ)* Tên người đăng bài `Adventure Arena` trên Pixabay, xác nhận bài của `pripac` | Pixabay chặn truy cập tự động — bạn mở 2 link là thấy. Không bắt buộc |
+| ~~6~~ | ~~Tên người đăng 2 bài nhạc Pixabay~~ | ✅ 15/10 — đọc từ đường dẫn tải gốc |
 
 ---
 

@@ -734,6 +734,14 @@ public class FPSMovement : NetworkBehaviour, IBeforeAllTicks
     /// Thường gọi cả hai cùng lúc: ShakeCamera cho phần xóc, KickCamera cho phần giật.
     /// </summary>
     /// <param name="strength">Cường độ, 1 = đúng bằng Kick Angles đặt trong Inspector.</param>
+    /// <summary>Phình / co góc nhìn một nhịp (17/10). Chỉ camera của người ngồi trước máy này.</summary>
+    public void PunchFov(float degrees, float duration)
+    {
+        if (!HasInputAuthority) return;
+        if (cameraShake == null) return;
+        cameraShake.AddFovPunch(degrees, duration);
+    }
+
     public void KickCamera(float strength)
     {
         if (!HasInputAuthority) return;

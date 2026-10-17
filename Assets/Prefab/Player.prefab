@@ -5468,10 +5468,10 @@ MonoBehaviour:
   holdPoint: {fileID: 202164235604517974}
   shootRange: 50
   pullForce: 49
-  pushSpeed: 50
-  pushUpwardBias: 0.055
-  pushLiftOffset: 0.3
-  fireSpeed: 45
+  pushSpeed: 60
+  pushUpwardBias: 0.033
+  pushLiftOffset: 0.5
+  fireSpeed: 54
   lockFireToHorizontal: 1
   grabDistance: 0.7
   tossKey: 118

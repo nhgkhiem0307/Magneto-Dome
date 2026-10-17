@@ -22,23 +22,24 @@ public class PlayerMagnetController : NetworkBehaviour
              "KHÔNG dùng cho cú bắn vật đang cầm - cái đó dùng fireSpeed bên dưới.")]
     public float pushSpeed = 125f;
 
-    [Tooltip("Độ chếch LÊN của cú đẩy. MẶC ĐỊNH LÀ 0 - CỐ Ý.\n\n" +
-             "Trọng lực project chỉ -3 nên quãng đường để vật rơi lại độ cao ban đầu là " +
-             "d = 2*v_doc*v_ngang/g. Với pushSpeed 125 và chếch 0.18 thì d = 906m, trong khi " +
-             "map chỉ ~56m - vật chưa bao giờ kịp rơi xuống, nó chỉ leo lên rồi bay qua đầu địch.\n\n" +
-             "Việc vượt gờ đất do Push Lift Offset lo. Đừng dùng ô này cho việc đó.")]
-    [Range(0f, 1f)]
-    public float pushUpwardBias = 0f;
+    [Tooltip("Độ chếch LÊN của cú đẩy, tính trên hướng NGANG đã chuẩn hoá — nên góc chếch luôn như " +
+             "nhau dù đang nhìn lên hay nhìn xuống. 0.033 ≈ 1.9 độ.\n\n" +
+             "Đừng tăng nhiều: trọng lực project chỉ -3 nên chếch lên một chút là vật leo cao rồi bay " +
+             "qua đầu địch. Việc vượt gờ đất do Push Lift Offset lo.")]
+    [Range(0f, 0.2f)]
+    public float pushUpwardBias = 0.033f;
 
-    [Tooltip("Nâng vật lên bao nhiêu mét trước khi đẩy. ĐÂY MỚI LÀ THỨ GIÚP VƯỢT GỜ ĐẤT: " +
-             "nâng lên tầm ngực rồi bắn ngang thì mọi gờ thấp hơn mức này đều không chạm " +
-             "tới, mà đạn vẫn ở đúng tầm trúng người suốt quãng đường.")]
-    public float pushLiftOffset = 0.45f;
+    [Tooltip("Vật được nâng TỚI độ cao này (mét, tính từ mặt đất ngay dưới nó) trước khi đẩy. " +
+             "ĐÂY LÀ THỨ GIÚP VƯỢT GỜ ĐẤT: nâng lên rồi bắn ngang thì mọi gờ thấp hơn mức này " +
+             "đều không chạm tới.\n\n" +
+             "Là 'nâng TỚI' chứ không phải 'cộng thêm': vật đang nảy trên không, đã cao sẵn thì " +
+             "không bị giật lên nữa — đỡ giật hình.")]
+    public float pushLiftOffset = 0.5f;
 
     [Tooltip("Tốc độ BẮN vật đang cầm trên tay, tính bằng mét/giây. " +
              "Đây là VẬN TỐC chứ không phải lực, nên vật nặng vật nhẹ đều bay đi như nhau. " +
              "Cao hơn = đường đạn thẳng hơn, ít rơi hơn, dễ ngắm hơn.")]
-    public float fireSpeed = 45f;
+    public float fireSpeed = 54f;
 
     [Tooltip("BẬT: đường đạn luôn nằm ngang, bất kể đang ngắm cao hay thấp. Dễ đoán nhất. " +
              "TẮT: bắn đúng theo hướng đang nhìn, ngắm được lên xuống nhưng khó canh hơn.")]
@@ -197,6 +198,10 @@ public class PlayerMagnetController : NetworkBehaviour
     // Đếm số cú cận chiến, để mọi máy phát tiếng.
     // Không phát thẳng trong FixedUpdateNetwork được vì Fusion tua lại nhiều tick,
     // một cú đấm sẽ kêu chồng lên nhau nhiều lần.
+    [Tooltip("Khựng hình khi đấm TRÚNG (giây): nắm đấm đứng sững một nhịp + camera giật thêm. Chỉ trên máy " +
+             "người đấm, không ảnh hưởng mạng. 0 = tắt. Quá 0.1 sẽ thấy ì tay.")]
+    public float hitStopDuration = 0.06f;
+
     [Networked, OnChangedRender(nameof(OnMeleePerformed))]
     private int MeleeCount { get; set; }
 
@@ -537,9 +542,22 @@ public class PlayerMagnetController : NetworkBehaviour
             // Cách đúng: nâng ĐIỂM XUẤT PHÁT lên tầm ngực, rồi bắn gần như nằm ngang.
             // Bay ngang ở độ cao 0.9m thì mọi gờ thấp hơn mức đó đều không chạm tới,
             // mà đạn vẫn ở đúng tầm trúng người suốt quãng đường.
-            targetRb.position += Vector3.up * pushLiftOffset;
+            //
+            // (16/10) Nâng TỚI pushLiftOffset tính từ mặt đất, không cộng mù quáng: vật nằm sát đất
+            // thì được nhấc đủ 0.5m, vật đang nảy trên không cao sẵn thì không bị giật lên thêm.
+            float lift = Mathf.Max(0f, pushLiftOffset - GroundGap(magObj));
+            if (lift > 0f) targetRb.position += Vector3.up * lift;
 
-            Vector3 pushDirection = aimDirection;
+            // HƯỚNG ĐẨY: NGANG + CHẾCH LÊN MỘT GÓC CỐ ĐỊNH (16/10, chủ project chốt).
+            //
+            // Bản cũ giữ nguyên x, z của hướng nhìn rồi gán y = pushUpwardBias — nên nhìn càng
+            // dốc thì phần ngang càng nhỏ, góc chếch càng lớn: nhìn gần thẳng xuống đất mà đẩy là
+            // vật vọt lên ~30 độ. Giờ CHUẨN HOÁ hướng ngang TRƯỚC rồi mới gán chếch, nên góc luôn
+            // là ~1.9 độ (pushUpwardBias 0.033 = 3/5 mức cũ 0.055), nhìn kiểu gì cũng vậy.
+            Vector3 pushDirection = new Vector3(aimDirection.x, 0f, aimDirection.z);
+            if (pushDirection.sqrMagnitude < 0.0001f) pushDirection = transform.forward;   // nhìn thẳng đứng
+            pushDirection.y = 0f;
+            pushDirection.Normalize();
             pushDirection.y = pushUpwardBias;
             pushDirection.Normalize();
 
@@ -996,6 +1014,36 @@ public class PlayerMagnetController : NetworkBehaviour
     /// Bắn bằng chuột phải không lộ lỗi này vì tốc độ bắn quá lớn, lực gỡ kẹt bị lấn át.
     /// Tung lên thì lực bé nên lỗi hiện ra rõ mồn một.
     /// </summary>
+    /// <summary>
+    /// Khoảng hở (mét) từ điểm thấp nhất của vật tới mặt đất ngay dưới nó. Dò tối đa 5m —
+    /// không thấy gì (đang bay cao, đang rơi khỏi đảo) thì coi như hở 5m, tức là không cần nâng.
+    ///
+    /// Đo đáy bằng bounds.min.y của collider là đủ chính xác ở đây: thứ cần biết là điểm THẤP
+    /// NHẤT của vật, mà hộp bao theo trục thế giới luôn chạm đúng điểm đó (khác với việc đo cỡ vật
+    /// — chỗ đó phải dùng GetBoundingRadius, xem bẫy #9).
+    /// </summary>
+    private static float GroundGap(MagneticObject obj)
+    {
+        const float maxProbe = 5f;
+        float bottom = float.MaxValue;
+        foreach (Collider c in obj.GetComponentsInChildren<Collider>())
+        {
+            if (c == null || !c.enabled || c.isTrigger) continue;
+            bottom = Mathf.Min(bottom, c.bounds.min.y);
+        }
+        if (bottom == float.MaxValue) return maxProbe;
+
+        Vector3 from = obj.transform.position;
+        from.y = bottom + 0.05f;   // xuất phát nhích trên đáy một chút để tia không bắt đầu từ trong đất
+        float gap = maxProbe;
+        foreach (RaycastHit hit in Physics.RaycastAll(from, Vector3.down, maxProbe, ~0, QueryTriggerInteraction.Ignore))
+        {
+            if (hit.collider.transform.IsChildOf(obj.transform)) continue;   // bỏ qua chính nó
+            gap = Mathf.Min(gap, hit.distance - 0.05f);
+        }
+        return Mathf.Max(0f, gap);
+    }
+
     private void PrepareForRelease(MagneticObject obj, Vector3 aimDirection)
     {
         // Trả cỡ gốc TRƯỚC, để đo được bán kính thật ở bước sau
@@ -1242,7 +1290,24 @@ public class PlayerMagnetController : NetworkBehaviour
             return;
         }
 
-        CombatVFX.QiStrike(from, to, c);
+        CombatVFX.QiStrike(from, to, c, VictimChargeNear(to));
+    }
+
+    /// <summary>
+    /// Điện tích (0..1) của người đứng gần chỗ trúng nhất — để cú đấm nổ to theo độ nhiễm điện.
+    /// Tự tìm tại chỗ trên mỗi máy (chỉ phục vụ hình ảnh), khỏi đồng bộ thêm biến mạng nào.
+    /// Nạn nhân vừa bị hất đi một nhịp nên tìm trong bán kính 3m.
+    /// </summary>
+    private float VictimChargeNear(Vector3 point)
+    {
+        float best = 9f, charge = 0f;
+        foreach (PlayerHealth p in PlayerHealth.AllPlayers)
+        {
+            if (p == null || !p.NetworkReady || p.transform == transform) continue;
+            float d = (p.transform.position + Vector3.up - point).sqrMagnitude;
+            if (d < best) { best = d; charge = p.ChargeRatio; }
+        }
+        return charge;
     }
 
     /// <summary>
@@ -1314,6 +1379,11 @@ public class PlayerMagnetController : NetworkBehaviour
             movement.ShakeCamera(meleeShakeTrauma);
             movement.KickCamera(meleeKickStrength);
         }
+
+        // KHỰNG HÌNH (17/10): nắm đấm đứng sững một nhịp ngắn đúng lúc chạm. Viewmodel chỉ tồn tại
+        // trên máy người đấm nên tự lọc. KHÔNG dùng Time.timeScale — game chạy mạng, dừng thời gian
+        // trên máy Host là lệch mô phỏng của mọi người.
+        if (viewmodel != null && !MeleeWasGrapple) viewmodel.RequestHitStop(hitStopDuration);
 
         PlayMeleeHitVfx();
     }
@@ -1391,7 +1461,8 @@ public class PlayerMagnetController : NetworkBehaviour
         // mới so sánh được với nhau.
         CombatVFX.Flash(from, (to - from), c, 0.5f, 0.22f, originLayer);
 
-        CombatVFX.Beam(from, to, c);
+        // (17/10) Tia + sét quấn quanh + vật trúng loé sáng
+        CombatVFX.ChargeBeam(from, to, c);
     }
 
     /// <summary>

@@ -216,10 +216,34 @@ public class InventorySystem : NetworkBehaviour
         ConsumableCounts.Set(index, ConsumableCounts[index] - 1);
         Debug.Log($"<color=cyan>[TÚI] Đã dùng {type}, còn lại {ConsumableCounts[index]}</color>");
 
-        // Chỉ người dùng món đồ mới nghe, không phải cả phòng
-        if (HasInputAuthority) AudioManager.UseItem();
+        // Báo cho máy NGƯỜI DÙNG qua bộ đếm mạng — xem OnConsumableUsed. Đặt loại TRƯỚC rồi mới
+        // tăng bộ đếm: cả hai cùng một tick nên máy kia nhận đủ cả hai cùng lúc.
+        LastUsedConsumable = index;
+        ConsumableUseCount++;
 
         return true;
+    }
+
+    // ---------- Phản hồi khi dùng đồ (17/10) ----------
+
+    [Networked] private int LastUsedConsumable { get; set; }
+
+    [Networked, OnChangedRender(nameof(OnConsumableUsed))]
+    private int ConsumableUseCount { get; set; }
+
+    /// <summary>
+    /// Chạy trên MỌI máy mỗi lần nhân vật này dùng xong một món; chỉ máy của chính người dùng làm gì đó.
+    ///
+    /// ⚠️ SỬA LỖI CŨ: trước đây tiếng "dùng đồ" phát ngay trong UseConsumable với điều kiện
+    /// HasInputAuthority — mà UseConsumable chỉ chạy trên HOST. Nên chỉ Host nghe được tiếng của
+    /// chính mình, Client dùng đồ thì im lặng. Đi qua bộ đếm [Networked] thì tới đúng máy người dùng.
+    /// </summary>
+    private void OnConsumableUsed()
+    {
+        if (!HasInputAuthority) return;
+
+        AudioManager.UseItem();
+        BuffScreenFX.Play((ConsumableType)LastUsedConsumable);   // tự bỏ qua món không phải buff bản thân
     }
 
     // Hiệu ứng của từng món. Trả về false nếu dùng lúc này là vô nghĩa.

@@ -235,6 +235,32 @@ public class CameraShake : MonoBehaviour
     /// Độ mạnh, thang 0..1. 0.2 = rung nhẹ, 0.5 = rõ ràng, 1 = tối đa.
     /// Cộng dồn với chấn động đang có sẵn, nhưng tổng không bao giờ vượt quá 1.
     /// </param>
+    // Phình / co góc nhìn một nhịp (17/10) — nước tăng lực, bộ xả điện. Xem AddFovPunch.
+    private float _fovPunchDeg, _fovPunchDur, _fovPunchAge = 99f;
+    private bool _fovPunchWasOn;
+
+    /// <summary>
+    /// Phình (số dương) hoặc co (số âm) góc nhìn một nhịp: vọt tới đỉnh trong 0,12 giây rồi êm về
+    /// trong phần còn lại của <paramref name="duration"/>. Cộng chồng lên phần FOV của hiệu ứng choáng
+    /// chứ không ghi đè, và luôn trả về đúng FOV gốc khi xong.
+    /// </summary>
+    public void AddFovPunch(float degrees, float duration)
+    {
+        _fovPunchDeg = degrees;
+        _fovPunchDur = Mathf.Max(0.15f, duration);
+        _fovPunchAge = 0f;
+    }
+
+    private float FovPunchNow(float dt)
+    {
+        if (_fovPunchAge >= _fovPunchDur) return 0f;
+        _fovPunchAge += dt;
+        const float rise = 0.12f;
+        float k = _fovPunchAge < rise ? _fovPunchAge / rise
+                                      : 1f - Mathf.SmoothStep(0f, 1f, (_fovPunchAge - rise) / (_fovPunchDur - rise));
+        return _fovPunchDeg * Mathf.Clamp01(k);
+    }
+
     public void AddTrauma(float amount)
     {
         _trauma = Mathf.Clamp01(_trauma + amount);
@@ -431,6 +457,17 @@ public class CameraShake : MonoBehaviour
             // ở lại đó vĩnh viễn — mỗi lần ăn đòn lại lệch thêm một ít, sau vài round
             // là góc nhìn sai hẳn mà không ai biết tại sao.
             if (_disorient <= 0f && _cam != null) _cam.fieldOfView = _baseFov;
+        }
+
+        // --- 3a'. PHÌNH GÓC NHÌN (17/10) ---
+        // Đặt SAU khối choáng: khối đó vừa ghi FOV (gốc + phập phồng) hoặc không đụng tới. Cộng
+        // phần phình lên trên — và khi hết phình thì trả đúng FOV gốc nếu không còn choáng.
+        if (_cam != null && (_fovPunchAge < _fovPunchDur || _fovPunchWasOn))
+        {
+            float extra = FovPunchNow(dt);
+            float baseNow = _disorient > 0f ? _cam.fieldOfView : _baseFov;
+            _cam.fieldOfView = baseNow + extra;
+            _fovPunchWasOn = _fovPunchAge < _fovPunchDur;
         }
 
         // --- 3b. MỜ MÀN HÌNH ---

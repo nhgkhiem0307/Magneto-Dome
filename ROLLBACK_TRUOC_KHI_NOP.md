@@ -100,11 +100,11 @@ Phím `K` tự sát cũng cùng cơ chế.
 3. ✅ `fallRespawnDelay` về `20` trên 4 prefab `Tree9_2/3/4/5` *(xong 10/10)*
 4. ✅ Tắt object `PhotoCamera` trong `TestScene` *(đã xoá 09/10)*
 5. ✅ Bỏ tick `Development Build` *(14/10, qua `BuildNop.cs`)*
-6. ⬜ Vào trận thử: vòng lửa giữa map **có đổi màu** khi đứng vào không
-7. ⬜ Bấm `F12` trong bản build: **không được** có gì xảy ra
-8. ⬜ Chơi trọn một trận 2 máy, kết thúc phải về được menu
-9. ⬜ Xoá thư mục `*_BurstDebugInformation_DoNotShip` trong bản build mới
-10. ⬜ Nén `Build.zip` **lại từ đầu** — file zip cũ là bản có tick Development Build
+6. ✅ *(15/10)* Vào trận thử: vòng lửa giữa map **có đổi màu** khi đứng vào không
+7. ✅ *(14/10, phím nằm trong `#if DEVELOPMENT_BUILD`)* Bấm `F12` trong bản build: **không được** có gì xảy ra
+8. ✅ *(15/10)* Chơi trọn một trận 2 máy, kết thúc phải về được menu
+9. ✅ *(14/10)* Xoá thư mục `*_BurstDebugInformation_DoNotShip` trong bản build mới
+10. ✅ *(14/10, thành `Build_Nop.zip`)* Nén `Build.zip` **lại từ đầu** — file zip cũ là bản có tick Development Build
 
 ---
 

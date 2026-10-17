@@ -345,7 +345,7 @@ for (let i = 0; i < 6; i++) {
     fontFace: F, fontSize: 11, color: MUTED, valign: "top", margin: 0, isTextBox: true,
   });
 }
-stat(s, { x: L, y: 3.75, w: 3.1, h: 1.05, value: "49", label: "tệp mã nguồn tự viết", color: DARK });
+stat(s, { x: L, y: 3.75, w: 3.1, h: 1.05, value: "53", label: "tệp mã nguồn tự viết", color: DARK });
 stat(s, { x: 3.7, y: 3.75, w: 3.1, h: 1.05, value: "~20.000", label: "dòng mã tự viết (không tính thư viện)", size: 26, color: DARK });
 stat(s, { x: 6.9, y: 3.75, w: 2.65, h: 1.05, value: "1", label: "người thực hiện toàn bộ", color: RED });
 s.addNotes("2:00-2:35 — Nhấn mạnh Fusion 2 Host Mode vì phần sau sẽ quay lại. Đọc nhanh phần còn lại.");
@@ -375,9 +375,9 @@ tbl(s, [
 card(s, { x: L, y: 3.85, w: 5.45, h: 1.15 });
 s.addText("CẬN CHIẾN — chuột phải khi tay trống", { x: L + 0.16, y: 3.95, w: 5.1, h: 0.26, fontFace: F, fontSize: 11.5, bold: true, color: DARK, margin: 0, isTextBox: true });
 bullets(s, [
-  "Dưới 3m, cùng dấu: đấm hất văng đối thủ",
-  "Dưới 3m, trái dấu: cả hai nảy bật nhẹ ra",
-  "Từ 3 đến 8m, trái dấu: kéo áp sát, lướt nhanh về phía đối thủ",
+  "Dưới 6m, cùng dấu: đấm hất văng đối thủ",
+  "Dưới 6m, trái dấu: cả hai nảy bật nhẹ ra",
+  "Từ 6 đến 60m, trái dấu: kéo áp sát, lướt nhanh về phía đối thủ",
 ], { x: L + 0.16, y: 4.22, w: 5.1, h: 0.72, size: 10.5, color: MUTED });
 
 picImg(s, { x: 6.2, y: 1.52, w: 3.35, h: 3.48, path: "img/shot_hut.png", ar: 1916 / 1057 });
@@ -608,7 +608,7 @@ head(s, "7. Kết quả đạt được");
 
 stat(s, { x: L, y: TOP, w: 2.2, h: 1.1, value: "85", label: "khung hình/giây, bản build 1920x1080", color: DARK });
 stat(s, { x: 2.85, y: TOP, w: 2.2, h: 1.1, value: "16 ms", label: "độ trễ tới máy chủ khu vực asia", size: 26, color: DARK });
-stat(s, { x: 5.25, y: TOP, w: 2.05, h: 1.1, value: "49", label: "tệp mã nguồn tự viết", color: DARK });
+stat(s, { x: 5.25, y: TOP, w: 2.05, h: 1.1, value: "53", label: "tệp mã nguồn tự viết", color: DARK });
 stat(s, { x: 7.5, y: TOP, w: 2.05, h: 1.1, value: "4", label: "chương báo cáo, 53 trang", color: DARK });
 
 card(s, { x: L, y: 2.22, w: 4.45, h: 2.78 });
@@ -741,7 +741,7 @@ for (let i = 0; i < 5; i++) {
   s.addText(arch[i][0], { x: L + 0.46, y: cy, w: 1.55, h: 0.63, fontFace: F, fontSize: 11.5, bold: true, color: DARK, valign: "middle", margin: 0, isTextBox: true });
   s.addText(arch[i][1], { x: L + 2.0, y: cy, w: 6.95, h: 0.63, fontFace: F, fontSize: 10.5, color: INK, valign: "middle", margin: 0, isTextBox: true });
 }
-s.addText("49 tệp mã nguồn, khoảng 21.000 dòng do học viên tự viết — chưa tính thư viện Photon và các gói bên thứ ba.", {
+s.addText("53 tệp mã nguồn, khoảng 24.000 dòng do học viên tự viết — chưa tính thư viện Photon và các gói bên thứ ba.", {
   x: L, y: 4.6, w: 8.2, h: 0.24, fontFace: F, fontSize: 9.5, italic: true, color: MUTED, margin: 0, isTextBox: true,
 });
 
@@ -758,11 +758,12 @@ tbl(s, [
   ["Cỏ, hoa, bụi cây", "Quaternius", "CC0, dùng tự do"],
   ["Bầu trời", "Asset Store: Render Knight", "Gói miễn phí"],
   ["Nhạc nền", "Pixabay", "Pixabay Content License"],
+  ["Hiệu ứng âm thanh", "Freesound, Kenney, Pixabay", "CC0 / CC BY (ghi tác giả)"],
   ["Giọng thông báo", "Sinh bằng ElevenLabs", "Có ghi nguồn elevenlabs.io"],
 ], { x: L, y: 1.05, w: 9.1, colW: [3.0, 3.6, 2.5], rowH: 0.31, size: 10 });
-card(s, { x: L, y: 4.25, w: 9.1, h: 0.5, fill: "F3F7FD" });
+card(s, { x: L, y: 4.55, w: 9.1, h: 0.5, fill: "F3F7FD" });
 s.addText("Danh sách đầy đủ nằm ở Phụ lục B của báo cáo và trong tệp CREDITS.md kèm theo mã nguồn.", {
-  x: L + 0.18, y: 4.25, w: 8.75, h: 0.5, fontFace: F, fontSize: 11, color: INK, valign: "middle", margin: 0, isTextBox: true,
+  x: L + 0.18, y: 4.55, w: 8.75, h: 0.5, fontFace: F, fontSize: 11, color: INK, valign: "middle", margin: 0, isTextBox: true,
 });
 
 pres.writeFile({ fileName: "MagnetoDome_Slide.pptx" }).then(function () {

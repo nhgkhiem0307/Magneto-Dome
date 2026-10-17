@@ -397,6 +397,11 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
     private void EnsureRunnerExists()
     {
+        // Mọi đường vào phòng mới đều đi qua đây: quên chuyện bị kick ở phòng TRƯỚC, không thì
+        // lần sau chủ phòng thoát thật, máy này lại báo nhầm "You were kicked".
+        _kickedByHost = false;
+        _kickedTokens.Clear();
+
         // ⚠️ VỨT RUNNER ĐÃ CHẾT TRƯỚC KHI XÉT NULL. (sửa 09/09)
         //
         // Đây là nguyên nhân "vào phòng rồi rời ra thì Room List chết hẳn tới lúc tắt game".
@@ -458,10 +463,24 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     //
     // Ba bước thay cho một: xin danh sách phòng -> thấy phòng mở còn chỗ thì vào ->
     // không có thì tự mở phòng mới với mã 5 số.
-    public async void OnClickMatchmaking()
+    //
+    // (16/10) Bấm nút Ghép Trận thì hỏi 1v1 hay 2v2 trước (ModePicker), rồi chỉ ghép vào
+    // phòng ĐÚNG chế độ đó. Chế độ của phòng nằm trong thuộc tính phòng "ts" (team size)
+    // để máy khác đọc được từ danh sách phòng mà chưa cần vào.
+    public void OnClickMatchmaking()
+    {
+        if (_isBusyWithNetwork) return;
+
+        Canvas canvas = mainButtonsPanel != null ? mainButtonsPanel.GetComponentInParent<Canvas>(true) : null;
+        if (canvas == null) { StartMatchmaking(RoomPlayer.MaxTeamSize); return; }
+        ModePicker.Show(canvas.rootCanvas.transform, StartMatchmaking);
+    }
+
+    private async void StartMatchmaking(int teamSize)
     {
         if (_isBusyWithNetwork) return;
         _isBusyWithNetwork = true;
+        PendingTeamSize = teamSize;
 
         try
         {
@@ -479,7 +498,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             // nhưng danh sách phòng thì tới sau qua OnSessionListUpdated.
             await WaitForSessionList(1.5f);
 
-            SessionInfo target = FindOpenSession();
+            SessionInfo target = FindOpenSession(teamSize);
 
             // B3: không thấy phòng nào -> đợi thêm một nhịp NGẪU NHIÊN rồi nhìn lại.
             //
@@ -490,7 +509,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             if (target == null)
             {
                 await Task.Delay(UnityEngine.Random.Range(150, 600));
-                target = FindOpenSession();
+                target = FindOpenSession(teamSize);
             }
 
             StartGameArgs args;
@@ -503,6 +522,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
                     GameMode = GameMode.Client,
                     SessionName = target.Name,
                     PlayerCount = 4,
+                    ConnectionToken = MyConnectionToken,
                     SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
                 };
             }
@@ -519,6 +539,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
                     // thấy và ghép vào - đó là toàn bộ ý nghĩa của nó.
                     IsVisible = true,
                     IsOpen = true,
+                    SessionProperties = ModeProperty(teamSize),
 
                     SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
                 };
@@ -585,9 +606,9 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     }
 
     /// <summary>
-    /// Tìm một phòng Global đang mở và còn chỗ trong danh sách vừa nhận.
+    /// Tìm một phòng Global đang mở, còn chỗ, và ĐÚNG chế độ (1v1 / 2v2) trong danh sách vừa nhận.
     /// </summary>
-    private SessionInfo FindOpenSession()
+    private SessionInfo FindOpenSession(int teamSize)
     {
         foreach (SessionInfo session in _cachedSessions)
         {
@@ -597,7 +618,8 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             // (chỉ vào bằng mã), hoặc phòng đã khoá vì trận bắt đầu rồi.
             if (!session.IsVisible) continue;
             if (!session.IsOpen) continue;
-            if (session.PlayerCount >= session.MaxPlayers) continue;
+            if (SessionTeamSize(session) != teamSize) continue;
+            if (session.PlayerCount >= SessionCapacity(session)) continue;
 
             return session;
         }
@@ -696,11 +718,15 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             //      mã cũ nhấp nháy rồi mới đổi sang mã mới - đúng lỗi đã báo 25/09.
             string newCode = GenerateRoomCode();
 
+            // Phòng tự tạo luôn mở ở 2v2 — chủ phòng đổi sang 1v1 ngay trong phòng chờ được
+            PendingTeamSize = RoomPlayer.MaxTeamSize;
+
             var result = await _networkRunner.StartGame(new StartGameArgs()
             {
                 GameMode = GameMode.Host,
                 SessionName = newCode,
                 PlayerCount = 4,
+                SessionProperties = ModeProperty(PendingTeamSize),
                 // Phòng CUSTOM là phòng riêng, chỉ vào được bằng đúng mã - không cho lộ
                 // ra ngoài. IsVisible=false vừa giấu nó khỏi Room List (JoinSessionLobby
                 // sẽ không trả phòng này về nữa), vừa khiến Global Matchmaking
@@ -781,6 +807,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             {
                 GameMode = GameMode.Client,
                 SessionName = _currentRoomCode,
+                ConnectionToken = MyConnectionToken,
                 SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
             });
 
@@ -988,10 +1015,101 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             ClearRoomCode();
 
             ShowPanel(mainButtonsPanel);
+            if (_kickedByHost) SetErrorMessage(KickedMessage);
+            _kickedByHost = false;
         }
         finally
         {
             _isBusyWithNetwork = false;
+        }
+    }
+
+    // --- 4b. CHẾ ĐỘ 1v1 / 2v2 + KICK (16/10) ---
+
+    /// <summary>Tên thuộc tính phòng chứa số người mỗi đội. Ngắn vì Photon gửi nó kèm danh sách phòng.</summary>
+    private const string PropTeamSize = "ts";
+    private const string KickedMessage = "You were kicked from the room by the host";
+
+    /// <summary>
+    /// Chế độ đã chọn cho phòng SẮP mở (1 = 1v1, 2 = 2v2). RoomPlayer của chủ phòng đọc ô này
+    /// lúc spawn để biết phòng mình là chế độ gì.
+    /// </summary>
+    public int PendingTeamSize { get; private set; } = RoomPlayer.MaxTeamSize;
+
+    /// <summary>Máy này vừa bị chủ phòng kick — để mọi đường rời phòng hiện đúng câu báo.</summary>
+    private bool _kickedByHost;
+
+    /// <summary>
+    /// "Thẻ nhận dạng" của máy này, gửi kèm mỗi lần xin vào phòng (ConnectionToken của Fusion).
+    /// Chủ phòng dùng nó để nhận ra người đã bị kick khi họ gõ lại mã phòng.
+    ///
+    /// Sinh ngẫu nhiên MỖI LẦN MỞ GAME, không lưu PlayerPrefs: các bản clone ParrelSync trên cùng
+    /// máy dùng chung PlayerPrefs, lưu vào đó thì mọi clone mang cùng một thẻ — kick một người là
+    /// cấm luôn cả những người kia.
+    /// </summary>
+    private static readonly byte[] MyConnectionToken = Guid.NewGuid().ToByteArray();
+
+    /// <summary>
+    /// Thẻ nhận dạng của những người đã bị kick khỏi phòng HIỆN TẠI (chỉ Host dùng).
+    /// Xoá khi mở phòng mới — bị kick ở phòng này không có nghĩa là bị cấm ở phòng khác.
+    /// </summary>
+    private readonly HashSet<string> _kickedTokens = new HashSet<string>();
+
+    private static Dictionary<string, SessionProperty> ModeProperty(int teamSize)
+    {
+        return new Dictionary<string, SessionProperty> { { PropTeamSize, teamSize } };
+    }
+
+    /// <summary>Chế độ của một phòng trong danh sách. Phòng không ghi chế độ (bản cũ) thì coi là 2v2.</summary>
+    public static int SessionTeamSize(SessionInfo session)
+    {
+        if (session != null && session.Properties != null
+            && session.Properties.TryGetValue(PropTeamSize, out SessionProperty p) && p.IsInt)
+        {
+            return Mathf.Clamp((int)p, 1, RoomPlayer.MaxTeamSize);
+        }
+        return RoomPlayer.MaxTeamSize;
+    }
+
+    /// <summary>
+    /// Sức chứa THẬT của phòng theo chế độ. Phòng nào cũng mở với 4 chỗ (Fusion không cho đổi
+    /// số chỗ sau khi tạo), phòng 1v1 thì chủ phòng tự chặn ở người thứ 3.
+    /// </summary>
+    public static int SessionCapacity(SessionInfo session)
+    {
+        return Mathf.Min(session.MaxPlayers, SessionTeamSize(session) * 2);
+    }
+
+    /// <summary>RoomPlayer gọi sau khi chủ phòng đổi chế độ: ghi lại vào thuộc tính phòng cho danh sách phòng thấy.</summary>
+    public void OnRoomModeChanged(int teamSize)
+    {
+        if (_networkRunner == null || !_networkRunner.IsServer || _networkRunner.SessionInfo == null) return;
+        _networkRunner.SessionInfo.UpdateCustomProperties(ModeProperty(teamSize));
+    }
+
+    /// <summary>Máy này nhận tin bị kick (RPC từ chủ phòng): tự rời phòng.</summary>
+    public void OnKickedByHost()
+    {
+        if (_kickedByHost) return;
+        _kickedByHost = true;
+        Debug.LogWarning("[MẠNG] Bị chủ phòng kick.");
+        OnClickLeaveRoom();
+    }
+
+    /// <summary>Chủ phòng cắt kết nối một người sau vài giây — dự phòng khi máy họ không tự rời.</summary>
+    public async void DisconnectLater(PlayerRef player, float seconds)
+    {
+        NetworkRunner runner = _networkRunner;
+
+        // Ghi sổ đen NGAY, trước khi chờ: kẻo trong 1,5 giây đó họ rời rồi vào lại kịp
+        byte[] token = runner != null && runner.IsServer ? runner.GetPlayerConnectionToken(player) : null;
+        if (token != null && token.Length > 0) _kickedTokens.Add(Convert.ToBase64String(token));
+
+        await Task.Delay(Mathf.RoundToInt(seconds * 1000f));
+        if (runner == null || !runner.IsRunning || !runner.IsServer) return;
+        foreach (PlayerRef p in runner.ActivePlayers)
+        {
+            if (p == player) { runner.Disconnect(player); return; }
         }
     }
 
@@ -1065,19 +1183,24 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     {
         if (RoomPlayer.Local == null) return;
 
+        // Từ 16/10 chỉ chủ phòng được đổi đội (nút này cũng bị ẩn với Client — xem LobbyView).
+        // Host giữ quyền ghi nên đổi thẳng, khỏi đi vòng qua RPC.
+        if (!IsHost) return;
+
         int targetTeam = RoomPlayer.Local.Team == 0 ? 1 : 0;
-        int targetTeamCount = 0;
-
-        foreach (var p in RoomPlayer.AllPlayers)
+        if (!RoomPlayer.Local.TryMoveToTeam(targetTeam) && roomLobbyPanel != null)
         {
-            if (p.Team == targetTeam) targetTeamCount++;
-        }
-
-        if (targetTeamCount < 2)
-        {
-            RoomPlayer.Local.RPC_RequestTeamChange(targetTeam);
+            // Trước đây đội kia đầy thì bấm không có phản ứng gì — người chơi tưởng nút hỏng
+            LobbyView view = roomLobbyPanel.GetComponent<LobbyView>();
+            if (view != null) view.ShowNotice((targetTeam == 0 ? "Red" : "Blue") + " team is full");
         }
     }
+
+    /// <summary>Máy này có phải chủ phòng không. Phòng chờ dùng để ẩn/hiện nút và quyền đổi đội.</summary>
+    public bool IsHost => _networkRunner != null && _networkRunner.IsServer;
+
+    /// <summary>Mã phòng hiện tại — phòng chờ dùng cho nút COPY.</summary>
+    public string CurrentRoomCode => _currentRoomCode;
 
     // --- CẬP NHẬT GIAO DIỆN LOBBY ---
     public void UpdateLobbyUI()
@@ -1102,12 +1225,13 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             }
         }
 
-        if (teamRedText != null) teamRedText.text = $"RED TEAM ({redCount}/2):\n" + redList;
-        if (teamBlueText != null) teamBlueText.text = $"BLUE TEAM ({blueCount}/2):\n" + blueList;
+        int size = RoomPlayer.TeamSize;
+        if (teamRedText != null) teamRedText.text = $"RED TEAM ({redCount}/{size}):\n" + redList;
+        if (teamBlueText != null) teamBlueText.text = $"BLUE TEAM ({blueCount}/{size}):\n" + blueList;
 
         if (roomTitleText != null)
         {
-            roomTitleText.text = $"ROOM: {_currentRoomCode} ({RoomPlayer.AllPlayers.Count}/4)";
+            roomTitleText.text = $"ROOM: {_currentRoomCode} ({RoomPlayer.AllPlayers.Count}/{size * 2})";
         }
 
         // Trước đây chỉ OnConfirmCreateRoom() gán dòng này, nên chỉ Host thấy được mã
@@ -1163,6 +1287,15 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             if (_matchStarted)
             {
                 Debug.LogWarning($"[MẠNG] {player} xin vào lúc trận đang chạy -> từ chối.");
+                runner.Disconnect(player);
+                return;
+            }
+
+            // PHÒNG ĐÃ ĐỦ NGƯỜI THEO CHẾ ĐỘ (16/10). Lớp chặn chính là OnConnectRequest;
+            // đây là lớp thứ hai cho trường hợp hai người xin vào gần như cùng lúc.
+            if (player != runner.LocalPlayer && RoomPlayer.Count >= RoomPlayer.TeamSize * 2)
+            {
+                Debug.LogWarning($"[MẠNG] {player} xin vào phòng đã đủ người -> từ chối.");
                 runner.Disconnect(player);
                 return;
             }
@@ -1279,7 +1412,11 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         // cách bình thường (Host bấm rời phòng chờ chẳng hạn) thì KHÔNG LÀM GÌ CẢ: người
         // chơi ngồi nhìn bảng phòng chờ đã chết, mọi nút bấm không ăn, mà cũng không có
         // câu báo nào. Runner hỏng thì phải rời bảng đó bất kể lý do gì.
-        if (shutdownReason != ShutdownReason.Ok)
+        if (_kickedByHost)
+        {
+            SetErrorMessage(KickedMessage);
+        }
+        else if (shutdownReason != ShutdownReason.Ok)
         {
             SetErrorMessage("Connection lost!");
         }
@@ -1500,10 +1637,34 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
         }
 
         // Còn ở phòng chờ thì chỉ cần lùi về màn hình chính
-        SetErrorMessage("Host left the room");
+        SetErrorMessage(_kickedByHost ? KickedMessage : "Host left the room");
         ShowPanel(mainButtonsPanel);
     }
-    public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token) { }
+    /// <summary>
+    /// Có máy xin kết nối vào phòng (chỉ chạy trên Host). TỪ CHỐI ngay từ cửa khi phòng đã đủ
+    /// người theo chế độ (16/10) hoặc trận đã bắt đầu — người xin vào thấy "Room not found or
+    /// already full!" thay vì vào được một nhịp rồi bị đá ra.
+    ///
+    /// Cần chặn bằng code vì phòng nào cũng mở 4 chỗ (Fusion không đổi được số chỗ sau khi
+    /// tạo), nên Photon không tự biết phòng 1v1 đã đầy ở người thứ 2.
+    /// </summary>
+    public void OnConnectRequest(NetworkRunner runner, NetworkRunnerCallbackArgs.ConnectRequest request, byte[] token)
+    {
+        if (_matchStarted || RoomPlayer.Count >= RoomPlayer.TeamSize * 2)
+        {
+            request.Refuse();
+            return;
+        }
+
+        // Người đã bị kick khỏi phòng này gõ lại mã → không cho vào (16/10)
+        if (token != null && token.Length > 0 && _kickedTokens.Contains(Convert.ToBase64String(token)))
+        {
+            Debug.LogWarning("[MẠNG] Người đã bị kick xin vào lại -> từ chối.");
+            request.Refuse();
+            return;
+        }
+        request.Accept();
+    }
     public void OnUserSimulationMessage(NetworkRunner runner, SimulationMessagePtr message) { }
     /// <summary>
     /// Fusion gọi hàm này mỗi khi danh sách phòng trong Lobby thay đổi (có phòng mới,

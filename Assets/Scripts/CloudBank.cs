@@ -279,6 +279,40 @@ public class CloudBank : MonoBehaviour
              "và rộng, nhỏ thì sát và gọn.")]
     public float softFadeDistance = 6f;
 
+    [Header("Giấu giới hạn biển mây (17/10)")]
+    [Tooltip("Làm mềm viền ảnh mây lúc chạy. Ảnh CloudPuffs.png có vài cụm vẽ sát mép ô với cạnh gần như " +
+             "THẲNG ĐỨNG — mây to lên (lại gần, rơi khỏi đảo) là cạnh đó lộ ra thành đường thẳng, nhìn biết " +
+             "ngay là tấm ảnh phẳng. Script tạo một BẢN SAO có viền tan dần, ảnh gốc giữ nguyên.\n\n" +
+             "Cần ảnh bật Read/Write (đã bật trong file .meta).")]
+    public bool softenPuffEdges = true;
+
+    [Tooltip("Cụm mây tự mờ đi khi camera lại gần (tính theo bội số cỡ cụm). Rơi khỏi đảo xuyên qua mây " +
+             "thì thấy mây tan dần quanh mình, không thấy một tấm phẳng sượt qua mặt.")]
+    public float nearFadeSize = 0.6f;
+
+    [Tooltip("Lớp ĐÁY BIỂN MÂY: một tấm mây mềm trải tới chân trời nằm dưới các cụm mây, lấp khoảng trời " +
+             "phẳng lì giữa các cụm rồi tan dần vào chân trời — biển mây như kéo dài vô tận, không có mép.")]
+    public bool buildCloudFloor = true;
+
+    [Tooltip("Đáy biển mây nằm thấp hơn mặt đảo bấy nhiêu mét (dưới đáy các cụm mây).")]
+    public float floorDepth = 60f;
+
+    [Tooltip("Đáy biển mây bắt đầu tan ở khoảng cách này tính từ camera (mét)...")]
+    public float floorFadeStart = 200f;
+
+    [Tooltip("...và tan hẳn vào chân trời ở khoảng cách này.")]
+    public float floorFadeEnd = 1200f;
+
+    [Tooltip("Màu chỗ mây mỏng / khe giữa các khối của đáy biển mây (bóng xanh).")]
+    public Color floorShadowColor = new Color(0.45f, 0.72f, 0.87f, 1f);
+
+    [Tooltip("Màu chỗ mây dày của đáy biển mây (trắng nắng).")]
+    public Color floorLightColor = new Color(0.93f, 0.95f, 0.99f, 1f);
+
+    [Tooltip("Màu ở rìa xa của đáy biển mây. PHẢI KHỚP MÀU TRỜI NGAY TRÊN CHÂN TRỜI (đo từ ảnh chụp: xanh lơ " +
+             "đậm), không thì lộ một đường kẻ ngang giữa đáy mây và trời.")]
+    public Color floorHorizonColor = new Color(0.16f, 0.72f, 0.86f, 1f);
+
     // ==================== TRẠNG THÁI ====================
 
     private Mesh _mesh;
@@ -289,7 +323,14 @@ public class CloudBank : MonoBehaviour
 
     private Vector3[] _vertices;
     private Color[] _colors;
+    private Color[] _colorsLive;   // _colors nhân thêm độ mờ khi camera lại gần — ghi lại mỗi khung hình
     private Vector2[] _uv;
+
+    private Texture2D _softTexture;       // bản sao ảnh mây đã làm mềm viền
+    private Texture2D _softSource;        // ảnh gốc của bản sao đó (đổi ảnh thì làm lại)
+    private int _softGrid = -1;
+    private GameObject _floor;
+    private Material _floorMaterial;
 
     // Dữ liệu gốc của từng cụm: vị trí phẳng, cỡ, pha dập dềnh.
     private Vector3[] _puffPos;
@@ -337,6 +378,16 @@ public class CloudBank : MonoBehaviour
             // Chỉ huỷ ảnh do MÌNH sinh ra. Huỷ nhầm ảnh của hoạ sĩ là xoá luôn asset
             // khỏi bộ nhớ, mọi thứ khác dùng chung nó cũng hỏng theo.
             if (_puffTexture != null) Destroy(_puffTexture);
+            if (_softTexture != null) Destroy(_softTexture);
+            if (_floorMaterial != null) Destroy(_floorMaterial);
+        }
+
+        // Đáy biển mây là object ẩn do code sinh ra: tắt component là dọn luôn (cả trong Editor),
+        // không thì mỗi lần bật lại sinh thêm một tấm.
+        if (_floor != null)
+        {
+            if (Application.isPlaying) Destroy(_floor); else DestroyImmediate(_floor);
+            _floor = null;
         }
     }
 
@@ -359,6 +410,7 @@ public class CloudBank : MonoBehaviour
         BuildMaterial();
         BuildPuffs();
         BuildMesh();
+        BuildFloor();
 
         UpdateMesh();
     }
@@ -460,8 +512,9 @@ public class CloudBank : MonoBehaviour
     /// </summary>
     private Texture2D BuildPuffTexture()
     {
-        // Có ảnh của hoạ sĩ thì dùng luôn, khỏi vẽ.
-        if (customPuffTexture != null) return customPuffTexture;
+        // Có ảnh của hoạ sĩ thì dùng luôn, khỏi vẽ — kèm làm mềm viền nếu bật (17/10)
+        if (customPuffTexture != null)
+            return softenPuffEdges ? SoftenedCopy(customPuffTexture) : customPuffTexture;
 
         if (_puffTexture != null) return _puffTexture;
 
@@ -534,6 +587,106 @@ public class CloudBank : MonoBehaviour
 
         _puffTexture.Apply();
         return _puffTexture;
+    }
+
+    /// <summary>
+    /// Bản sao ảnh mây với viền tan dần trong TỪNG Ô của atlas (17/10). Làm một lần, giữ lại dùng tiếp.
+    ///
+    /// Mặt nạ hình "vuông bo tròn" (siêu elip bậc 4): giữa ô giữ nguyên 100%, chỉ ~25% ngoài cùng tan dần
+    /// về 0. Hình tròn thì cắt mất hai đầu cụm mây dẹt ở ô trên trái; vuông bo tròn thì chỉ đụng tới
+    /// phần sát mép — đúng chỗ có cạnh thẳng.
+    /// </summary>
+    private Texture2D SoftenedCopy(Texture2D src)
+    {
+        int grid = Mathf.Max(1, puffAtlasGrid);
+        if (_softTexture != null && _softSource == src && _softGrid == grid) return _softTexture;
+
+        if (!src.isReadable)
+        {
+            Debug.LogWarning("[CloudBank] Ảnh mây chưa bật Read/Write — dùng ảnh gốc, chưa làm mềm viền được.", this);
+            return src;
+        }
+
+        int w = src.width, h = src.height;
+        Color32[] px = src.GetPixels32();
+        float cw = (float)w / grid, ch = (float)h / grid;
+        for (int y = 0; y < h; y++)
+        {
+            float ly = (y % ch) / ch * 2f - 1f;   // -1..1 trong ô
+            float ay = ly * ly; ay *= ay;
+            for (int x = 0; x < w; x++)
+            {
+                float lx = (x % cw) / cw * 2f - 1f;
+                float ax = lx * lx; ax *= ax;
+                float e = Mathf.Sqrt(Mathf.Sqrt(ax + ay));          // siêu elip bậc 4
+                float mask = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.72f, 0.97f, e));
+                int i = y * w + x;
+                px[i].a = (byte)(px[i].a * mask);
+            }
+        }
+
+        if (_softTexture != null) DestroyImmediate(_softTexture);
+        _softTexture = new Texture2D(w, h, TextureFormat.RGBA32, true)
+        {
+            name = src.name + " (soft edges)",
+            hideFlags = HideFlags.DontSave,
+            wrapMode = TextureWrapMode.Clamp,
+            filterMode = FilterMode.Trilinear,
+            anisoLevel = 2,
+        };
+        _softTexture.SetPixels32(px);
+        _softTexture.Apply(true, true);   // sinh mipmap rồi thả bản trên RAM, chỉ giữ trên GPU
+        _softSource = src;
+        _softGrid = grid;
+        return _softTexture;
+    }
+
+    /// <summary>
+    /// Đáy biển mây (17/10): một tấm phẳng rất rộng nằm dưới các cụm mây, shader "SkyArena/Cloud Floor".
+    /// Object ẩn, KHÔNG ghi vào scene (HideAndDontSave) — giống lưới mây, sinh lại mỗi lần dựng.
+    /// </summary>
+    private void BuildFloor()
+    {
+        if (!buildCloudFloor)
+        {
+            if (_floor != null) { if (Application.isPlaying) Destroy(_floor); else DestroyImmediate(_floor); _floor = null; }
+            return;
+        }
+
+        Shader shader = Shader.Find("SkyArena/Cloud Floor");
+        if (shader == null) return;
+
+        if (_floor == null)
+        {
+            _floor = new GameObject("CloudFloor (runtime)") { hideFlags = HideFlags.HideAndDontSave };
+            _floor.transform.SetParent(transform, false);
+
+            // Tấm vuông 2 tam giác, cạnh = 2 lần khoảng tan hẳn: tới đó nó đã trong suốt rồi
+            float r = floorFadeEnd * 1.05f;
+            var m = new Mesh { name = "CloudFloor", hideFlags = HideFlags.DontSave };
+            m.vertices = new[] { new Vector3(-r, 0, -r), new Vector3(r, 0, -r), new Vector3(r, 0, r), new Vector3(-r, 0, r) };
+            m.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            m.bounds = new Bounds(Vector3.zero, new Vector3(r * 2f, 1f, r * 2f));
+            _floor.AddComponent<MeshFilter>().sharedMesh = m;
+
+            MeshRenderer mr = _floor.AddComponent<MeshRenderer>();
+            mr.shadowCastingMode = ShadowCastingMode.Off;
+            mr.receiveShadows = false;
+            mr.lightProbeUsage = LightProbeUsage.Off;
+            mr.reflectionProbeUsage = ReflectionProbeUsage.Off;
+        }
+
+        if (_floorMaterial == null)
+            _floorMaterial = new Material(shader) { name = "CloudFloor (runtime)", hideFlags = HideFlags.DontSave };
+
+        _floorMaterial.SetColor("_ColorLow", floorShadowColor);
+        _floorMaterial.SetColor("_ColorHigh", floorLightColor);
+        _floorMaterial.SetColor("_Horizon", floorHorizonColor);
+        _floorMaterial.SetFloat("_FadeStart", floorFadeStart);
+        _floorMaterial.SetFloat("_FadeEnd", floorFadeEnd);
+        _floor.GetComponent<MeshRenderer>().sharedMaterial = _floorMaterial;
+
+        _floor.transform.localPosition = Vector3.down * floorDepth;
     }
 
     private void BuildPuffs()
@@ -798,6 +951,7 @@ public class CloudBank : MonoBehaviour
         _mesh.vertices = _vertices;
         _mesh.uv = _uv;
         _mesh.colors = _colors;
+        _colorsLive = (Color[])_colors.Clone();
         _mesh.triangles = tris;
 
         // TỰ ĐẶT HỘP BAO. Đỉnh bị ghi lại mỗi khung hình nên Unity không tính kịp, mà
@@ -865,12 +1019,31 @@ public class CloudBank : MonoBehaviour
         float time = Application.isPlaying ? Time.time : 0f;
         Quaternion drift = Quaternion.Euler(0f, time * driftDegPerSecond, 0f);
 
+        // Camera tính trong toạ độ của lưới mây (lưới đặt tại object này)
+        bool fadeNear = cam != null && nearFadeSize > 0.01f && _colorsLive != null && _colorsLive.Length == _builtCount * 4;
+        Vector3 camLocal = fadeNear ? transform.InverseTransformPoint(cam.transform.position) : Vector3.zero;
+
         for (int i = 0; i < _builtCount; i++)
         {
             Vector3 p = drift * _puffPos[i];
             p.y += Mathf.Sin(time * 0.25f + _puffPhase[i]) * bobAmount;
 
             float h = _puffSize[i] * 0.5f;
+
+            if (fadeNear)
+            {
+                // Mờ dần khi camera lọt vào trong cụm — 0 ở sát tâm, 1 khi cách hơn ~(0.25 + nearFadeSize) lần cỡ cụm
+                float d = Vector3.Distance(camLocal, p);
+                float f = Mathf.Clamp01((d - _puffSize[i] * 0.25f) / (_puffSize[i] * nearFadeSize));
+                f = f * f * (3f - 2f * f);
+                int c = i * 4;
+                for (int k = 0; k < 4; k++)
+                {
+                    Color col = _colors[c + k];
+                    col.a *= f;
+                    _colorsLive[c + k] = col;
+                }
+            }
             Vector3 rx = right * h;
             Vector3 uy = up * h;
 
@@ -882,6 +1055,7 @@ public class CloudBank : MonoBehaviour
         }
 
         _mesh.vertices = _vertices;
+        if (fadeNear) _mesh.colors = _colorsLive;
     }
 
     /// <summary>
