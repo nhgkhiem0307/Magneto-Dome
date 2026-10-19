@@ -28,7 +28,10 @@ Shader "SkyArena/Barrier Curtain"
         _Intensity       ("Cuong do tong", Range(0, 4)) = 1.0
 
         [Header(Lop khoi che tam nhin)]
-        _HazeAlpha ("Do dac cua man (0.99 khong nhin xuyen)", Range(0, 1)) = 0.99
+        _HazeAlpha ("Do mo kinh (0 trong suot, 1 dac han)", Range(0, 1)) = 0.8
+        _BlurPx    ("Do nhoe phia sau (diem anh)", Range(0, 20)) = 7
+        _Distort   ("Do meo theo lan khoi", Range(0, 0.05)) = 0.012
+        _BgTint    ("Am mau doi len canh phia sau", Range(0, 1)) = 0.5
         _HazeDark  ("Do sang cho khoi mong", Range(0, 1)) = 0.11
         _HazeBright ("Do sang cho khoi day", Range(0, 1)) = 0.36
         _HazePale  ("Pha trang cho nhat mau (0 dam, 1 trang)", Range(0, 1)) = 0.28
@@ -71,21 +74,17 @@ Shader "SkyArena/Barrier Curtain"
 
         // Premultiplied alpha: alpha CHE canh phia sau, rgb la mau man + phan phat sang.
         Blend One OneMinusSrcAlpha
-        ZWrite Off
+        // (19/10) Ghi chieu sau tach rieng o luot "BarrierDepth" ben duoi - xem giai thich o do.
+        // Vien dong doi (OutlineAll, ZTest Always) van xuyen tuong nhu cu; vien dich (OutlineVisible) bi che.
         // Cull Back, KHONG Cull Off: cube co hai mat lon cach nhau 1m, ve ca hai thi lop man dac
         // gap doi va hai luoi luc giac chong lech thanh van moire. Camera luon o ngoai khoi.
         Cull Back
 
-        Pass
-        {
-            Name "BarrierCurtain"
-            Tags { "LightMode" = "UniversalForward" }
-
-            HLSLPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-
+        HLSLINCLUDE
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            // Anh canh vat da ve xong (truoc lop trong suot) - de lam KINH MO: lay canh phia sau, lam
+            // nhoe, am mau. Can "Opaque Texture" bat trong PC_RPAsset (da bat san).
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareOpaqueTexture.hlsl"
 
             struct Attributes
             {
@@ -105,6 +104,9 @@ Shader "SkyArena/Barrier Curtain"
                 half4  _EdgeColor;
                 float  _Intensity;
                 float  _HazeAlpha;
+                float  _BlurPx;
+                float  _Distort;
+                float  _BgTint;
                 float  _HazeDark;
                 float  _HazeBright;
                 float  _HazePale;
@@ -204,7 +206,9 @@ Shader "SkyArena/Barrier Curtain"
                 return OUT;
             }
 
-            half4 frag(Varyings IN) : SV_Target
+            // Tinh mau + do che cua mot diem tren tuong. withColor = false: chi can do che (luot ghi
+            // chieu sau) - bo qua phan lay mau canh phia sau cho do ton.
+            half4 Shade(Varyings IN, bool withColor)
             {
                 float3 P = IN.positionWS;
 
@@ -275,9 +279,27 @@ Shader "SkyArena/Barrier Curtain"
 
                 // Mot it o thinh thoang loe sang roi tat - nhu co dien chay qua to ong
                 float sparkle = step(1.0 - _Sparkle, rnd2) * pow(saturate(sin(_Time.y * (0.6 + rnd3) + rnd * 6.2831)), 6.0);
-                // Do dac gan nhu khong doi (0.94 - 1.0 x _HazeAlpha): cho mong nhat cung khong lo
-                // bong nguoi phia sau - day la yeu cau che vi tri cua chu project.
-                float hazeA = _HazeAlpha * (0.985 + 0.015 * body) * alive;
+                // (19/10) KINH MO kieu Valorant nhung dam hon chut: thay duoc dang nguoi / cay phia sau
+                // nhung nhoe va am mau doi. Truoc do man dac ~99% (che hoan toan) - chu project doi y.
+                float hazeA = _HazeAlpha * (0.9 + 0.1 * body) * alive;
+
+                // Canh phia sau: lech theo lan khoi cho meo nhe, roi lay trung binh 8 diem tren vong
+                // tron + diem giua. Opaque Texture da giam nua do phan giai nen tu no da mem san.
+                half3 frosted = 0;
+                if (withColor)
+                {
+                    float2 suv = GetNormalizedScreenSpaceUV(IN.positionCS);
+                    suv += (float2(smoke, streak) - 0.5) * _Distort;
+                    float2 px = _BlurPx / _ScaledScreenParams.xy;
+                    half3 behind = SampleSceneColor(suv);
+                    [unroll] for (int k = 0; k < 8; k++)
+                    {
+                        float ang = k * 0.785398 + 0.39;
+                        behind += SampleSceneColor(suv + float2(cos(ang), sin(ang)) * px);
+                    }
+                    behind /= 9.0;
+                    frosted = behind * lerp(half3(1, 1, 1), hazeTint * 1.4, _BgTint);
+                }
 
                 float lines = edge * (0.30 + band * 0.9 + ripple * 1.6) * alive;
 
@@ -286,8 +308,53 @@ Shader "SkyArena/Barrier Curtain"
                            + _EdgeColor.rgb * (burn * (edge * 1.6 + 0.05) + ripple * edge * 0.9 * alive);
 
                 float a = saturate(hazeA + edge * 0.15 * alive + baseGlow * 0.3 * (1.0 - _Dissolve));
-                half3 col = haze * hazeA + emit;
-                return half4(col * _Intensity * fade, a * fade);
+                // Kinh mo + mot lop khoi mau doi mong phu len + phan phat sang (luoi, vach chan tuong...)
+                half3 col = (frosted + haze * 0.55) * hazeA + emit * _Intensity;
+
+                return half4(col * fade, a * fade);
+            }
+        ENDHLSL
+
+        // LUOT 1 - CHI GHI CHIEU SAU, o phan tuong du dam (do che > 0.5). (19/10)
+        //
+        // Vi sao can: tuong ve TRUOC moi vat trong suot khac (renderQueue 2995, xem RoundBarrier) va ghi
+        // chieu sau o day, nen moi thu trong suot NAM SAU phan tuong dam deu bi che: vien dich
+        // (QuickOutline), bang ten tren dau, hao quang, hieu ung. Khong co luot nay thi bang ten dich doc
+        // duoc xuyen rao - lo vi tri.
+        // Phan tuong mong (dang tan o mep dao / tren cao) KHONG ghi, de may phia sau khong bi cat cut.
+        Pass
+        {
+            Name "BarrierDepth"
+            Tags { "LightMode" = "SRPDefaultUnlit" }
+            ZWrite On
+            ColorMask 0
+
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment fragDepth
+            half4 fragDepth(Varyings IN) : SV_Target
+            {
+                clip(Shade(IN, false).a - 0.5);
+                return 0;
+            }
+            ENDHLSL
+        }
+
+        // LUOT 2 - MAU: kinh mo + khoi mau doi + luoi luc giac. Khong ghi chieu sau (luot 1 lo roi).
+        Pass
+        {
+            Name "BarrierCurtain"
+            Tags { "LightMode" = "UniversalForward" }
+            ZWrite Off
+
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            half4 frag(Varyings IN) : SV_Target
+            {
+                half4 c = Shade(IN, true);
+                clip(c.a - 0.002);
+                return c;
             }
             ENDHLSL
         }

@@ -319,7 +319,7 @@ Tổng cộng **53 tệp** mã nguồn gameplay tự viết, khoảng 24.000 dò
 
 - **URP 17.3.0**, Bloom + Tonemapping ACES
 - Bầu trời: skybox **Fantasy Skybox FREE** (Render Knight); **biển mây** quanh đảo dựng bằng `CloudBank`
-- Shader tự viết: **Barrier Curtain** (rào chắn đầu round — màn năng lượng theo màu đội, che kín tầm nhìn, gợn sóng khi chạm, tan rã khi vào trận), **Cloud Floor** (đáy biển mây trải tới chân trời) và **Hex Shield** (tường điện từ dạng ô lục giác). *Force Field* — shader rào cũ, chỉ còn làm dự phòng
+- Shader tự viết: **Barrier Curtain** (rào chắn đầu round — màn năng lượng theo màu đội dạng kính mờ — thấy dáng phía sau nhưng nhoè, viền và bảng tên địch bị che — gợn sóng khi chạm, tan rã khi vào trận), **Cloud Floor** (đáy biển mây trải tới chân trời) và **Hex Shield** (tường điện từ dạng ô lục giác). *Force Field* — shader rào cũ, chỉ còn làm dự phòng
 - **Hiệu ứng chiến đấu** dựng hoàn toàn bằng mã, không dùng ảnh hay prefab: tia nạp điện có sét lách tách quấn quanh, vật trúng loé sáng; cú đấm trúng nổ to dần theo điện tích người trúng, tay **khựng** 0,06 giây (chỉ trên máy người đấm); TNT nổ có lửa, khói, tàn lửa, camera rung theo khoảng cách; vật bị đổ xăng lách tách tàn lửa; dùng Nước tăng lực / Bộ xả điện có hiệu ứng trên màn hình người dùng
 - **Không lộ giới hạn bản đồ:** rào chắn chỉ tan bên ngoài mép đảo nên không thấy đầu tường; biển mây có thêm đáy mây mềm tan vào chân trời nên nhìn ra không thấy chỗ mây hết
 - Sương mù Exponential Squared, màu khớp chân trời

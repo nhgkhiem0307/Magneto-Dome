@@ -114,7 +114,7 @@
 >   6 viên nghiêng cố ý (`Rock1D (4)`, `Rock4A (1)`, `Rock4B (2)`, `Rock5B (2)`, hai `Rock6C` lật úp) giữ nguyên;
 >   hạ các viên lơ lửng cho chạm đất (`Rock1B (1)` hở 0,31m...). Sao lưu scene cũ:
 >   `C:\mdtmp\map\TestScene_TRUOC_KHI_DOI_DA.unity`. ⚠️ Bản sao đảo ở MenuScene vẫn mang vị trí đá CŨ (chỉ là nền).
-> · **Nâng cấp rào chắn + giấu giới hạn bản đồ (17/10):** rào thành màn năng lượng theo màu đội, đặc ~99%
+> · **Nâng cấp rào chắn + giấu giới hạn bản đồ (17/10):** rào thành màn năng lượng theo màu đội, đặc ~99% *(19/10 đổi sang kính mờ — xem mục trên)*
 >   (trước trận hai đội không thấy nhau — đã thử với người nộm đặt phía sau), lưới lục giác, vạch sáng chân
 >   tường, gợn sóng khi chạm, tan rã từ dưới lên khi vào trận (va chạm vẫn tắt ngay). Không thấy đầu tường vì
 >   chỉ tan ngoài mép đảo. Biển mây: thêm **đáy mây** trải tới chân trời, làm mềm viền ảnh mây (có cụm cạnh
@@ -148,6 +148,14 @@
 > · **Rào chắn nhạt màu lại (17/10, sau commit 037ea53):** thân màn sáng hơn + pha trắng (`_HazeDark` 0.045→0.11,
 >   ô mới `_HazeBright` 0.36, `_HazePale` 0.28). Độ đặc giữ nguyên.
 > · **Đã build lại `Build_Nop` + zip 214MB (19/10, 18:33)** — có thêm màu rào nhạt. Đã push lên GitHub.
+> · **Rào chắn thành KÍNH MỜ + che viền địch (19/10, sau bản build 18:33):** chủ project muốn rào trong suốt
+>   hơn "kiểu Valorant nhưng đậm hơn chút" — giờ thấy dáng phía sau nhưng nhoè 8 điểm + méo theo khói + ám
+>   màu đội (lấy từ Opaque Texture, đã bật sẵn). **Sửa lỗi lộ viền địch xuyên rào:** viền `OutlineVisible`
+>   của QuickOutline chỉ bị che bởi thứ GHI CHIỀU SÂU, mà rào trong suốt trước đó không ghi. Thêm lượt
+>   `BarrierDepth` ghi chiều sâu ở phần tường đậm + đưa tường về `renderQueue` 2995 (trước mọi vật trong
+>   suốt) → viền địch, **bảng tên trên đầu** (phát hiện thêm lúc chụp thử), hiệu ứng phía sau đều bị che;
+>   viền đồng đội vẫn xuyên. Kiểm bằng ảnh chụp với model Player thật.
+> · **Đã build lại `Build_Nop` + zip 214MB (19/10, 20:42)** — có rào kính mờ + che viền/tên địch. Đã push.
 > · **Đã build lại `Build_Nop` + zip 214MB (17/10, 21:35)** — có thêm hiệu ứng tia nạp điện, cú đấm + khựng hình,
 >   nổ TNT, can xăng, hiệu ứng dùng đồ.
 > · **Đã build lại `Build_Nop` + zip 214MB (17/10, 18:14)** — có đủ: 1v1/2v2 + Kick, cải thiện phòng chờ, cú đẩy ngang,

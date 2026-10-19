@@ -15,7 +15,8 @@ using UnityEngine;
 /// thứ nào suy ra được tại chỗ thì tính tại chỗ.
 ///
 /// HÌNH (làm lại 17/10): màn năng lượng theo MÀU ĐỘI, shader "SkyArena/Barrier Curtain".
-///   - GẦN NHƯ ĐẶC (khoảng 90%): trước khi vào trận hai đội không thấy vị trí của nhau.
+///   - KÍNH MỜ (19/10, trước đó đặc ~99%): thấy dáng phía sau nhưng nhoè + ám màu đội. Viền địch, bảng
+///     tên, hiệu ứng phía sau bị che nhờ tường ghi chiều sâu — không lộ vị trí rõ ràng.
 ///   - Chỉ tan dần BÊN NGOÀI MÉP ĐẢO và khi lên cao → không bao giờ thấy mép / góc của khối
 ///     tường 200m, mà mọi đường nhìn sang căn cứ địch vẫn cắt tường ở chỗ đặc.
 ///   - Gợn sóng ở chỗ người chơi hay vật thể chạm vào.
@@ -117,9 +118,12 @@ public class RoundBarrier : MonoBehaviour
 
         _material = new Material(shader) { name = name + " (runtime)" };
 
-        // Vẽ SAU biển mây (cũng trong suốt). Không thì có lúc Unity xếp mây vẽ sau tường,
-        // mây ở phía bên kia hiện đè lên trước màn — lộ ra là nhìn xuyên được.
-        _material.renderQueue = 3050;
+        // (19/10) Vẽ TRƯỚC mọi vật trong suốt khác (2995 < 3000) và ghi chiều sâu ở phần tường đủ đậm
+        // (lượt "BarrierDepth" trong shader). Nhờ vậy mọi thứ trong suốt NẰM SAU tường — mây, viền địch,
+        // bảng tên trên đầu, hiệu ứng — bị chiều sâu của tường che, kể cả khi Unity xếp chúng vẽ sau.
+        // (Bản 17/10 dùng 3050 = vẽ SAU mây để mây không đè lên tường; nhưng như vậy bảng tên địch, vốn vẽ
+        // ở 3000, vẫn đọc được xuyên rào.) Ảnh kính mờ lấy từ Opaque Texture nên vẽ sớm không mất gì.
+        _material.renderQueue = 2995;
         _material.SetColor(IdColor, c * 1.15f);   // nhỉnh hơn 1 một chút cho Bloom bắt nhẹ
         _material.SetColor(IdEdgeColor, Color.Lerp(c, Color.white, 0.6f) * 1.2f);
         _material.SetFloat(IdBaseY, FindGroundY());

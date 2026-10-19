@@ -188,8 +188,14 @@ thẻ của người khác để chuyển họ sang đội kia (khi đội kia c
 ### Rào chắn pha mua đồ + biển mây — giấu giới hạn bản đồ *(17/10)*
 
 - **Rào chắn** (`RoundBarrier.cs` + shader `Resources/Shaders/BarrierCurtain.shader`): màn năng lượng theo
-  **màu đội**, **gần như đặc (~99%)** — chủ project yêu cầu trước khi vào trận hai đội KHÔNG thấy vị trí
-  nhau. Vật liệu dựng bằng code lúc chạy (vật liệu `New Material` / shader Force Field trong scene chỉ còn
+  **màu đội**, dạng **KÍNH MỜ kiểu Valorant nhưng đậm hơn** *(19/10 — trước đó đặc ~99%, chủ project đổi ý)*:
+  thấy dáng người / cây phía sau nhưng nhoè + ám màu đội (lấy ảnh từ **Opaque Texture** — đã bật sẵn trong
+  `PC_RPAsset`, tắt đi là mất kính mờ). Ô chỉnh: `_HazeAlpha` 0.8 (độ mờ), `_BlurPx` 7, `_Distort`, `_BgTint`.
+  **Viền địch, bảng tên trên đầu, hiệu ứng phía sau rào bị CHE**: shader có lượt riêng `BarrierDepth` ghi
+  chiều sâu ở phần tường đủ đậm (độ che > 0.5), và tường vẽ ở `renderQueue` **2995** — trước mọi vật trong
+  suốt khác — nên chúng thua phép thử chiều sâu. Viền đồng đội (`OutlineAll`, ZTest Always) vẫn xuyên tường.
+  ⚠️ Đừng đưa `renderQueue` về sau 3000: bảng tên địch (chữ trong suốt, vẽ ở 3000) sẽ đọc được xuyên rào.
+  Vật liệu dựng bằng code lúc chạy (vật liệu `New Material` / shader Force Field trong scene chỉ còn
   là dự phòng khi không tìm thấy shader mới). Gợn sóng khi người chơi áp sát hoặc vật thể đâm vào; vào trận
   thì **va chạm tắt ngay**, hình tan từ dưới lên 0,8 giây.
   ⚠️ **Đừng đổi cách tan sang "theo khoảng cách tới camera"** — đã thử: nhìn xiên dọc tường thì phần xa trong
@@ -772,8 +778,11 @@ không ăn, vì khung nền `Panel` (phủ gần hết màn hình) nằm SAU nú
 Unity xếp thứ tự vẽ các vật trong suốt theo khoảng cách từ camera tới **tâm** object, không theo từng điểm.
 Biển mây là MỘT lưới rộng hàng trăm mét có tâm ở giữa đảo, nên đứng ở giữa map thì "tâm mây" gần hơn tâm
 bức tường rào → mây vẽ SAU tường → mây phía bên kia hiện đè lên trước màn chắn.
-→ Cách chữa: đặt `renderQueue` cố định cho thứ cần luôn nằm trên (tường rào 3050 > mây 3000; đáy biển mây
-2990 < mây). Gặp vật trong suốt "nhảy lên trước" bất chợt thì nghi thứ tự vẽ trước tiên.
+→ Cách chữa ban đầu: đặt `renderQueue` cố định (tường rào 3050 > mây 3000; đáy biển mây 2990 < mây).
+→ **Cách chữa cuối (19/10):** tường rào vẽ **SỚM** (2995) và **GHI CHIỀU SÂU** ở phần đủ đậm (lượt `BarrierDepth`).
+Thứ trong suốt nào nằm sau tường đều thua phép thử chiều sâu, bất kể Unity xếp thứ tự ra sao — chữa luôn
+cả viền và bảng tên địch lộ xuyên rào. Bài học: với vật trong suốt cần CHE thứ phía sau, xếp thứ tự vẽ
+không đủ, phải ghi chiều sâu. Gặp vật trong suốt "nhảy lên trước" bất chợt thì nghi thứ tự vẽ trước tiên.
 → Cùng bẫy trong **hệ hạt** (nổ TNT 17/10): khói (che sáng) vẽ đè lên trước lửa → lỗ tối giữa quả cầu lửa.
 Chữa bằng `ParticleSystemRenderer.sortingFudge`: số **nhỏ hơn** = vẽ sau = nằm trên (lửa -20, khói +20).
 
