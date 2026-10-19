@@ -29,7 +29,9 @@ Shader "SkyArena/Barrier Curtain"
 
         [Header(Lop khoi che tam nhin)]
         _HazeAlpha ("Do dac cua man (0.99 khong nhin xuyen)", Range(0, 1)) = 0.99
-        _HazeDark  ("Do sang cho khoi mong", Range(0, 1)) = 0.045
+        _HazeDark  ("Do sang cho khoi mong", Range(0, 1)) = 0.11
+        _HazeBright ("Do sang cho khoi day", Range(0, 1)) = 0.36
+        _HazePale  ("Pha trang cho nhat mau (0 dam, 1 trang)", Range(0, 1)) = 0.28
 
         [Header(Luoi luc giac)]
         _HexSize   ("Be ngang moi o (met)", Range(0.2, 3)) = 0.55
@@ -104,6 +106,8 @@ Shader "SkyArena/Barrier Curtain"
                 float  _Intensity;
                 float  _HazeAlpha;
                 float  _HazeDark;
+                float  _HazeBright;
+                float  _HazePale;
                 float  _HexSize;
                 float  _LineWidth;
                 float  _CellBright;
@@ -264,7 +268,9 @@ Shader "SkyArena/Barrier Curtain"
                 // Lech SANG TOI moi la thu tao chieu sau ma khong doi mau doi. Duong vien o van
                 // giu MOT mau (khung xuong cua tuong), chi long o la lech.
                 half3 cellCol = HueShift(_Color.rgb, (rnd3 - 0.5) * _CellHue) * (1.0 + (rnd2 - 0.5) * _CellBright);
-                half3 haze = cellCol * (lerp(_HazeDark, 0.20, body) + nearGround * 0.10)
+                // (17/10) Nhat lai theo yeu cau: sang hon (_HazeDark / _HazeBright) va pha trang (_HazePale)
+                half3 hazeTint = lerp(cellCol, half3(1, 1, 1), _HazePale);
+                half3 haze = hazeTint * (lerp(_HazeDark, _HazeBright, body) + nearGround * 0.10)
                            + _EdgeColor.rgb * streak * 0.18;
 
                 // Mot it o thinh thoang loe sang roi tat - nhu co dien chay qua to ong

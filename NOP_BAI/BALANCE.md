@@ -84,6 +84,7 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 | `meleeRange` | **6** | Inspector | Tầm đấm |
 | `meleePushForce` | **200** | Inspector | Lực đấm |
 | `meleeCooldown` | **0.35** | Inspector | Hồi chiêu đấm (giây) |
+| `hitStopDuration` | **0.06** | Inspector *(ô mới 17/10)* | Khựng tay khi đấm TRÚNG (giây) — chỉ hình ảnh trên máy người đấm, không đổi luật. 0 = tắt, quá 0.1 thấy ì tay |
 | `grapplePullForce` | **250** | Inspector | Lực kéo áp sát |
 | `dashLockRange` | **60** | Inspector | Tầm xa nhất để khoá mục tiêu kéo áp sát (mặc định code 20). Kéo áp sát xảy ra khi địch ở xa hơn `meleeRange` và gần hơn số này |
 | `pullForce` | **49** | Inspector | Tốc độ hút vật về tay, m/s. Nâng 36 → 49 ngày 10/10 (+35%). ⚠️ Ô này còn nhân vào cú phản đòn khi hút nhầm Spike — xem `spikePullBoost` |

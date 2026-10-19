@@ -145,6 +145,9 @@
 >   **Sửa lỗi cũ:** tiếng "dùng đồ" trước đây chỉ phát trên máy Host (`UseConsumable` chạy trên Host mà lại xét
 >   `HasInputAuthority`) → Client dùng đồ không nghe gì. Giờ đi qua bộ đếm `[Networked] ConsumableUseCount` tới
 >   đúng máy người dùng. Slide + GDD: 52 → **53 tệp**, ~24.000 dòng (sinh lại .pptx).
+> · **Rào chắn nhạt màu lại (17/10, sau commit 037ea53):** thân màn sáng hơn + pha trắng (`_HazeDark` 0.045→0.11,
+>   ô mới `_HazeBright` 0.36, `_HazePale` 0.28). Độ đặc giữ nguyên.
+> · **Đã build lại `Build_Nop` + zip 214MB (19/10, 18:33)** — có thêm màu rào nhạt. Đã push lên GitHub.
 > · **Đã build lại `Build_Nop` + zip 214MB (17/10, 21:35)** — có thêm hiệu ứng tia nạp điện, cú đấm + khựng hình,
 >   nổ TNT, can xăng, hiệu ứng dùng đồ.
 > · **Đã build lại `Build_Nop` + zip 214MB (17/10, 18:14)** — có đủ: 1v1/2v2 + Kick, cải thiện phòng chờ, cú đẩy ngang,
@@ -1249,26 +1252,37 @@ Xem **CLAUDE.md mục 5** — 7 bẫy đã gặp kèm cách chữa (CharacterCon
 
 ## 5. Bản đồ code
 
+*(Đối chiếu thư mục thật 17/10 — 53 tệp ngoài `Editor/`.)*
+
 ```
 Assets/
-├── NetworkRunnerHandler.cs   Lobby, gửi input, spawn, quay về menu. DontDestroyOnLoad singleton
-├── RoomPlayer.cs             Đồng bộ tên + đội trong phòng chờ
+├── NetworkRunnerHandler.cs   Lobby, ghép trận, gửi input, spawn, quay về menu, kick + sổ đen. DontDestroyOnLoad
+├── RoomPlayer.cs             Tên + đội trong phòng chờ, chế độ 1v1/2v2 (trên RoomPlayer chủ phòng), Kick()
 ├── Editor/BuildNop.cs        Build bản nộp 1 lệnh (icon + tắt Development Build). Chỉ Editor  (14/10)
 └── Scripts/
     ├── GameManager.cs        Vòng đấu, tính điểm, hồi sinh, KillZone, Overtime
     ├── ShopManager.cs        Giao dịch qua RPC, Host duyệt        (trên Player.prefab)
     ├── AudioManager.cs       Singleton âm thanh                    (trong MenuScene)
     ├── GameSettings.cs       Class tĩnh: độ nhạy chuột, fullscreen
-    ├── RoundBarrier.cs       Rào spawn, MonoBehaviour thường       (trong TestScene)
-    ├── Player/               FPSMovement · PlayerMagnetController · PlayerHealth
-    │                         InventorySystem · PlayerHotbarController · PlayerInteract
-    │                         RadialMenuController · NetworkInputData · PlayerEconomy
-    │                         CameraShake  ← MonoBehaviour thuần, đặt trên Camera
-    │                         PlayerVisuals ← outline địch/bạn, quả cầu tay, aura sét
-    │                         PlayerAnimatorDriver · GlovePolarityColor
+    ├── RoundBarrier.cs       Rào pha mua đồ — MonoBehaviour thường, hình shader BarrierCurtain (17/10)
+    ├── ControlZone.cs        Khu chiếm đóng giữa map (MonoBehaviour, tiến độ nằm trên GameManager)
+    ├── CloudBank.cs          Biển mây + đáy mây + làm mềm viền ảnh mây (17/10). [ExecuteAlways]
+    ├── CursorLock.cs         Trọng tài khoá / thả con trỏ chuột
+    ├── EnvironmentScatter.cs Công cụ rải trang trí (chỉ dùng khi dựng map)
+    ├── Player/               FPSMovement · PlayerMagnetController · PlayerHealth · InventorySystem
+    │                         PlayerHotbarController · PlayerInteract · RadialMenuController
+    │                         NetworkInputData · PlayerEconomy · PlayerAnimatorDriver
+    │                         CameraShake  ← MonoBehaviour thuần trên Camera; giữ quyền ghi FOV (cả AddFovPunch)
+    │                         FirstPersonViewmodel ← tay góc nhìn thứ nhất, khựng tay khi đấm (17/10)
+    │                         PlayerVisuals ← outline địch/bạn · GloveArcs ← tia điện trên găng
+    │                         GlovePolarityColor · MagneticObjectInspector (công cụ Editor)
     ├── Item/                 MagneticObject · MagneticAura · ItemData · EMBarrier
-    └── MenuUI/               HUDController · ShopUI · ShopItemButton
-                              SettingsUI · SpectatorController · RoomItemUI
+    │                         CombatVFX ← kho hiệu ứng: tia nạp điện + sét, đấm, nổ TNT, can xăng (17/10)
+    ├── MenuUI/               HUDController · ShopUI · ShopItemButton · SettingsUI · SpectatorController
+    │                         RoomItemUI · MatchResultPanel · LoadingScreen · ControlsOverlay · PingDisplay
+    │                         DeathScreen · MenuBackdrop · LobbyView · ModePicker · BuffScreenFX
+    │                         Billboard · ButtonClickSound · CinematicCamera · PhotoFlyCamera
+    └── Dummy/                DummyGravity · DummyMagnetTarget  (bù nhìn tập bắn, đã gỡ khỏi TestScene)
 ```
 
 **Quy ước:** script UI đặt trên Canvas trong scene, đọc `FPSMovement.Local` để tìm nhân vật mình.
@@ -1287,7 +1301,9 @@ Script gameplay đặt trên `Player.prefab`.
 `ConvertToTNT()` **chỉ đổi được vật loại Normal**. Spike, Heavy, và TNT sẵn đều trả về `false`.
 Đúng theo đặc tả, không phải lỗi. Dùng hụt thì **không mất chai**.
 
-⚠️ Nhưng bấm hụt **không có phản hồi nào** — không tiếng, không log, không thông báo.
+*(17/10)* Dùng **thành công** thì đã có hiệu ứng: xăng bắn tung + chớp lửa + vòng cam, rồi vật lách tách
+tàn lửa suốt lúc còn là thùng nổ (`CombatVFX.GasolineSplash` / `CreateHazardEmbers`).
+⚠️ Nhưng bấm **hụt** vẫn **không có phản hồi nào** — không tiếng, không log, không thông báo.
 Người chơi sẽ tưởng vật phẩm hỏng. Nên thêm tiếng "tạch" hoặc dòng chữ trên HUD nếu còn thời gian.
 
 **Cách nó nổ:** không có cơ chế riêng. Chỉ đổi `CurrentType = TNT`, rồi đi theo đúng đường của

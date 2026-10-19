@@ -111,6 +111,8 @@ Assets/
     ├── Item/
     │   ├── MagneticObject.cs            # Điện tích, 4 loại vật thể, va chạm, nổ TNT
     │   ├── MagneticAura.cs              # Hiệu ứng hào quang theo điện tích
+    │   ├── CombatVFX.cs                 # Kho hiệu ứng chiến đấu dựng bằng mã (không ảnh, không prefab): tia nạp
+    │   │                                #   điện + sét, đấm, nổ TNT (Particle System), can xăng (17/10)
     │   ├── EMBarrier.cs                 # [Fusion] Tường tạm 10s của EM Barrier Core. Hình tự dựng bằng mã
     │   │                                #   (lớp lồng EMBarrier.Visual) + shader Resources/Shaders/HexShield.shader
     │   └── ItemData.cs                  # ScriptableObject định nghĩa vật phẩm
@@ -199,6 +201,8 @@ thẻ của người khác để chuyển họ sang đội kia (khi đội kia c
   Mỗi ô lục giác lệch màu nhẹ: sáng tối ±20% (`_CellBright` 0.4), sắc chỉ ±6° (`_CellHue` 0.2), ~7% ô thỉnh
   thoảng loé (`_Sparkle`). ⚠️ Đừng tăng `_CellHue` — đã thử ±13°: màu đỏ bão hoà xoay vài độ là ra ô màu ô liu /
   hồng tím như vải vụn. Đường viền ô giữ một màu.
+  Độ đậm nhạt của thân màn: `_HazeDark` 0.11 / `_HazeBright` 0.36 / `_HazePale` 0.28 (pha trắng) — đã nhạt
+  lại 17/10 theo yêu cầu. Muốn đậm lại: giảm ba ô này (bản đậm cũ là 0.045 / 0.20 / 0). Không đụng tới độ đặc.
 - **Biển mây** (`CloudBank.cs`) có thêm 3 thứ, đều bật/tắt được trong Inspector:
   - `buildCloudFloor` — **đáy biển mây** (shader `CloudFloor.shader`): tấm mây mềm dưới các cụm, tan vào
     màu chân trời → nhìn ra / nhìn xuống không còn thấy khoảng trời phẳng lì giữa các cụm.
@@ -770,6 +774,8 @@ Biển mây là MỘT lưới rộng hàng trăm mét có tâm ở giữa đảo
 bức tường rào → mây vẽ SAU tường → mây phía bên kia hiện đè lên trước màn chắn.
 → Cách chữa: đặt `renderQueue` cố định cho thứ cần luôn nằm trên (tường rào 3050 > mây 3000; đáy biển mây
 2990 < mây). Gặp vật trong suốt "nhảy lên trước" bất chợt thì nghi thứ tự vẽ trước tiên.
+→ Cùng bẫy trong **hệ hạt** (nổ TNT 17/10): khói (che sáng) vẽ đè lên trước lửa → lỗ tối giữa quả cầu lửa.
+Chữa bằng `ParticleSystemRenderer.sortingFudge`: số **nhỏ hơn** = vẽ sau = nằm trên (lửa -20, khói +20).
 
 **15. `line` là từ khoá dành riêng của HLSL — đừng đặt làm tên biến trong shader** *(gặp 14/10)*
 Báo lỗi khó hiểu: `syntax error: unexpected token 'line'`. Đó là kiểu dữ liệu của geometry shader.
