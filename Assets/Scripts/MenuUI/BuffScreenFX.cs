@@ -26,7 +26,28 @@ public class BuffScreenFX : MonoBehaviour
 
     private float _drinkFlash = -10f;     // thời điểm uống (unscaled)
     private float _bandageFlash = -10f;   // thời điểm xả điện
+    private float _deniedFlash = -10f;    // thời điểm bấm bắn vật TRÁI DẤU (bị từ chối)
     private float _nextBoltShuffle;
+
+    private static readonly Color DeniedRed = new Color(1f, 0.16f, 0.12f);
+
+    /// <summary>
+    /// Viền đỏ loé ngắn + rung nhẹ: báo "không bắn được vật trái dấu với găng" (19/10).
+    /// PlayerMagnetController gọi trên máy người bấm (qua bộ đếm mạng WrongPolarityCount).
+    /// Dùng chung canvas viền với hiệu ứng vật phẩm cho khỏi dựng thêm giao diện.
+    /// </summary>
+    public static void Denied()
+    {
+        if (_instance == null)
+        {
+            GameObject go = new GameObject("BuffScreenFX");
+            _instance = go.AddComponent<BuffScreenFX>();
+            _instance.Build();
+        }
+        _instance._deniedFlash = Time.unscaledTime;
+        FPSMovement me = FPSMovement.Local;
+        if (me != null) me.ShakeCamera(0.15f);
+    }
 
     /// <summary>Phát hiệu ứng cho món vừa dùng. Món không phải buff bản thân thì bỏ qua.</summary>
     public static void Play(ConsumableType type)
@@ -133,6 +154,12 @@ public class BuffScreenFX : MonoBehaviour
         else { vc = Lime; va = drinkPop + linger; }
         // Tia điện chập chờn làm viền xanh lơ nháy theo
         if (bandPop > 0f) va *= Random.Range(0.7f, 1f);
+
+        // Viền đỏ "bị từ chối": ngắn và gắt, lấn át mọi màu khác trong lúc loé
+        float deniedT = now - _deniedFlash;
+        float deniedPop = deniedT < 0.4f ? Pop(deniedT, 0.03f, 0.37f) * 0.45f : 0f;
+        if (deniedPop > va) { vc = DeniedRed; va = deniedPop; }
+
         _vignette.color = new Color(vc.r, vc.g, vc.b, va);
 
         // --- Vệt tốc độ: lao từ trong ra rìa trong 0,6 giây sau khi uống ---

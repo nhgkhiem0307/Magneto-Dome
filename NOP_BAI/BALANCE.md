@@ -92,7 +92,13 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 | `pushSpeed` | **60** | Inspector | Tốc độ đẩy vật (chuột trái, vật cùng dấu). Nâng 50 → 60 ngày 16/10 (+20%) |
 | `pushLiftOffset` | **0.5** | Inspector | Trước khi đẩy, nâng vật **TỚI** độ cao này (m) tính từ mặt đất, để bay qua gờ đất. Vật đang nảy trên không, đã cao sẵn thì không nâng thêm. Đổi 0.3 → 0.5 ngày 16/10 |
 | `pushUpwardBias` | **0.033** | Inspector | Cú đẩy chếch lên một góc **cố định ~1.9°**, nhìn lên hay xuống cũng vậy. Hạ 0.055 → 0.033 (= 3/5) ngày 16/10. Trước 16/10 góc này đổi theo hướng nhìn: nhìn dốc xuống thì chếch tới ~30° — đã sửa |
-| `fireSpeed` | **54** | Inspector | Tốc độ bắn vật đang cầm (chuột phải). Nâng 45 → 54 ngày 16/10 (+20%) |
+| `fireSpeed` | **54** | Inspector | Tốc độ bắn vật đang cầm (chuột phải). Nâng 45 → 54 ngày 16/10 (+20%). Từ 19/10 chỉ bắn được khi vật **CÙNG dấu** với găng |
+| `neutralPushSpeed` | **7** | code *(ô mới 19/10)* | Chuột phải vào vật đang cầm **chưa có điện**: đẩy nhẹ ra trước (m/s), không phải bắn |
+| `neutralPushUpSpeed` | **1.2** | code *(ô mới 19/10)* | Phần hất lên kèm cú đẩy nhẹ (m/s) |
+| `neutralPushDamageScale` | **0.3** | code *(ô mới 19/10)* | Sát thương cú đẩy nhẹ so với sát thương gốc của vật (Normal 10 → 3). Lực văng tự giảm theo |
+| `tntProximityRadius` | **5.2** | Inspector *(MagneticObject, cả 38 override trong TestScene)* | TNT đang bay tự nổ khi địch lọt vào bán kính này. Nâng 4 → 5.2 ngày 19/10 (+30%). Nổ xa hơn nên sát thương lúc kích nổ thấp hơn (≥13% thay vì ≥33%), bù lại lực hất mạnh |
+| `explosionPlayerKnockback` | **180** | code *(ô mới 19/10)* | Lực hất NGƯỜI CHƠI ra xa tâm vụ nổ TNT. Trước là `explosionForce × 2` = 30 — chỉ bằng 15% cú đấm (200), gần như không đẩy được ai |
+| `explosionKnockbackEdge` | **0.4** | code *(ô mới 19/10)* | Lực hất ở mép bán kính nổ còn bao nhiêu so với ở tâm |
 | `shootRange` | **50** | Inspector | Tầm với của găng |
 | `heldObjectSize` | **1.2** | Inspector | Cạnh dài nhất của vật cầm trên tay |
 | `heldObjectThickness` | **0.55** | code | Bề ngang tối đa của vật cầm trên tay |
@@ -107,8 +113,8 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 | Ô | Giá trị | Nguồn | Ý nghĩa |
 |---|---|---|---|
 | `startingMoney` | **300** | Inspector | Tiền đầu trận (mặc định code 500 — Inspector đè lên) |
-| `winReward` | **150** | Inspector | Thắng round |
-| `loseReward` | **100** | Inspector | Thua round |
+| `winReward` | **300** | Inspector | Thắng round. x2 ngày 19/10 (150 → 300) |
+| `loseReward` | **200** | Inspector | Thua round. x2 ngày 19/10 (100 → 200) |
 | `moneyCap` | **750** | Inspector | Trần ví |
 
 ## Tường EM Barrier *(thêm 14/10)*

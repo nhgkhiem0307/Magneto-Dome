@@ -155,7 +155,7 @@ MonoBehaviour:
   sleepDelay: 0.6
   wakeImpulseTransfer: 1
   explosionRadius: 6
-  tntProximityRadius: 4
+  tntProximityRadius: 5.2
   explosionForce: 15
   debrisForceMultiplier: 4
   debrisBecomesBullet: 1

@@ -5639,8 +5639,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerEconomy
   startingMoney: 300
   moneyCap: 750
-  winReward: 150
-  loseReward: 100
+  winReward: 300
+  loseReward: 200
   _Money: 0
 --- !u!114 &7594881270707301603
 MonoBehaviour:

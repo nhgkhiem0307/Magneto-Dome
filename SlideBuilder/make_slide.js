@@ -369,7 +369,7 @@ tbl(s, [
   ["Vật chưa có điện", "Chuột trái", "Nạp điện cùng cực với găng tay"],
   ["Vật CÙNG dấu", "Chuột trái", "ĐẨY — vật bay đi, thành đạn"],
   ["Vật TRÁI dấu", "Chuột trái", "HÚT — vật bay về tay, cầm được"],
-  ["Đang cầm vật", "Chuột phải", "Bắn vật đang cầm đi"],
+  ["Đang cầm vật", "Chuột phải", "Bắn đi — vật phải CÙNG dấu"],
 ], { x: L, y: 1.92, w: 5.45, colW: [1.6, 1.2, 2.65], rowH: 0.32, size: 11 });
 
 card(s, { x: L, y: 3.85, w: 5.45, h: 1.15 });
@@ -486,7 +486,7 @@ bullets(s, [
 card(s, { x: L, y: 4.05, w: 9.1, h: 0.95, fill: "F3F7FD" });
 s.addText("KINH TẾ", { x: L + 0.18, y: 4.14, w: 1.2, h: 0.26, fontFace: F, fontSize: 11.5, bold: true, color: DARK, margin: 0, isTextBox: true });
 s.addText(
-  "Thắng round +$150  ·  Thua round +$100  ·  Trần ví $750  ·  Cửa hàng 5 vật phẩm: Giáp Cách Điện, Energy Drink, Bộ Xả Điện, Can Xăng, Lõi Tường Chắn",
+  "Thắng round +$300  ·  Thua round +$200  ·  Trần ví $750  ·  Cửa hàng 5 vật phẩm: Giáp Cách Điện, Energy Drink, Bộ Xả Điện, Can Xăng, Lõi Tường Chắn",
   { x: L + 0.18, y: 4.42, w: 8.75, h: 0.48, fontFace: F, fontSize: 11.5, color: INK, valign: "top", margin: 0, isTextBox: true }
 );
 s.addNotes("5:35-6:10 — Lướt nhanh. Hội đồng chỉ cần thấy trận đấu có cấu trúc và có điểm dừng rõ ràng.");
@@ -721,7 +721,7 @@ tbl(s, [
   ["Điện tích: Normal / Heavy", "10 / 20", "Hồi sinh sau khi rơi", "5 giây"],
   ["Điện tích: Spike / TNT", "25 / 35", "Bất tử sau hồi sinh", "2 giây"],
   ["Bán kính nổ TNT", "6 mét", "Thắng trận", "5 round, cách biệt 2"],
-  ["Thưởng thắng / thua round", "$150 / $100", "Trần ví", "$750"],
+  ["Thưởng thắng / thua round", "$300 / $200", "Trần ví", "$750"],
 ], { x: L, y: 1.1, w: 9.1, colW: [2.9, 1.65, 2.9, 1.65], rowH: 0.4, size: 11 });
 
 // D3 — kiến trúc mã nguồn

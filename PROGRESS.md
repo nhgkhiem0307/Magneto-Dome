@@ -156,6 +156,20 @@
 >   suốt) → viền địch, **bảng tên trên đầu** (phát hiện thêm lúc chụp thử), hiệu ứng phía sau đều bị che;
 >   viền đồng đội vẫn xuyên. Kiểm bằng ảnh chụp với model Player thật.
 > · **Đã build lại `Build_Nop` + zip 214MB (19/10, 20:42)** — có rào kính mờ + che viền/tên địch. Đã push.
+> · **Tiền thưởng round x2 (19/10, tối):** thắng 150 → **300**, thua 100 → **200** (`Player.prefab`). Trần ví giữ $750.
+> · **Luật bắn vật đang cầm theo điện tích + buff TNT (19/10, tối):** chuột phải chỉ bắn được vật CÙNG dấu với
+>   găng; trái dấu → vật ở lại trên tay + viền đỏ + rung nhẹ (`BuffScreenFX.Denied`, bộ đếm mạng
+>   `WrongPolarityCount`); vật chưa có điện → đẩy nhẹ ra trước, sát thương ×0.3. Chuột trái khi cầm vật chưa có
+>   điện → nạp ngay theo cực găng. ⚠️ Vật hút về tay luôn trái dấu → phải đổi cực rồi mới bắn (chủ project chốt).
+>   TNT: bán kính tự nổ 4 → **5.2m** (sửa cả 38 override trong TestScene + 4 prefab cây), lực hất người ra xa
+>   tâm nổ 30 → **180** (giảm còn 40% ở mép) — lực cũ quá yếu nên nhìn như "nổ không đẩy". Đã cập nhật
+>   CLAUDE, GDD, BALANCE, báo cáo (thêm đoạn ở mục 2.2.1), slide 6.
+> · **Đã build lại `Build_Nop` + zip 214MB (20/10)** — có luật bắn theo điện tích, TNT mới, tiền thưởng x2. Đã push.
+> · **POSTER XONG (19/10):** `NOP_BAI/Poster_MagnetoDome_A1.pdf` + `.png`, A1 dọc 200 dpi (in được A0).
+>   Ảnh nền **render thẳng từ game** (TestScene, model nhân vật thật, hiệu ứng `CombatVFX` thật): đỏ đấm văng
+>   xanh, đá lơ lửng, tia nạp điện, TNT nổ phía sau. Chữ pha Việt–Anh như slide, không QR. Bộ dựng ở
+>   `PosterBuilder/` (xem README) — sửa chữ thì chạy lại `make_poster.py`. Script dàn cảnh `PosterShot.cs`
+>   để **ngoài `Assets/`**, không vào game. ⚠️ Poppins không có dấu tiếng Việt → chữ có dấu dùng Be Vietnam Pro.
 > · **Đã build lại `Build_Nop` + zip 214MB (17/10, 21:35)** — có thêm hiệu ứng tia nạp điện, cú đấm + khựng hình,
 >   nổ TNT, can xăng, hiệu ứng dùng đồ.
 > · **Đã build lại `Build_Nop` + zip 214MB (17/10, 18:14)** — có đủ: 1v1/2v2 + Kick, cải thiện phòng chờ, cú đẩy ngang,

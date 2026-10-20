@@ -201,6 +201,10 @@ Ghi rõ ở đây vì đây là **điểm cộng cho bạn**, đừng để lẫ
 giấy phép **SIL Open Font License (OFL)** — miễn phí kể cả dùng thương mại. Đây là font đi
 mượn, không phải tự làm, nên vẫn phải khai báo.
 
+**Poster** *(19/10, `PosterBuilder/`)*: ảnh nền render thẳng từ game nên dùng chung các asset đã khai ở
+trên (model nhân vật, đá, cây, bầu trời). Chữ dùng **Poppins** (logo) và **Be Vietnam Pro** (chữ có dấu —
+Poppins không có dấu tiếng Việt), cả hai đều Google Fonts, giấy phép **OFL**.
+
 ---
 
 ## 6. Nội dung sinh bằng AI — nói trước, đừng để bị hỏi

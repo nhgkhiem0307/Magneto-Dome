@@ -256,8 +256,8 @@ GDD sẽ được sửa lại cho khớp code sau, không phải ngược lại.
 | `Space` | Nhảy. **Lái được khi đang ở trên không** (`FPSMovement.airControl`) |
 | `Q` | Dash / Lướt (có cooldown) |
 | `1` / `2` | Đổi điện tích găng tay: Dương (Đỏ) / Âm (Xanh) |
-| Chuột trái | Vật trung tính → nạp điện. Vật đã có điện → **cùng dấu = ĐẨY**, **trái dấu = HÚT về tay** |
-| Chuột phải | Tay trống → cận chiến. Đang cầm vật → **bắn vật đi** |
+| Chuột trái | Vật trung tính → nạp điện. Vật đã có điện → **cùng dấu = ĐẨY**, **trái dấu = HÚT về tay**. Đang cầm vật **chưa có điện** → nạp ngay theo cực găng *(19/10)* |
+| Chuột phải | Tay trống → cận chiến. Đang cầm vật → **chỉ bắn được khi vật CÙNG dấu với găng** *(19/10)*. Trái dấu → không bắn, viền đỏ + rung nhẹ báo lỗi. Chưa có điện → đẩy nhẹ ra trước, sát thương ×0.3 |
 | `V` | Tung hứng vật đang cầm lên không |
 | `Z` / `X` / `C` | Rút đạn Normal / Heavy / **TNT** từ túi ra tay. *(Ô `C` tạm là TNT từ 19/09 vì map chưa có vật Spike — đổi lại ở `PlayerHotbarController.ThirdSlotType`)* |
 | `Tab` (giữ) | Mở Radial Menu, xoay chuột chọn, thả phím để dùng |
@@ -290,7 +290,13 @@ GDD sẽ được sửa lại cho khớp code sau, không phải ngược lại.
 | **Normal** | 10 | Hút/đẩy linh hoạt | ✅ |
 | **Heavy** | 20 | Đang bay thì **KHÔNG hút về tay được**, chỉ cản: tốc ×0.5, sát thương ×0.5 | ✅ *(chưa test)* |
 | **Spike** | 25 | Hút nhầm khi nó đang bay tới thì **ăn x2 (50)**. Đã bỏ tính chất cắm dính | ✅ *(chưa test)* |
-| **TNT** | 35 | Nổ bán kính 6m, giảm dần theo khoảng cách, hất văng diện rộng | ✅ |
+| **TNT** | 35 | Nổ bán kính 6m, giảm dần theo khoảng cách, hất văng diện rộng. Đang bay tự nổ khi địch lọt vào **5.2m** (`tntProximityRadius`, +30% ngày 19/10) | ✅ |
+
+**Luật bắn vật đang cầm** *(chốt 19/10)*: cùng dấu đẩy / trái dấu hút áp dụng cả cho vật trên tay. Vật HÚT về tay
+**luôn trái dấu** với găng (chỉ trái dấu mới hút được) và điện tích vật giữ tới hết round → muốn bắn phải **bấm
+1/2 đổi cực găng trước**. Đây là nhịp kỹ năng có chủ ý, không phải lỗi. Bấm bắn khi trái dấu → vật ở lại trên tay,
+viền đỏ (`BuffScreenFX.Denied`, qua bộ đếm `WrongPolarityCount`). Vật chưa có điện: chuột trái nạp ngay theo cực
+găng; chuột phải đẩy nhẹ (`neutralPushSpeed` 7, vẫn là đạn nhưng sát thương × `neutralPushDamageScale` 0.3).
 
 **Heavy và Spike là cặp đối xứng** — cùng dùng `MagneticObject.TryCounterInFlight()` (chỉ cho can
 thiệp 1 lần mỗi cú bay, chặn spam giữ chuột), nhưng ý nghĩa ngược nhau: Heavy **thưởng** cho phản
@@ -338,7 +344,7 @@ Nếu nhân hệ số cho cả Dash thì người sắp thua sẽ lướt xa g�
 |---|---|---|
 | Đấm cận chiến | `meleePushForce` 200 | `PlayerMagnetController` |
 | **Trúng đạn** | `hitKnockbackForce` 120 × (sátthương/10) | `MagneticObject.OnCollisionEnter` |
-| Nổ TNT | `explosionForce × 2` = 30 ⚠️ yếu bất thường | `MagneticObject.Explode()` |
+| Nổ TNT | `explosionPlayerKnockback` 180 ở tâm → 40% ở mép (`explosionKnockbackEdge`), hướng ra xa tâm theo phương ngang *(19/10 — trước là `explosionForce × 2` = 30, gần như không đẩy được ai)* | `MagneticObject.Explode()` |
 
 ⚠️ Knockback khi trúng đạn **trước 09/08 KHÔNG TỒN TẠI** — va chạm chỉ trừ máu rồi thôi.
 Nếu thấy nhân vật không bị đẩy khi trúng đạn thì kiểm tra nhánh `CompareTag("Player")` trước tiên.
@@ -400,7 +406,7 @@ phương**. Nhờ vậy lực văng được phép mạnh tay mà không gây �
 ### Buy Phase & Kinh tế (chưa làm)
 
 - Đầu mỗi round có **15 giây** đếm ngược, người chơi bị chặn bởi rào chắn (Barrier).
-- Thắng round: **+$150**. Thua round: **+$100**. Trần ví: **$750**.
+- Thắng round: **+$300**. Thua round: **+$200** *(x2 ngày 19/10, trước là 150/100)*. Trần ví: **$750**.
 
 ### Cửa hàng (chưa làm)
 
@@ -609,6 +615,8 @@ rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
 | `NOP_BAI/[ĐT-QĐ04-BM06] Báo cáo tốt nghiệp.docx` | Báo cáo 53 trang *(Word đếm, 14/10)*, 4 chương + 2 phụ lục, 10 hình, 16 bảng. Có Danh mục hình/bảng tự sinh — sửa nội dung xong nhớ `Ctrl+A` → `F9` | Nộp chính |
 | `NOP_BAI/[ĐT-QĐ04-BM08] Final Project.pptx` | 15 slide bảo vệ + 4 slide phụ cuối *(Timeline, Balance Sheet, Code Architecture, Credits — từ 15/10 không còn ghi chữ "Dự phòng" trên slide)*. Tiêu đề kiểu pha Việt–Anh. **Không có slide demo** — demo trực tiếp bằng game (bỏ 15/10), ghi chú cách demo nằm ở slide 12 | Buổi bảo vệ |
 | `SlideBuilder/` | **Script sinh ra file .pptx.** Sửa slide thì sửa ở đây rồi chạy lại | Xem `SlideBuilder/README.md` |
+| `NOP_BAI/Poster_MagnetoDome_A1.pdf` | Poster A1 dọc *(19/10)*. Ảnh nền render từ game | In / trưng bày |
+| `PosterBuilder/` | **Script sinh ra poster** (`make_poster.py`) + ảnh nền + font. Sửa chữ ở đây rồi chạy lại. `PosterShot.cs` trong đó cố ý nằm ngoài `Assets/` | Xem `PosterBuilder/README.md` |
 | `NOP_BAI/` | **Thư mục nộp bài** — gom đủ 6 biểu mẫu theo tên chính thức của trường | Nộp cho Bộ Môn |
 
 **Bộ biểu mẫu của trường** *(mẫu gốc ở Drive của khoa, bản đã điền nằm trong `NOP_BAI/`)*:

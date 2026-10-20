@@ -45,6 +45,23 @@ public class PlayerMagnetController : NetworkBehaviour
              "TẮT: bắn đúng theo hướng đang nhìn, ngắm được lên xuống nhưng khó canh hơn.")]
     public bool lockFireToHorizontal = true;
 
+    // LUẬT BẮN VẬT ĐANG CẦM THEO ĐIỆN TÍCH (19/10, chủ project chốt):
+    //   - Vật CÙNG dấu với găng  -> bắn như bình thường (cùng dấu thì đẩy).
+    //   - Vật TRÁI dấu với găng  -> KHÔNG bắn được: viền đỏ + rung nhẹ để báo. Phải bấm 1/2
+    //     đổi dấu găng trước. Vì vật HÚT về tay luôn trái dấu, nên vòng "hút -> đổi dấu -> bắn"
+    //     là một nhịp kỹ năng có chủ đích.
+    //   - Vật CHƯA có điện       -> chỉ đẩy nhẹ ra trước (không có từ trường để phóng), vẫn
+    //     tính là đạn nhưng sát thương rất yếu.
+    [Tooltip("Tốc độ đẩy RA TRƯỚC khi chuột phải vào vật CHƯA có điện (m/s). Đẩy nhẹ, không phải bắn.")]
+    public float neutralPushSpeed = 7f;
+
+    [Tooltip("Tốc độ hất LÊN kèm theo cú đẩy nhẹ vật chưa có điện (m/s). Trọng lực project là -3.")]
+    public float neutralPushUpSpeed = 1.2f;
+
+    [Tooltip("Tỉ lệ sát thương (điện nạp vào người trúng) của cú đẩy nhẹ vật chưa có điện, so với " +
+             "sát thương gốc của vật. Lực văng cũng tỉ lệ theo. 0.3 = Normal chỉ còn 3 điểm.")]
+    public float neutralPushDamageScale = 0.3f;
+
     [Tooltip("Khoảng cách cơ bản để vật lọt vào tay. BÁN KÍNH CỦA VẬT sẽ được cộng thêm " +
              "vào con số này, nên vật càng to càng được bắt từ xa - nếu không thì vật to " +
              "chỉ nghiến vào người mà không bao giờ nắm được.")]
@@ -283,6 +300,11 @@ public class PlayerMagnetController : NetworkBehaviour
     [Networked, OnChangedRender(nameof(OnObjectPushed))]
     private int PushCount { get; set; }
 
+    // Đếm số lần bấm bắn vật TRÁI DẤU (bị từ chối). Cùng lý do với FireCount: chỗ tăng số
+    // chỉ chạy trên Host, phải qua mạng thì máy Client mới hiện được viền đỏ.
+    [Networked, OnChangedRender(nameof(OnWrongPolarity))]
+    private int WrongPolarityCount { get; set; }
+
     /// <summary>
     /// Đang giữ chuột hút một vật về tay.
     ///
@@ -454,9 +476,22 @@ public class PlayerMagnetController : NetworkBehaviour
                 return;
             }
 
+            // Chuột trái vào vật CHƯA CÓ ĐIỆN đang cầm -> nạp ngay theo điện của găng (19/10).
+            // Vật đã có điện thì chuột trái không làm gì - muốn đổi dấu thì đổi găng (1/2).
+            // Tiếng nạp + hào quang tự chạy trên mọi máy qua OnPolarityChanged của vật.
+            if (pressed.IsSet((int)InputButton.Fire) && grabbedObject.currentPolarity == MagneticObject.Polarity.None)
+            {
+                grabbedObject.SetPolarity(currentGlovePolarity);
+                return;
+            }
+
             if (pressed.IsSet((int)InputButton.Melee))
             {
-                FireGrabbedObject(aimDirection);
+                // Luật cùng dấu đẩy / trái dấu hút áp lên cả vật đang cầm - xem neutralPushSpeed
+                MagneticObject.Polarity held = grabbedObject.currentPolarity;
+                if (held == MagneticObject.Polarity.None) PushNeutralObject(aimDirection);
+                else if (held == currentGlovePolarity) FireGrabbedObject(aimDirection);
+                else WrongPolarityCount++;   // trái dấu: giữ nguyên trên tay, báo cho người bấm
                 return;
             }
 
@@ -1143,6 +1178,38 @@ public class PlayerMagnetController : NetworkBehaviour
         rbToToss.AddTorque(Random.insideUnitSphere * tossSpinStrength, ForceMode.Impulse);
     }
 
+    // Chuột phải vào vật CHƯA CÓ ĐIỆN: không có từ trường để phóng nên chỉ đẩy nhẹ ra trước,
+    // giống cú tung V nhưng ngả về phía trước. Vẫn là đạn (trúng người thì tính), sát thương
+    // nhân neutralPushDamageScale - lực văng tự giảm theo vì nó tính từ CurrentDamage.
+    void PushNeutralObject(Vector3 aimDirection)
+    {
+        MagneticObject obj = grabbedObject;
+        Rigidbody body = grabbedRb;
+        if (obj == null || body == null) return;
+
+        PrepareForRelease(obj, aimDirection);
+
+        obj.CurrentDamage = originalBaseDamage * neutralPushDamageScale;
+        obj.LaunchAsBullet(this);
+
+        grabbedObject = null;
+
+        body.isKinematic = false;
+        body.useGravity = true;
+        body.linearDamping = 0.05f;
+
+        Vector3 dir = aimDirection;
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.0001f) dir = transform.forward;
+        dir.Normalize();
+
+        body.linearVelocity = dir * neutralPushSpeed + Vector3.up * neutralPushUpSpeed;
+        body.angularVelocity = Vector3.zero;
+        body.AddTorque(Random.insideUnitSphere * tossSpinStrength, ForceMode.Impulse);
+
+        PushCount++; // vung tay nhẹ như cú đẩy vật ở xa, không giật mạnh như bắn
+    }
+
     void FireGrabbedObject(Vector3 aimDirection)
     {
         // Giữ tạm ra biến cục bộ trước khi buông tay, vì grabbedObject/grabbedRb
@@ -1399,6 +1466,12 @@ public class PlayerMagnetController : NetworkBehaviour
         movement.KickCamera(fireKickStrength);
 
         if (viewmodel != null) viewmodel.PlayFire();
+    }
+
+    // Chỉ người bấm thấy viền đỏ - người khác không cần biết mình vừa bấm nhầm.
+    private void OnWrongPolarity()
+    {
+        if (HasInputAuthority) BuffScreenFX.Denied();
     }
 
     // Chạy trên MỌI máy, đúng một lần cho mỗi cú đẩy vật.

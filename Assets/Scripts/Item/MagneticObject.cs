@@ -170,12 +170,22 @@ public class MagneticObject : NetworkBehaviour
              "⚠️ VÌ SAO KHÔNG DÙNG LUÔN Explosion Radius (6m): nổ ngay khi vừa chạm mép " +
              "vùng sát thương thì nạn nhân luôn đứng ở RÌA vụ nổ, mà sát thương giảm dần " +
              "theo khoảng cách nên ở rìa nó gần bằng không. TNT sẽ luôn nổ, và luôn vô hại.\n\n" +
-             "4m thì người bị dính nhận khoảng 33% sát thương trở lên. Đây là ô cân bằng: " +
-             "to thì dễ trúng nhưng yếu, nhỏ thì mạnh nhưng khó.\n\n" +
+             "5.2m (buff +30% ngày 19/10, trước là 4m) thì người bị dính nhận khoảng 13% sát " +
+             "thương trở lên, nhưng vẫn bị hất văng mạnh - xem Explosion Player Knockback. Đây là ô " +
+             "cân bằng: to thì dễ trúng nhưng yếu, nhỏ thì mạnh nhưng khó.\n\n" +
              "Người NÉM không kích nổ được quả của chính mình - không thì vừa bắn ra khỏi " +
              "tay là nổ ngay trong mặt.")]
-    public float tntProximityRadius = 4f;
+    public float tntProximityRadius = 5.2f;
     public float explosionForce = 15f;
+
+    [Tooltip("Lực hất NGƯỜI CHƠI ra xa tâm vụ nổ (19/10). Cùng thang với cú đấm (meleePushForce 200).\n\n" +
+             "Trước đây dùng explosionForce x 2 = 30 - chỉ bằng 15% cú đấm, gần như không đẩy " +
+             "được ai. Giờ tách thành ô riêng để lực thổi VẬT THỂ (explosionForce) không đổi theo.\n\n" +
+             "Ở tâm nhận đủ, ra tới mép bán kính còn Explosion Knockback Edge (40%).")]
+    public float explosionPlayerKnockback = 180f;
+
+    [Tooltip("Phần lực hất còn lại ở MÉP vụ nổ, so với ở tâm. 0.4 = mép còn 40%.")]
+    [Range(0f, 1f)] public float explosionKnockbackEdge = 0.4f;
 
     [Tooltip("Nhân riêng lực thổi VẬT THỂ xung quanh, không đụng tới lực hất người chơi.\n\n" +
              "Phải tách ra vì hai bên đi qua hai đường vật lý khác hẳn nhau: người chơi dùng " +
@@ -1612,6 +1622,7 @@ public class MagneticObject : NetworkBehaviour
 
         // Dùng HashSet để lưu danh sách Player đã dính sát thương, tránh bị trừ máu 2 lần do trùng Collider
         HashSet<PlayerHealth> playersDamaged = new HashSet<PlayerHealth>();
+        HashSet<GameObject> pushedOnce = new HashSet<GameObject>();
 
         foreach (Collider hit in colliders)
         {
@@ -1669,15 +1680,28 @@ public class MagneticObject : NetworkBehaviour
                     health.RegisterHit(shooterOwner, PlayerHealth.KnockCause.Explosion);
                 }
 
-                // Đẩy văng nhân vật dùng CharacterController theo hướng vụ nổ
-                Vector3 explodeDir = (hit.transform.position - transform.position).normalized;
-                explodeDir.y = 0.4f; // Hất nhẹ lên không trung
+                // HẤT VĂNG RA XA TÂM VỤ NỔ.
+                //
+                // Hướng lấy theo PHƯƠNG NGANG rồi mới nâng lên, cùng công thức với cú đấm và
+                // trúng đạn. Bản cũ chuẩn hoá cả vector 3 chiều rồi ghi đè y = 0.4: quả nổ ở
+                // trên cao thì phần ngang còn rất ngắn, người chơi gần như chỉ bị nhấc lên.
+                // Lực cũ (explosionForce x 2 = 30) cũng quá yếu so với đấm 200 - nhìn như không đẩy.
+                Vector3 explodeDir = hit.transform.position - transform.position;
+                float dist = explodeDir.magnitude;
+                explodeDir.y = 0f;
+                if (explodeDir.sqrMagnitude < 0.0001f) explodeDir = hit.transform.forward * -1f;   // nổ ngay dưới chân
+                explodeDir.Normalize();
+                explodeDir.y = 0.4f; // hất nhẹ lên không trung
+
+                float falloff = Mathf.Lerp(1f, explosionKnockbackEdge, Mathf.Clamp01(dist / explosionRadius));
+                float push = explosionPlayerKnockback * falloff;
 
                 FPSMovement playerMove = hit.GetComponent<FPSMovement>();
                 DummyGravity dummyGrav = hit.GetComponent<DummyGravity>();
 
-                if (playerMove != null) playerMove.AddImpact(explodeDir, explosionForce * 2f);
-                if (dummyGrav != null) dummyGrav.AddImpact(explodeDir, explosionForce * 2f);
+                // Một người có thể có nhiều collider gắn tag Player - chỉ đẩy MỘT lần mỗi người
+                if (playerMove != null && pushedOnce.Add(playerMove.gameObject)) playerMove.AddImpact(explodeDir, push);
+                if (dummyGrav != null && pushedOnce.Add(dummyGrav.gameObject)) dummyGrav.AddImpact(explodeDir, push);
             }
         }
 

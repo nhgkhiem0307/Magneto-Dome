@@ -51,13 +51,15 @@
 | 9n | **Thử nổ TNT + can xăng** (17/10): TNT nổ thấy chớp + lửa + khói + tàn lửa, camera rung khi đứng gần; dùng can xăng lên vật → xăng bắn tung + chớp lửa, sau đó vật lách tách tàn lửa + quầng cam; ném vật đó đi thấy vệt tàn lửa bay theo; sang round mới vật hết cháy | `Build_Nop` **đã build lại 17/10, 21:35** — thử thẳng bằng bản build | ⬜ |
 | 9o | **Thử hiệu ứng dùng đồ** (17/10): dùng Nước tăng lực → viền xanh chanh + vệt tốc độ + góc nhìn phình ra, sau đó viền phập phồng, 3 giây cuối nháy nhanh; dùng Bộ xả điện → viền xanh lơ + tia điện quanh mép. **Thử cả ở máy Client**: giờ Client dùng đồ đã có tiếng | `Build_Nop` **đã build lại 17/10, 21:35** — thử thẳng bằng bản build | ⬜ |
 | 9p | **Thử rào kính mờ (cần 2 máy)** (19/10): pha mua đồ nhìn sang thấy dáng đội kia mờ mờ, **KHÔNG thấy viền đỏ và tên của họ**; đồng đội vẫn có viền xanh. Mờ quá / rõ quá thì chỉnh ô `Haze Alpha` của shader `BarrierCurtain` (0.8; lớn hơn = mờ hơn) | `Build_Nop` **đã build lại 19/10, 20:42** — thử thẳng bằng bản build | ⬜ |
+| 9q | **Thử luật bắn theo điện tích + TNT mới** (19/10): hút vật về tay rồi chuột phải → KHÔNG bắn, viền đỏ loé; bấm `1`/`2` đổi cực rồi chuột phải → bắn. Nhặt vật chưa có điện (`F` rồi rút ra) → chuột phải đẩy nhẹ ra trước; chuột trái → vật đổi màu theo găng. TNT bay qua gần địch → nổ sớm hơn, địch bị hất văng ra xa thấy rõ. Thắng round +$300, thua +$200 | `Build_Nop` **đã build lại 20/10** — thử thẳng bằng bản build | ⬜ |
 | 9h | **Thử nút Quit Game + bảng rời trận** (16/10): Settings → Quit Game → bảng tối hiện ra, Cancel / `Esc` đóng lại, Quit thì tắt game (Editor: dừng Play). Trong trận bấm Leave match: chữ cảnh báo không còn nhảy lên đè tiêu đề, nút ghi `Confirm (3)` đếm lùi | `Build_Nop` **đã build lại 16/10 tối** — thử thẳng bằng bản build | ⬜ |
 | 10 | Xoá thư mục `C:\mdtmp` *(~100MB)* | Thư mục tạm của Claude. **Trong đó có `backup\` chứa bản sao báo cáo trước khi sửa 14/10** — mở báo cáo kiểm thấy ổn rồi hãy xoá | ⬜ |
 
 ## ⚪ Để sau / bỏ nếu không kịp
 
 - **BM03 — Phiếu theo dõi Project**: cần giảng viên ký từng tuần → hỏi thầy/cô có bắt buộc không.
-- **Poster**: chưa bắt đầu → hỏi trường có yêu cầu không.
+- ✅ **Poster**: xong 19/10 → `NOP_BAI/Poster_MagnetoDome_A1.pdf` (A1 dọc, in được A0). Muốn thêm logo trường /
+  sửa chữ thì sửa `PosterBuilder/make_poster.py` rồi chạy lại — xem `PosterBuilder/README.md`.
 - **Dọn 70MB tài nguyên thừa** trong `Resources/`: chỉ làm **sau khi nộp**. Xem `ROLLBACK_TRUOC_KHI_NOP.md` mục 8.
 
 

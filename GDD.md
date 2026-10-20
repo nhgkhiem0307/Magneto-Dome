@@ -69,14 +69,18 @@ Thể loại FPS truyền thống đã bão hòa ở phần *cách bắn*. Đề
 | Phím | Chức năng |
 |---|---|
 | `1` / `2` | Đổi cực găng: **Dương (Đỏ)** / **Âm (Xanh)** |
-| Chuột trái | Vật trung tính → **nạp điện**. Vật đã có điện → cùng dấu **ĐẨY**, trái dấu **HÚT về tay** |
-| Chuột phải | Tay trống → **cận chiến**. Đang cầm vật → **bắn đi** |
+| Chuột trái | Vật trung tính → **nạp điện**. Vật đã có điện → cùng dấu **ĐẨY**, trái dấu **HÚT về tay**. Đang cầm vật chưa có điện → nạp ngay theo cực găng |
+| Chuột phải | Tay trống → **cận chiến**. Đang cầm vật → **bắn đi, chỉ khi vật CÙNG cực với găng**. Trái cực → không bắn được (viền đỏ báo); vật chưa có điện → đẩy nhẹ ra trước |
 | `V` | Tung vật đang cầm lên không |
 | `Z` / `X` / `C` | Rút đạn Normal / Heavy / **TNT** từ túi *(ô `C` tạm là TNT vì bản đồ hiện chưa có vật Spike)* |
 | `Tab` (giữ) | Radial Menu — rê chuột chọn, thả phím để dùng |
 | `F` | Nhặt vật phía trước vào túi / cất vật đang cầm vào túi |
 | `B` | Mở Shop (chỉ trong Buy Phase) |
 | `Esc` | Mở bảng Settings |
+
+**Vật đang cầm cũng theo luật cùng cực đẩy, trái cực hút.** Vật hút về tay luôn mang cực ngược với găng, nên muốn bắn
+nó đi phải đổi cực găng (`1`/`2`) trước. Đây là nhịp kỹ năng có chủ ý: hút → đổi cực → bắn. Bấm bắn khi còn trái cực
+thì vật ở lại trên tay, màn hình loé viền đỏ và rung nhẹ để báo.
 
 ## 2.3. Cận chiến (chuột phải, tay trống)
 
@@ -97,7 +101,7 @@ Bốn loại vật thể dùng chung một lớp `MagneticObject` với `enum Ob
 | **Normal** | 10 | Hút/đẩy linh hoạt |
 | **Heavy** | 20 | Đang bay thì **KHÔNG hút về tay được**. Bù lại **cản được**: tốc ×0.5, sát thương ×0.5 |
 | **Spike** | 25 | Hút nhầm khi nó đang bay tới thì **ăn gấp đôi (50)** |
-| **TNT** | 35 | Nổ bán kính 6m, giảm dần theo khoảng cách, hất văng diện rộng |
+| **TNT** | 35 | Nổ bán kính 6m, giảm dần theo khoảng cách, hất văng diện rộng. Đang bay thì tự nổ khi địch lọt vào 5,2m |
 
 **Heavy và Spike là cặp đối xứng.** Cùng dùng một cơ chế can thiệp (`TryCounterInFlight`, chỉ cho can thiệp **một lần mỗi cú bay** để chặn spam giữ chuột), nhưng ý nghĩa ngược nhau: Heavy **thưởng** cho phản xạ hút, Spike **phạt** phản xạ hút. Người chơi buộc phải nhìn màu vật trước khi bấm.
 
@@ -121,7 +125,7 @@ Bốn loại vật thể dùng chung một lớp `MagneticObject` với `enum Ob
 |---|---|
 | Đấm cận chiến | 200 |
 | Trúng đạn | 120 × (sát thương ÷ 10) × 1.2 |
-| Nổ TNT | `explosionForce` 15 × 2 = 30 |
+| Nổ TNT | 180 ở tâm, giảm còn 40% ở mép bán kính, hất ra xa tâm vụ nổ |
 
 Cả ba đều nhân tiếp hệ số toàn cục `knockbackMultiplier 0.95` và hệ số Quá Tải (×1 → ×4), rồi chia cho khối lượng nhân vật.
 **Không có sát thương đồng đội:** đạn trúng đồng đội dừng lại như đâm tường; TNT bỏ qua đồng đội của người ném (chính người ném vẫn dính).
@@ -174,8 +178,8 @@ Nhờ vậy lực văng có thể mạnh tay mà không gây ức chế.
 | Mục | Giá trị |
 |---|---|
 | Tiền khởi đầu | $300 |
-| Thắng round | +$150 |
-| Thua round | +$100 |
+| Thắng round | +$300 |
+| Thua round | +$200 |
 | Trần ví | $750 |
 
 ## 3.6. Cửa hàng — 5 vật phẩm
@@ -353,7 +357,7 @@ Slider Master / BGM / SFX · Slider độ nhạy chuột · Dropdown độ phân
 
 ## 8.1. Giữ nguyên — phần cốt lõi không đổi
 
-Găng tay từ tính hai cực · không súng đạn · hút/đẩy theo dấu điện tích · cận chiến theo luật khắc chế màu găng · 4 loại vật thể · FPS 2v2 · Sky Arena đảo bay · vòng đấu + Buy Phase 15s + rào chắn · kinh tế $150/$100, trần $750 · 5 vật phẩm Shop · Radial Menu không slow-motion · thắng chung cuộc 5 round cách biệt 2 · Photon Fusion 2 Host Mode region asia · Settings UI · các NFR.
+Găng tay từ tính hai cực · không súng đạn · hút/đẩy theo dấu điện tích · cận chiến theo luật khắc chế màu găng · 4 loại vật thể · FPS 2v2 · Sky Arena đảo bay · vòng đấu + Buy Phase 15s + rào chắn · kinh tế $300/$200, trần $750 · 5 vật phẩm Shop · Radial Menu không slow-motion · thắng chung cuộc 5 round cách biệt 2 · Photon Fusion 2 Host Mode region asia · Settings UI · các NFR.
 
 **→ Bản sắc của game không đổi.**
 

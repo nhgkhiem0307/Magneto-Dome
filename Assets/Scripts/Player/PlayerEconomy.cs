@@ -16,11 +16,11 @@ public class PlayerEconomy : NetworkBehaviour
     [Tooltip("Trần ví. Thừa ra bao nhiêu cũng bị cắt bỏ.")]
     public int moneyCap = 750;
 
-    [Tooltip("Thưởng cho đội thắng round.")]
-    public int winReward = 150;
+    [Tooltip("Thưởng cho đội thắng round. x2 ngày 19/10 (150 -> 300).")]
+    public int winReward = 300;
 
-    [Tooltip("Thưởng an ủi cho đội thua round.")]
-    public int loseReward = 100;
+    [Tooltip("Thưởng an ủi cho đội thua round. x2 ngày 19/10 (100 -> 200).")]
+    public int loseReward = 200;
 
     [Networked, OnChangedRender(nameof(OnMoneyChanged))]
     public int Money { get; set; }
