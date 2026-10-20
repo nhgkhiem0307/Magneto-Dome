@@ -142,9 +142,11 @@ public class ControlsOverlay : MonoBehaviour
 
         Section("MAGNETIC GLOVE");
         Row("1  /  2", "Switch charge:  <color=#FF5555><b>POSITIVE</b></color>  /  <color=#5599FF><b>NEGATIVE</b></color>");
-        Row("Left Click", "Neutral object → charge it.  Already charged → " +
-                          "<b>same</b> charge pushes it away, <b>opposite</b> pulls it to your hand");
-        Row("Right Click", "Empty hands → melee punch.  Holding an object → throw it");
+        // 19/10: luật cùng dấu đẩy / trái dấu hút áp cả cho vật đang cầm - xem PlayerMagnetController
+        Row("Left Click", "Neutral object → charge it, even in your hand.  Charged → " +
+                          "<b>same</b> charge pushes it away, <b>opposite</b> pulls it to you");
+        Row("Right Click", "Empty hands → melee punch.  Holding an object → throw it, " +
+                           "<b>same</b> charge as your glove only");
         Row(Name(magnet != null ? magnet.tossKey : KeyCode.V), "Toss the held object straight up");
 
         Section("ITEMS");

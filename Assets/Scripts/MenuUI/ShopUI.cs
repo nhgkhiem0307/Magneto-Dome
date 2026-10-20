@@ -31,6 +31,9 @@ public class ShopUI : MonoBehaviour
 
     private bool _isOpen;
 
+    /// <summary>Shop đang mở trên máy này - HUD dùng để ẩn nhãn pha + đồng hồ nằm sau tiêu đề Shop (20/10).</summary>
+    public static bool IsOpen { get; private set; }
+
     void Start()
     {
         if (shopPanel != null) shopPanel.SetActive(false);
@@ -40,7 +43,11 @@ public class ShopUI : MonoBehaviour
     // Đăng ký ở OnEnable/OnDisable chứ không ở Start, để object bị huỷ lúc đổi scene
     // thì tự huỷ đăng ký theo, không để lại lời gọi tới một object đã chết.
     void OnEnable() { SettingsUI.Opened += OnSettingsOpened; }
-    void OnDisable() { SettingsUI.Opened -= OnSettingsOpened; }
+    void OnDisable()
+    {
+        SettingsUI.Opened -= OnSettingsOpened;
+        IsOpen = false;   // biến tĩnh sống qua đổi scene - rời trận lúc Shop đang mở thì phải hạ cờ
+    }
 
     private void OnSettingsOpened()
     {
@@ -84,6 +91,7 @@ public class ShopUI : MonoBehaviour
     private void OpenShop(ShopManager shop)
     {
         _isOpen = true;
+        IsOpen = true;
         if (shopPanel != null) shopPanel.SetActive(true);
 
         // Xin thả chuột ra mới bấm nút được. Đăng ký qua CursorLock thay vì tự ghi,
@@ -96,6 +104,7 @@ public class ShopUI : MonoBehaviour
     private void CloseShop()
     {
         _isOpen = false;
+        IsOpen = false;
         if (shopPanel != null) shopPanel.SetActive(false);
 
         CursorLock.Release(this);
@@ -151,7 +160,9 @@ public class ShopUI : MonoBehaviour
         if (timerText != null && gmAlive)
         {
             float? remaining = gm.PhaseTimer.RemainingTime(gm.Runner);
-            timerText.text = remaining.HasValue ? $"{Mathf.CeilToInt(remaining.Value)}s" : "";
+            // Dòng phụ đề ngay dưới "GEAR SHOP" (20/10): gộp nhãn pha + giây còn lại vào một dòng,
+            // thay cho nhãn pha và đồng hồ của HUD - hai thứ đó bị HUD ẩn đi khi Shop mở
+            timerText.text = remaining.HasValue ? $"BUYING PHASE  ·  {Mathf.CeilToInt(remaining.Value)}s" : "BUYING PHASE";
         }
     }
 

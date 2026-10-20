@@ -212340,7 +212340,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 2V2 MAGNETIC ARENA
+  m_text: "1V1 · 2V2 MAGNETIC ARENA"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 1861418efbbc30540978804c91c21cc0, type: 2}
   m_sharedMaterial: {fileID: -9066180409889594504, guid: 1861418efbbc30540978804c91c21cc0, type: 2}
@@ -340699,7 +340699,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: 2V2 MAGNETIC ARENA
+  m_text: "1V1 · 2V2 MAGNETIC ARENA"
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 1861418efbbc30540978804c91c21cc0, type: 2}
   m_sharedMaterial: {fileID: -9066180409889594504, guid: 1861418efbbc30540978804c91c21cc0, type: 2}

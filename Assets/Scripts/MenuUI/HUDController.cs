@@ -212,7 +212,7 @@ public class HUDController : MonoBehaviour
 
         UpdateHealthAndArmor(displayed, localPlayer);
         UpdatePolarity(displayed);
-        UpdateCrosshair(localPlayer);
+        UpdateCrosshair(localPlayer, gm);
         UpdateEconomyAndAmmo(displayed);
         UpdateEnergyDrink(displayed);
         UpdateRoundInfo(gm);
@@ -298,15 +298,21 @@ public class HUDController : MonoBehaviour
 
     // --- TÂM NGẮM ---
 
-    private void UpdateCrosshair(FPSMovement player)
+    private void UpdateCrosshair(FPSMovement player, GameManager gm)
     {
-        if (crosshair == null) return;
-
         PlayerHealth health = player.GetComponent<PlayerHealth>();
         bool alive = health == null || health.IsAlive;
+        bool matchOver = gm != null && gm.Phase == GameManager.GamePhase.MatchEnd;
 
-        // Ẩn tâm ngắm khi chết, hoặc khi đang mở giao diện (lúc đó chuột dùng để bấm nút)
-        crosshair.SetActive(alive && !NetworkRunnerHandler.IsCursorFree());
+        // Ẩn tâm ngắm khi chết, khi đang mở giao diện (lúc đó chuột dùng để bấm nút), và khi
+        // hết trận (bảng VICTORY / DEFEAT nằm đúng giữa màn hình)
+        bool show = alive && !matchOver && !NetworkRunnerHandler.IsCursorFree();
+        if (crosshair != null && crosshair.activeSelf != show) crosshair.SetActive(show);
+
+        // Ô cực găng nằm ngay dưới tâm ngắm nên ẩn THEO CÙNG LUẬT (sửa 20/10). Trước đây nó
+        // luôn hiện: đè lên vòng đếm hồi sinh của màn chết, lên Shop và bảng kết thúc trận.
+        if (polarityIndicator != null && polarityIndicator.gameObject.activeSelf != show)
+            polarityIndicator.gameObject.SetActive(show);
     }
 
     // --- TIỀN & ĐẠN ---
@@ -495,7 +501,9 @@ public class HUDController : MonoBehaviour
         // Các pha khác vẫn hiện bình thường - lúc đó nhãn mới có việc để làm.
         if (phaseText != null)
         {
-            bool showPhase = gm.Phase != GameManager.GamePhase.Combat;
+            // Shop mở thì Shop tự hiện "BUYING PHASE · 11s" ngay dưới tiêu đề - nhãn của HUD nằm
+            // đúng sau tiêu đề đó, lộ qua nền trong suốt thành chữ chồng chữ (sửa 20/10)
+            bool showPhase = gm.Phase != GameManager.GamePhase.Combat && !ShopUI.IsOpen;
 
             if (phaseText.gameObject.activeSelf != showPhase)
             {
@@ -503,6 +511,13 @@ public class HUDController : MonoBehaviour
             }
 
             if (showPhase) phaseText.text = GetPhaseName(gm.Phase);
+        }
+
+        // Ô đồng hồ (cả khung nền) cũng nhường chỗ cho Shop, cùng lý do như nhãn pha ở trên
+        if (timerText != null && timerText.transform.parent != null && timerText.transform.parent.name == "Timer")
+        {
+            GameObject timerBox = timerText.transform.parent.gameObject;
+            if (timerBox.activeSelf == ShopUI.IsOpen) timerBox.SetActive(!ShopUI.IsOpen);
         }
 
         if (timerText != null)

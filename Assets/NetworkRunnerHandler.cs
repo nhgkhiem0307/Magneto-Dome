@@ -547,6 +547,42 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
             var result = await _networkRunner.StartGame(args);
 
+            // VÀO PHÒNG CỦA NGƯỜI KHÁC BỊ TỪ CHỐI -> TỰ MỞ PHÒNG MỚI (20/10).
+            //
+            // Bị từ chối có thể vì: mình từng bị kick khỏi phòng đó (chủ phòng giữ sổ đen),
+            // phòng vừa đầy, hoặc trận vừa bắt đầu. Trước đây chỉ báo "Could not join a match!"
+            // rồi thôi - bấm lại lại chọn trúng đúng phòng đó, kẹt mãi. Giờ ghi tên phòng vào
+            // danh sách né rồi mở phòng riêng luôn, người chơi không phải bấm lại.
+            if (!result.Ok && target != null)
+            {
+                Debug.LogWarning($"[MẠNG] Phòng {target.Name} từ chối ({result.ShutdownReason}) - tự mở phòng mới.");
+                _avoidSessions.Add(target.Name);
+
+                // Runner vừa thất bại không dùng lại được - vứt đi, dựng cái mới.
+                // Gỡ callback TRƯỚC khi huỷ: OnShutdown / OnConnectFailed của Runner cũ có thể tới
+                // trễ, lúc Runner mới đã mở phòng - nó sẽ đá người chơi về menu chính giữa chừng.
+                if (_networkRunner != null)
+                {
+                    _networkRunner.RemoveCallbacks(this);
+                    Destroy(_networkRunner.gameObject);
+                    _networkRunner = null;
+                }
+                _runnerIsDown = false;   // cờ này có thể đã bị OnShutdown của Runner cũ bật lên
+                EnsureRunnerExists();
+
+                _currentRoomCode = GenerateRoomCode();
+                result = await _networkRunner.StartGame(new StartGameArgs()
+                {
+                    GameMode = GameMode.Host,
+                    SessionName = _currentRoomCode,
+                    PlayerCount = 4,
+                    IsVisible = true,
+                    IsOpen = true,
+                    SessionProperties = ModeProperty(teamSize),
+                    SceneManager = _networkRunner.GetComponent<NetworkSceneManagerDefault>()
+                });
+            }
+
             if (!result.Ok)
             {
                 ClearRoomCode();
@@ -554,6 +590,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
                 return;
             }
 
+            SetErrorMessage("");   // xoá câu báo lỗi Runner cũ có thể đã để lại
             ShowPanel(roomLobbyPanel);
             UpdateLobbyUI();
         }
@@ -621,6 +658,9 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             if (SessionTeamSize(session) != teamSize) continue;
             if (session.PlayerCount >= SessionCapacity(session)) continue;
 
+            // Phòng mình từng bị kick / bị từ chối - vào lại chắc chắn bị chặn
+            if (_avoidSessions.Contains(session.Name)) continue;
+
             return session;
         }
 
@@ -686,6 +726,11 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             if (await EnsureInLobby())
             {
                 ShowPanel(roomListPanel);
+
+                // Chưa có danh sách nào về thì báo đang tìm, đừng để khung trống trơn
+                bool any = false;
+                foreach (SessionInfo s in _cachedSessions) if (s != null && s.IsVisible) { any = true; break; }
+                SetRoomListEmptyState(any ? 0 : (_sessionListReceived ? 2 : 1));
             }
             else
             {
@@ -1055,6 +1100,12 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     /// </summary>
     private readonly HashSet<string> _kickedTokens = new HashSet<string>();
 
+    // Phía NGƯỜI BỊ KICK: tên các phòng mình đã bị kick hoặc bị từ chối, để Ghép Trận né ra
+    // (20/10). Khác _kickedTokens (sổ đen của chủ phòng). Cố ý KHÔNG xoá trong
+    // EnsureRunnerExists - phải sống qua nhiều lần vào/ra phòng; mất khi tắt game là đủ, vì
+    // sổ đen của chủ phòng cũng chỉ sống tới lúc phòng đó đóng.
+    private readonly HashSet<string> _avoidSessions = new HashSet<string>();
+
     private static Dictionary<string, SessionProperty> ModeProperty(int teamSize)
     {
         return new Dictionary<string, SessionProperty> { { PropTeamSize, teamSize } };
@@ -1092,6 +1143,10 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     {
         if (_kickedByHost) return;
         _kickedByHost = true;
+
+        // Nhớ phòng này để Ghép Trận không dắt mình quay lại đó. Ghi TRƯỚC khi rời phòng,
+        // vì rời phòng xoá mất _currentRoomCode.
+        if (!string.IsNullOrEmpty(_currentRoomCode)) _avoidSessions.Add(_currentRoomCode);
         Debug.LogWarning("[MẠNG] Bị chủ phòng kick.");
         OnClickLeaveRoom();
     }
@@ -1265,8 +1320,86 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
     {
         if (statusErrorText == null) return;
 
+        StyleStatusText();
+
+        bool show = !string.IsNullOrEmpty(message);
         statusErrorText.text = message;
-        statusErrorText.gameObject.SetActive(!string.IsNullOrEmpty(message));
+        statusErrorText.gameObject.SetActive(show);
+
+        // Khung nền ôm vừa chữ: rộng theo độ dài câu, thêm lề hai bên
+        if (_statusBg != null)
+        {
+            _statusBg.gameObject.SetActive(show);
+            if (show)
+            {
+                float w = statusErrorText.GetPreferredValues(message).x;
+                _statusBg.sizeDelta = new Vector2(Mathf.Min(w + 84f, 1100f), 64f);
+            }
+        }
+    }
+
+    // ---- Giao diện dòng thông báo ở menu (20/10) ----
+    //
+    // Trước đây: chữ ĐỎ THUẦN (#FF0000), font mặc định của Unity, nằm thẳng trên nền mây sáng ở
+    // đáy màn hình - đọc rất khó, nhìn như lỗi chứ không như thông báo. Giờ thành một "viên"
+    // thông báo: nền tối bo góc vát (sprite thẻ của phòng chờ), vạch màu san hô bên trái, chữ
+    // Poppins đậm màu san hô - cùng bộ màu với dòng thông báo trong phòng chờ (LobbyView).
+    // Dựng bằng code lúc chạy nên không phải sửa scene; mượn font + sprite từ LobbyView.
+
+    private RectTransform _statusBg;
+    private bool _statusStyled;
+
+    private void StyleStatusText()
+    {
+        if (_statusStyled || statusErrorText == null) return;
+        _statusStyled = true;
+
+        LobbyView lobby = FindFirstObjectByType<LobbyView>(FindObjectsInactive.Include);
+
+        statusErrorText.color = new Color32(0xFF, 0x8A, 0x80, 0xFF);
+        statusErrorText.fontSize = 24f;
+        statusErrorText.textWrappingMode = TextWrappingModes.NoWrap;
+        statusErrorText.alignment = TextAlignmentOptions.Center;
+        if (lobby != null && lobby.fontBold != null) statusErrorText.font = lobby.fontBold;
+
+        RectTransform textRt = statusErrorText.rectTransform;
+
+        GameObject bgObj = new GameObject("StatusBg", typeof(RectTransform));
+        bgObj.transform.SetParent(textRt.parent, false);
+        bgObj.transform.SetSiblingIndex(textRt.GetSiblingIndex());   // nằm NGAY SAU chữ khi vẽ
+        _statusBg = (RectTransform)bgObj.transform;
+        _statusBg.anchorMin = textRt.anchorMin;
+        _statusBg.anchorMax = textRt.anchorMax;
+        _statusBg.pivot = new Vector2(0.5f, 0.5f);
+        _statusBg.anchoredPosition = textRt.anchoredPosition;
+
+        Image bg = bgObj.AddComponent<Image>();
+        bg.raycastTarget = false;
+        bg.color = new Color(0.62f, 0.68f, 0.9f, 0.95f);   // nhân với màu xám của sprite -> xanh than
+        if (lobby != null && lobby.cardSprite != null)
+        {
+            bg.sprite = lobby.cardSprite;
+            bg.type = Image.Type.Sliced;
+            // Ảnh thẻ có ~13px viền TRONG SUỐT quanh hình. Để nguyên thì khung trông bé tí so với
+            // chữ; nhân 2 thì viền + góc vát thu còn một nửa, khung hiện gần đủ kích thước đặt
+            bg.pixelsPerUnitMultiplier = 2f;
+        }
+        else bg.color = new Color(0.05f, 0.08f, 0.14f, 0.85f);
+
+        // Vạch san hô bên trái
+        GameObject bar = new GameObject("Accent", typeof(RectTransform));
+        bar.transform.SetParent(_statusBg, false);
+        RectTransform barRt = (RectTransform)bar.transform;
+        barRt.anchorMin = new Vector2(0f, 0.5f);
+        barRt.anchorMax = new Vector2(0f, 0.5f);
+        barRt.pivot = new Vector2(0f, 0.5f);
+        barRt.anchoredPosition = new Vector2(20f, 0f);
+        barRt.sizeDelta = new Vector2(4f, 28f);
+        Image barImg = bar.AddComponent<Image>();
+        barImg.raycastTarget = false;
+        barImg.color = new Color32(0xFF, 0x6B, 0x63, 0xFF);
+
+        bgObj.SetActive(false);
     }
 
     // --- FUSION CALLBACKS ---
@@ -1689,6 +1822,7 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
             Destroy(child.gameObject);
         }
 
+        int shown = 0;
         foreach (SessionInfo session in sessionList)
         {
             // IsVisible=false là phòng đã khoá (trận đã bắt đầu) - xem OnClickStartMatch().
@@ -1696,7 +1830,85 @@ public class NetworkRunnerHandler : MonoBehaviour, INetworkRunnerCallbacks
 
             RoomItemUI item = Instantiate(roomItemPrefab, roomListContent);
             item.Setup(session, this);
+            shown++;
         }
+
+        SetRoomListEmptyState(shown > 0 ? 0 : 2);
+    }
+
+    // ---- Room List trống (20/10) ----
+    //
+    // Trước đây không có phòng nào thì chỉ thấy một khung tối trống trơn - người chơi không
+    // biết là đang tải, là lỗi, hay là thật sự không có ai. Giờ khung có chữ giải thích.
+    // Đặt trong Scroll View chứ KHÔNG trong Content: Content bị xoá sạch mỗi lần danh sách về.
+
+    private GameObject _roomListEmpty;
+    private TMP_Text _roomListEmptyTitle, _roomListEmptyHint;
+
+    /// <summary>0 = có phòng (ẩn chữ), 1 = đang tìm, 2 = không có phòng nào.</summary>
+    private void SetRoomListEmptyState(int state)
+    {
+        if (roomListContent == null) return;
+
+        if (_roomListEmpty == null)
+        {
+            if (state == 0) return;
+            BuildRoomListEmpty();
+            if (_roomListEmpty == null) return;
+        }
+
+        _roomListEmpty.SetActive(state != 0);
+        if (state == 1)
+        {
+            _roomListEmptyTitle.text = "SEARCHING FOR ROOMS...";
+            _roomListEmptyHint.text = "";
+        }
+        else if (state == 2)
+        {
+            _roomListEmptyTitle.text = "NO OPEN ROOMS";
+            _roomListEmptyHint.text = "Try Global Matchmaking  ·  custom rooms are joined by Room ID";
+        }
+    }
+
+    private void BuildRoomListEmpty()
+    {
+        // Content -> Viewport -> Scroll View
+        Transform scroll = roomListContent.parent != null ? roomListContent.parent.parent : null;
+        if (scroll == null) return;
+
+        LobbyView lobby = FindFirstObjectByType<LobbyView>(FindObjectsInactive.Include);
+
+        _roomListEmpty = new GameObject("EmptyState", typeof(RectTransform));
+        _roomListEmpty.transform.SetParent(scroll, false);
+        RectTransform rt = (RectTransform)_roomListEmpty.transform;
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+
+        _roomListEmptyTitle = EmptyStateText("Title", lobby != null ? lobby.fontBold : null, 30f,
+            new Color(0.86f, 0.9f, 0.96f, 0.9f), 22f, 6f);
+        _roomListEmptyHint = EmptyStateText("Hint", lobby != null ? lobby.fontMedium : null, 20f,
+            new Color(0.56f, 0.64f, 0.75f, 1f), -22f, 0f);
+    }
+
+    private TMP_Text EmptyStateText(string name, TMP_FontAsset font, float size, Color color, float y, float spacing)
+    {
+        GameObject go = new GameObject(name, typeof(RectTransform));
+        go.transform.SetParent(_roomListEmpty.transform, false);
+        RectTransform rt = (RectTransform)go.transform;
+        rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = new Vector2(0f, y);
+        rt.sizeDelta = new Vector2(760f, 40f);
+
+        TextMeshProUGUI t = go.AddComponent<TextMeshProUGUI>();
+        if (font != null) t.font = font;
+        t.fontSize = size;
+        t.color = color;
+        t.characterSpacing = spacing;
+        t.alignment = TextAlignmentOptions.Center;
+        t.textWrappingMode = TextWrappingModes.NoWrap;
+        t.raycastTarget = false;
+        return t;
     }
     public void OnCustomAuthenticationResponse(NetworkRunner runner, Dictionary<string, object> data) { }
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }

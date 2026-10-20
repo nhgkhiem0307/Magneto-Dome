@@ -164,6 +164,33 @@
 >   TNT: bán kính tự nổ 4 → **5.2m** (sửa cả 38 override trong TestScene + 4 prefab cây), lực hất người ra xa
 >   tâm nổ 30 → **180** (giảm còn 40% ở mép) — lực cũ quá yếu nên nhìn như "nổ không đẩy". Đã cập nhật
 >   CLAUDE, GDD, BALANCE, báo cáo (thêm đoạn ở mục 2.2.1), slide 6.
+> · **Sửa lỗi bị kick xong Ghép Trận lại dắt về đúng phòng đó (20/10, sau bản build):** máy người bị kick nhớ
+>   tên phòng để né; Ghép Trận bị phòng nào từ chối thì tự mở phòng mới thay vì báo lỗi. Chỉ sửa
+>   `NetworkRunnerHandler.cs`. Đã build lại `Build_Nop` + zip 214MB (20/10, có bản sửa này).
+> · **Claude chạy thử bản build bằng chuột/phím thật, 2 bản cùng lúc (20/10):** ĐẠT — màn tên, menu, Settings
+>   (Esc đóng đúng từng lớp), Quit Game, chọn 1v1/2v2, Ghép Trận, Tạo phòng, vào phòng bằng mã, phòng chờ
+>   (1V1/2V2, Switch Team, KICK hai lần + thông báo), **bị kick rồi Ghép Trận lại → tự mở phòng mới**, vào trận,
+>   HUD, rào, chiếm khu, nạp/hút/**bắn trái dấu bị từ chối (viền đỏ) / cùng dấu bắn được**, chết (màn FELL OFF),
+>   Shop mua được, trần ví $750, tiền thưởng +$300, Nước tăng lực (vệt tốc độ + đồng hồ 15s), Radial, Leave match
+>   (Confirm (3)) → MATCH CANCELLED, ROUND WON/LOST, VICTORY/DEFEAT 5-0.
+>   **LỖI GIAO DIỆN TÌM THẤY** *(đã sửa 1, 2, 4, 5, 7, 8, 9 cùng ngày — xem mục ngay dưới; còn #3, #6)*: (1) ô tâm ngắm điện tích (hình vuông +/−) vẫn vẽ đè lên màn chết, màn
+>   kết thúc trận và Shop — che số đếm hồi sinh; (2) ô đầu tiên trong Shop (Giáp) **không có tên**; (3) chữ thông
+>   tin vật đang ngắm ("NEGATIVE (−)", "HEAVY") đè lên chữ "ZONE NEUTRAL"; (4) bảng hướng dẫn F1 còn ghi chuột phải
+>   "ném vật" — chưa theo luật cùng dấu 19/10; (5) chữ "BUYING PHASE" lòi ra dưới tiêu đề "GEAR SHOP"; (6) ô
+>   Resolution ghi 2560x1440 khi cửa sổ là 1280x720; (7) dòng "You were kicked…" đỏ sẫm trên nền sáng, khó đọc;
+>   (8) Room List trống không có dòng "No rooms"; (9) logo menu vẫn ghi "2V2 MAGNETIC ARENA" dù đã có 1v1.
+> · **Đã sửa 7 lỗi giao diện (20/10), kiểm lại bằng chạy thử bản build — ĐẠT:**
+>   (1) `HUDController.UpdateCrosshair`: ô cực găng ẩn THEO CÙNG LUẬT với tâm ngắm (chết / đang mở bảng / hết trận).
+>   (2) `Items/Type/Shield Armor.asset`: `itemName` bị bỏ trống → "Shield Armor".
+>   (4) `ControlsOverlay`: chuột trái/phải ghi đúng luật cùng dấu 19/10.
+>   (5) Shop: phụ đề dưới "GEAR SHOP" thành đồng hồ sống **"BUYING PHASE · 13s"** một dòng (gán vào ô `ShopUI.timerText`
+>   vốn để trống); `ShopUI.IsOpen` mới → HUD ẩn nhãn pha + ô đồng hồ khi Shop mở; dòng "Click to buy · B to close"
+>   dời vào đáy khung Shop, sáng hơn.
+>   (7) Dòng báo lỗi ở menu (`SetErrorMessage`) thành "viên" thông báo: nền tối góc vát (sprite thẻ phòng chờ), vạch san
+>   hô, chữ Poppins đậm màu san hô — dựng bằng code (`StyleStatusText`), không sửa scene.
+>   (8) Room List: "SEARCHING FOR ROOMS..." lúc chờ, "NO OPEN ROOMS" + gợi ý khi trống (`SetRoomListEmptyState`).
+>   (9) Logo menu (2 chỗ trong MenuScene): "1V1 · 2V2 MAGNETIC ARENA".
+>   Đã build lại `Build_Nop` + zip 214MB (20/10, có đủ 7 bản sửa).
 > · **Đã build lại `Build_Nop` + zip 214MB (20/10)** — có luật bắn theo điện tích, TNT mới, tiền thưởng x2. Đã push.
 > · **POSTER XONG (19/10):** `NOP_BAI/Poster_MagnetoDome_A1.pdf` + `.png`, A1 dọc 200 dpi (in được A0).
 >   Ảnh nền **render thẳng từ game** (TestScene, model nhân vật thật, hiệu ứng `CombatVFX` thật): đỏ đấm văng

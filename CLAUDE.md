@@ -180,6 +180,11 @@ thẻ của người khác để chuyển họ sang đội kia (khi đội kia c
 - **Người bị kick không vào lại được phòng đó** (sổ đen theo `ConnectionToken` của Fusion, xoá khi mở phòng
   mới). Thẻ nhận dạng sinh ngẫu nhiên **mỗi lần mở game**, cố ý KHÔNG lưu `PlayerPrefs` — các clone ParrelSync
   trên cùng máy dùng chung PlayerPrefs, lưu vào đó thì kick một clone là cấm luôn mọi clone.
+- **Phía người bị kick** *(sửa 20/10)*: máy họ nhớ tên phòng vừa bị kick (`NetworkRunnerHandler._avoidSessions`,
+  sống tới lúc tắt game) → Ghép Trận né phòng đó. Thêm lớp dự phòng: Ghép Trận vào phòng người khác mà **bị từ
+  chối vì bất kỳ lý do gì** (sổ đen, vừa đầy, trận vừa bắt đầu) thì ghi tên phòng vào danh sách né rồi **tự mở
+  phòng mới**, không báo lỗi. Trước đây bấm lại cứ chọn trúng phòng cũ và kẹt "Could not join a match!".
+  Runner thất bại phải `RemoveCallbacks(this)` trước khi huỷ, kẻo `OnShutdown` tới trễ đá người chơi khỏi phòng mới.
 - Phòng chờ báo một dòng khi có người vào / ra / bị kick, khi chủ phòng đổi chế độ (Client thấy), và khi
   bấm Switch Team mà đội kia đầy. Dưới nút Start có gợi ý "Teams are uneven" / "You're alone" — **chỉ nhắc,
   không chặn**.
@@ -793,6 +798,12 @@ cả viền và bảng tên địch lộ xuyên rào. Bài học: với vật tr
 không đủ, phải ghi chiều sâu. Gặp vật trong suốt "nhảy lên trước" bất chợt thì nghi thứ tự vẽ trước tiên.
 → Cùng bẫy trong **hệ hạt** (nổ TNT 17/10): khói (che sáng) vẽ đè lên trước lửa → lỗ tối giữa quả cầu lửa.
 Chữa bằng `ParticleSystemRenderer.sortingFudge`: số **nhỏ hơn** = vẽ sau = nằm trên (lửa -20, khói +20).
+
+**18. Ảnh UI kiểu Sliced có viền TRONG SUỐT → khung hiện bé hơn kích thước đặt** *(gặp 20/10)*
+Sprite thẻ phòng chờ (`lobby-ui-kit/sprites/card.png`) có ~13px trong suốt quanh hình, mà viền slice là 32px. Đặt khung
+cao 54 thì phần nhìn thấy chỉ còn ~32 — chữ tràn ra ngoài khung, vạch trang trí nằm ngoài mép.
+→ Cách chữa: `Image.pixelsPerUnitMultiplier = 2` (viền + góc vát thu còn một nửa) và đặt khung cao hơn. Dùng lại sprite
+này ở đâu thì nhớ: kích thước đặt ≠ kích thước nhìn thấy.
 
 **15. `line` là từ khoá dành riêng của HLSL — đừng đặt làm tên biến trong shader** *(gặp 14/10)*
 Báo lỗi khó hiểu: `syntax error: unexpected token 'line'`. Đó là kiểu dữ liệu của geometry shader.

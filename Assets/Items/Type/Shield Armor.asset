@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 68f26f4c595344340b24b50677337208, type: 3}
   m_Name: Shield Armor
   m_EditorClassIdentifier: Assembly-CSharp::ItemData
-  itemName: 
+  itemName: Shield Armor
   itemIcon: {fileID: 21300000, guid: b5d27c936d0272745b9ea5b630f11ea8, type: 3}
   maxStackSize: 10
   itemType: 2
