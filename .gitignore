@@ -104,3 +104,8 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Sinh tự động / bản nén — không đưa vào git (26/10)
+TrailerBuilder/edit/__pycache__/
+TrailerBuilder/edit/sfx/
+NOP_BAI.zip

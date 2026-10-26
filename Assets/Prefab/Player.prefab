@@ -5568,8 +5568,8 @@ MonoBehaviour:
   hitChargeForFullEffect: 35
   hitMinStrength: 0.3
   hitShakeTrauma: 0.55
-  armorPerPurchase: 10
-  maxArmor: 30
+  armorPerPurchase: 15
+  maxArmor: 45
   bandageMaxDischarge: 20
   bandageChargeRatio: 0.5
   _CurrentArmor: 0

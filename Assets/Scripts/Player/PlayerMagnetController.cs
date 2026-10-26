@@ -580,7 +580,10 @@ public class PlayerMagnetController : NetworkBehaviour
             //
             // (16/10) Nâng TỚI pushLiftOffset tính từ mặt đất, không cộng mù quáng: vật nằm sát đất
             // thì được nhấc đủ 0.5m, vật đang nảy trên không cao sẵn thì không bị giật lên thêm.
-            float lift = Mathf.Max(0f, pushLiftOffset - GroundGap(magObj));
+            //
+            // (25/10) Vật nằm LÚN trong đất cũng phải được nhấc ra HẲN khỏi đất trước khi đặt vận tốc,
+            // không thì lực gỡ kẹt của PhysX làm nó nảy thẳng lên / văng lệch. Xem LiftToClearGround.
+            float lift = LiftToClearGround(magObj, pushLiftOffset);
             if (lift > 0f) targetRb.position += Vector3.up * lift;
 
             // HƯỚNG ĐẨY: NGANG + CHẾCH LÊN MỘT GÓC CỐ ĐỊNH (16/10, chủ project chốt).
@@ -1050,33 +1053,182 @@ public class PlayerMagnetController : NetworkBehaviour
     /// Tung lên thì lực bé nên lỗi hiện ra rõ mồn một.
     /// </summary>
     /// <summary>
-    /// Khoảng hở (mét) từ điểm thấp nhất của vật tới mặt đất ngay dưới nó. Dò tối đa 5m —
-    /// không thấy gì (đang bay cao, đang rơi khỏi đảo) thì coi như hở 5m, tức là không cần nâng.
+    /// Cần nhấc vật lên bao nhiêu mét để ĐÁY vật cao hơn mặt đất ngay dưới nó đúng `clearance`
+    /// VÀ không còn chồng lấn vào đất / vật khác. Vật đã cao sẵn thì trả 0 (nâng TỚI, không cộng thêm).
+    ///
+    /// SỬA 25/10 — lỗi "đẩy đá đang nằm trên đất thì đá nảy thẳng lên / văng góc ngẫu nhiên":
+    /// bản cũ (GroundGap) bắn tia dò TỪ ĐÁY VẬT XUỐNG. Đá nằm LÚN vào đất (đá rải sẵn trên map,
+    /// đá rơi rồi lún vào địa hình gồ ghề) thì đáy nằm DƯỚI mặt đất -> tia xuất phát từ bên trong đất,
+    /// mà tia bắt đầu bên trong một collider thì không bắt được collider đó -> báo "hở 5m" -> KHÔNG NHẤC.
+    /// Đá bị đặt vận tốc ngang 125 m/s trong lúc còn ghim dưới đất, PhysX bắn lực gỡ kẹt (depenetration,
+    /// cùng họ với bẫy #8) theo hướng tuỳ chỗ chồng lấn -> nảy thẳng lên hoặc văng lệch.
+    ///
+    /// Cách mới, hai lớp:
+    ///   1. Dò mặt đất TỪ TRÊN XUỐNG tại 5 điểm trong hình chiếu PHẦN ĐÁY của vật (giữa + 4 góc thu
+    ///      vào 70%). Tia xuất phát trên đỉnh vật nên luôn ở NGOÀI đất, lún sâu cỡ nào cũng bắt được đất.
+    ///   2. Thử đặt vật ở chỗ mới bằng Physics.ComputePenetration: còn chồng lấn thì nhấc thêm từng nấc.
+    ///      Lo nốt các trường hợp hình dạng lồi lõm mà 5 tia không bắt hết.
     ///
     /// Đo đáy bằng bounds.min.y của collider là đủ chính xác ở đây: thứ cần biết là điểm THẤP
     /// NHẤT của vật, mà hộp bao theo trục thế giới luôn chạm đúng điểm đó (khác với việc đo cỡ vật
     /// — chỗ đó phải dùng GetBoundingRadius, xem bẫy #9).
     /// </summary>
-    private static float GroundGap(MagneticObject obj)
+    private static float LiftToClearGround(MagneticObject obj, float clearance)
     {
-        const float maxProbe = 5f;
-        float bottom = float.MaxValue;
-        foreach (Collider c in obj.GetComponentsInChildren<Collider>())
+        const float maxLift = 3f;     // chặn trần: dò nhầm gì đó cũng không bắn vật lên trời
+        const float stepLift = 0.15f; // mỗi nấc nhấc thêm ở lớp 2
+        const int maxSteps = 8;
+
+        Collider[] all = obj.GetComponentsInChildren<Collider>();
+        Bounds whole = default;
+        bool hasBounds = false;
+        foreach (Collider c in all)
         {
             if (c == null || !c.enabled || c.isTrigger) continue;
-            bottom = Mathf.Min(bottom, c.bounds.min.y);
+            if (hasBounds) whole.Encapsulate(c.bounds); else { whole = c.bounds; hasBounds = true; }
         }
-        if (bottom == float.MaxValue) return maxProbe;
+        if (!hasBounds) return 0f;
 
-        Vector3 from = obj.transform.position;
-        from.y = bottom + 0.05f;   // xuất phát nhích trên đáy một chút để tia không bắt đầu từ trong đất
-        float gap = maxProbe;
-        foreach (RaycastHit hit in Physics.RaycastAll(from, Vector3.down, maxProbe, ~0, QueryTriggerInteraction.Ignore))
+        // CHỈ XÉT PHẦN ĐÁY của vật: các collider chạm gần điểm thấp nhất. Cây có từ tính gồm khối
+        // THÂN + khối TÁN rộng 6m phía trên - dò dưới cả tán thì đỉnh tảng đá nằm dưới mép tán bị
+        // tưởng là "đất", cây bị nhấc thẳng lên trần 3m (test 25/10, Tree9_2). Thứ chạm đất là thân.
+        // Ngưỡng tối đa 0.6m tính từ điểm thấp nhất, KHÔNG theo tỉ lệ chiều cao: cây nghiêng 20° thì tán
+        // hạ thấp, ngưỡng "25% chiều cao" (~2.4m với cây) vẫn gom nhầm cả tán (test 150 lần ngẫu nhiên).
+        float baseTop = whole.min.y + Mathf.Clamp(whole.size.y * 0.25f, 0.15f, 0.6f);
+        var own = new System.Collections.Generic.List<Collider>();
+        Bounds b = default;
+        foreach (Collider c in all)
         {
-            if (hit.collider.transform.IsChildOf(obj.transform)) continue;   // bỏ qua chính nó
-            gap = Mathf.Min(gap, hit.distance - 0.05f);
+            if (c == null || !c.enabled || c.isTrigger || c.bounds.min.y > baseTop) continue;
+            if (own.Count > 0) b.Encapsulate(c.bounds); else b = c.bounds;
+            own.Add(c);
         }
-        return Mathf.Max(0f, gap);
+
+        // ---- Lớp 1: mặt đất dò từ trên xuống ----
+        // Tia xuất phát cao hơn đỉnh 1m: đá lún gần hết thân (mặt đất cao hơn cả đỉnh đá) vẫn bắt được đất.
+        float top = b.max.y + 1f;
+        float probeLength = top - b.min.y + 2f;
+        Vector3 e = b.extents * 0.7f;
+        float ground = float.MinValue, groundAnyProbe = float.MinValue;
+        for (int i = 0; i < 5; i++)
+        {
+            float ox = i == 0 ? 0f : (i % 2 == 1 ? e.x : -e.x);
+            float oz = i == 0 ? 0f : (i < 3 ? e.z : -e.z);
+            Vector3 origin = new Vector3(b.center.x + ox, top, b.center.z + oz);
+            RaycastHit[] hits = Physics.RaycastAll(origin, Vector3.down, probeLength, ~0, QueryTriggerInteraction.Ignore);
+
+            // Tia có THỰC SỰ đi qua thân vật không? Góc hộp bao của vật XOAY NGHIÊNG chìa ra ngoài hình
+            // thật của nó - tia ở đó rơi trúng đỉnh tảng đá BÊN CẠNH và bị tưởng là đất dưới vật
+            // (test 150 lần: Rock6C, Rock1B bị nhấc 2.3-2.6m vì vậy). Chỉ tin tia trúng phần đáy của vật.
+            bool throughSelf = false;
+            foreach (RaycastHit hit in hits) if (own.Contains(hit.collider)) { throughSelf = true; break; }
+
+            foreach (RaycastHit hit in hits)
+            {
+                if (IsIgnoredForLift(hit.collider, obj)) continue;
+                // Cao hơn đỉnh phần đáy quá 0.5m: không phải đất. KHÔNG lấy mốc "tâm vật" - đá nhỏ lún quá
+                // nửa thân thì mặt đất cao hơn tâm, bị bỏ sót (test 25/10, Rock6B lún 0.5m: không nhấc gì).
+                if (hit.point.y > b.max.y + 0.5f) continue;
+                groundAnyProbe = Mathf.Max(groundAnyProbe, hit.point.y);
+                if (throughSelf) ground = Mathf.Max(ground, hit.point.y);
+            }
+        }
+        // Phòng hờ: hình kỳ quặc tới mức không tia nào trúng thân vật thì dùng mọi tia như bản trước
+        if (ground == float.MinValue) ground = groundAnyProbe;
+        // Không có gì bên dưới (đang bay, đang ở ngoài mép đảo) thì không cần nhấc
+        if (ground == float.MinValue) return 0f;
+
+        float lift = Mathf.Clamp(ground + clearance - b.min.y, 0f, maxLift);
+        if (lift <= 0f) return 0f;   // đã cao sẵn - giữ nguyên ý "nâng TỚI" của bản cũ
+
+        // ---- Lớp 2: thử đặt ở chỗ mới, còn chồng lấn thì nhấc thêm ----
+        for (int step = 0; step < maxSteps && lift < maxLift; step++)
+        {
+            if (!OverlapsAfterLift(own, obj, lift, maxLift)) break;
+            lift = Mathf.Min(maxLift, lift + stepLift);
+        }
+
+        // ---- Lớp 3: đừng nhấc ĐÂM VÀO thứ phía TRÊN ----
+        // Khối va chạm tán cây Tree9 chỉ cách đất ~1.5m. Đá nằm dưới tán mà nhấc đủ 0.5m thì đỉnh đá lồng
+        // vào tán, PhysX ép đá xuống rồi đá nảy (test 150 lần: Rock1E dưới tán Tree9_4). Hạ độ nhấc tới khi
+        // hết chạm phía trên, nhưng không thấp hơn mức vừa đủ thoát khỏi đất.
+        float minLift = Mathf.Max(0f, ground + 0.05f - b.min.y);
+        while (lift > minLift && OverlapsAboveAfterLift(own, obj, lift))
+            lift = Mathf.Max(minLift, lift - stepLift);
+        return lift;
+    }
+
+    /// <summary>
+    /// Vật nhấc lên `lift` mét thì có lồng vào thứ gì phía TRÊN không (hướng tách ra chủ yếu đi xuống).
+    /// Xét phần đáy của vật (cùng danh sách với lớp 1, 2) - với đá thì là cả tảng.
+    /// </summary>
+    private static bool OverlapsAboveAfterLift(System.Collections.Generic.List<Collider> own, MagneticObject obj, float lift)
+    {
+        Vector3 up = Vector3.up * lift;
+        foreach (Collider c in own)
+        {
+            if (c == null || !c.enabled || c.isTrigger) continue;
+            Bounds cb = c.bounds;
+            foreach (Collider other in Physics.OverlapBox(cb.center + up, cb.extents, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore))
+            {
+                if (IsIgnoredForLift(other, obj)) continue;
+                if (Physics.ComputePenetration(c, c.transform.position + up, c.transform.rotation,
+                                               other, other.transform.position, other.transform.rotation,
+                                               out Vector3 dir, out float depth)
+                    && depth > 0.01f && dir.y < -0.5f)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>Collider không tính là "đất" khi nhấc vật: chính vật đó, người chơi, vùng trigger.</summary>
+    private static bool IsIgnoredForLift(Collider col, MagneticObject obj)
+    {
+        if (col == null || col.isTrigger) return true;
+        if (col.transform.IsChildOf(obj.transform)) return true;
+        if (col is CharacterController || col.CompareTag("Player")) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Vật nhấc lên thêm `lift` mét thì có còn lồng vào collider nào không (bỏ qua người chơi).
+    /// Thử bằng ComputePenetration với tư thế GIẢ ĐỊNH, không phải dời vật thật đi rồi đo.
+    /// Collider của vật có Rigidbody luôn là convex nên hàm này dùng được với mọi kiểu đất.
+    ///
+    /// Chỉ tính thứ nằm BÊN DƯỚI, tức là thứ THOÁT ĐƯỢC bằng cách nhấc lên: nhấc tới tận trần
+    /// `maxLift` mà vẫn chồng lấn thì đó là tường / thân cây / rào chắn đứng cạnh - nhấc bao nhiêu
+    /// cũng không gỡ được, bỏ qua. (Test 25/10: thiếu điều kiện này thì đá nằm sát rào chắn pha
+    /// mua đồ bị nhấc thẳng lên trần 3m.)
+    /// </summary>
+    private static bool OverlapsAfterLift(System.Collections.Generic.List<Collider> own, MagneticObject obj, float lift, float maxLift)
+    {
+        Vector3 up = Vector3.up * lift;
+        Vector3 top = Vector3.up * maxLift;
+        foreach (Collider c in own)
+        {
+            if (c == null || !c.enabled || c.isTrigger) continue;
+            Bounds cb = c.bounds;
+            Collider[] near = Physics.OverlapBox(cb.center + up, cb.extents, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
+            foreach (Collider other in near)
+            {
+                if (IsIgnoredForLift(other, obj)) continue;
+                // Hướng tách ra chủ yếu đi lên (dir.y > 0.5): đá nằm sát cạnh tảng khác thì hướng
+                // tách đi ngang, không phải thứ làm vật nảy.
+                if (!Physics.ComputePenetration(c, c.transform.position + up, c.transform.rotation,
+                                                other, other.transform.position, other.transform.rotation,
+                                                out Vector3 dir, out float depth)
+                    || depth <= 0.01f || dir.y <= 0.5f)
+                    continue;
+                // Ở trần maxLift mà vẫn chồng -> không phải đất bên dưới
+                if (Physics.ComputePenetration(c, c.transform.position + top, c.transform.rotation,
+                                               other, other.transform.position, other.transform.rotation,
+                                               out _, out float depthTop) && depthTop > 0.01f)
+                    continue;
+                return true;
+            }
+        }
+        return false;
     }
 
     private void PrepareForRelease(MagneticObject obj, Vector3 aimDirection)

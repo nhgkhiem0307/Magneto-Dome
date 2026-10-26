@@ -345,8 +345,8 @@ for (let i = 0; i < 6; i++) {
     fontFace: F, fontSize: 11, color: MUTED, valign: "top", margin: 0, isTextBox: true,
   });
 }
-stat(s, { x: L, y: 3.75, w: 3.1, h: 1.05, value: "53", label: "tệp mã nguồn tự viết", color: DARK });
-stat(s, { x: 3.7, y: 3.75, w: 3.1, h: 1.05, value: "~20.000", label: "dòng mã tự viết (không tính thư viện)", size: 26, color: DARK });
+stat(s, { x: L, y: 3.75, w: 3.1, h: 1.05, value: "54", label: "tệp mã nguồn tự viết", color: DARK });
+stat(s, { x: 3.7, y: 3.75, w: 3.1, h: 1.05, value: "~25.000", label: "dòng mã tự viết (không tính thư viện)", size: 26, color: DARK });
 stat(s, { x: 6.9, y: 3.75, w: 2.65, h: 1.05, value: "1", label: "người thực hiện toàn bộ", color: RED });
 s.addNotes("2:00-2:35 — Nhấn mạnh Fusion 2 Host Mode vì phần sau sẽ quay lại. Đọc nhanh phần còn lại.");
 
@@ -380,7 +380,7 @@ bullets(s, [
   "Từ 6 đến 60m, trái dấu: kéo áp sát, lướt nhanh về phía đối thủ",
 ], { x: L + 0.16, y: 4.22, w: 5.1, h: 0.72, size: 10.5, color: MUTED });
 
-picImg(s, { x: 6.2, y: 1.52, w: 3.35, h: 3.48, path: "img/shot_hut.png", ar: 1916 / 1057 });
+picImg(s, { x: 6.2, y: 1.52, w: 3.35, h: 3.48, path: "img/shot_hut.png", ar: 1920 / 1080 });
 s.addNotes("2:35-3:35 — Slide nặng nhất về luật chơi. Chỉ vào bảng, nói ba dòng giữa. Không đọc hết bảng.");
 
 // =====================================================================
@@ -391,24 +391,31 @@ head(s, "4. Phân tích & thiết kế — Ammo Types");
 
 lead(s, "Mỗi loại vật thể có một luật riêng, buộc người chơi phải nhìn màu vật trước khi bấm chuột");
 
+// (26/10) Bảng thu sang trái, bên phải là ảnh BẢNG PHÂN TÍCH VẬT THỂ (làm 24/10): nhìn vào vật là đọc được loại + điện
+// tích — đúng thứ lời dẫn nói người chơi phải làm. Ảnh cắt từ clip quay trailer (06_scan, giây 1,3), không phải dàn dựng.
 tbl(s, [
-  hdrRow(["Loại", "Điện tích nạp", "Luật riêng"]),
-  ["Normal", "10", "Hút đẩy linh hoạt, không có ràng buộc gì thêm"],
-  ["Heavy", "20", "Đang bay thì KHÔNG hút về tay được, chỉ cản lại: tốc độ x0,5 và sát thương x0,5"],
+  hdrRow(["Loại", "Nạp điện", "Luật riêng"]),
+  ["Normal", "10", "Hút đẩy linh hoạt, không ràng buộc thêm"],
+  ["Heavy", "20", "Đang bay thì KHÔNG hút về tay được, chỉ cản: tốc độ x0,5, sát thương x0,5"],
   ["Spike", "25", "Hút nhầm lúc nó đang bay tới thì chịu gấp đôi điện tích"],
-  ["TNT", "35", "Nổ trong bán kính 6m, lực giảm dần theo khoảng cách"],
-], { x: L, y: 1.45, w: 9.1, colW: [1.3, 1.5, 6.3], rowH: 0.42, size: 12 });
+  ["TNT", "35", "Nổ bán kính 6m, lực giảm dần theo khoảng cách"],
+], { x: L, y: 1.42, w: 5.55, colW: [0.95, 0.95, 3.65], rowH: 0.4, size: 10.5 });
 
-card(s, { x: L, y: 3.6, w: 9.1, h: 1.35, fill: "FDF2F1", line: "F0C2BE" });
-s.addShape(pres.ShapeType.ellipse, { x: L + 0.2, y: 3.78, w: 0.2, h: 0.2, fill: { color: RED }, line: { width: 0 } });
+picImg(s, { x: 6.2, y: 1.42, w: 3.35, h: 1.88, path: "img/shot_scan.png", ar: 1920 / 1080 });
+s.addText("Bảng phân tích vật thể: nhìn vào vật là thấy loại, điện tích, điện nạp khi trúng và khoảng cách", {
+  x: 6.2, y: 3.33, w: 3.35, h: 0.42, fontFace: F, fontSize: 9, italic: true, color: MUTED, valign: "top", margin: 0, isTextBox: true,
+});
+
+card(s, { x: L, y: 3.85, w: 9.1, h: 1.15, fill: "FDF2F1", line: "F0C2BE" });
+s.addShape(pres.ShapeType.ellipse, { x: L + 0.2, y: 4.0, w: 0.2, h: 0.2, fill: { color: RED }, line: { width: 0 } });
 s.addText("HEAVY VÀ SPIKE LÀ MỘT CẶP ĐỐI XỨNG", {
-  x: L + 0.5, y: 3.72, w: 6.0, h: 0.3, fontFace: F, fontSize: 12.5, bold: true, color: DARK, valign: "middle", margin: 0, isTextBox: true,
+  x: L + 0.5, y: 3.94, w: 6.0, h: 0.3, fontFace: F, fontSize: 12.5, bold: true, color: DARK, valign: "middle", margin: 0, isTextBox: true,
 });
 s.addText(
   "Cả hai dùng chung một đoạn mã xử lý, nhưng ý nghĩa ngược nhau: Heavy thưởng cho phản xạ hút, Spike phạt đúng phản xạ đó. Người chơi không thể giữ chuột bừa — phải phân biệt màu vật trong khoảng một phần tư giây.",
-  { x: L + 0.5, y: 4.04, w: 8.3, h: 0.82, fontFace: F, fontSize: 11.5, color: INK, valign: "top", margin: 0, isTextBox: true }
+  { x: L + 0.5, y: 4.25, w: 8.3, h: 0.68, fontFace: F, fontSize: 11, color: INK, valign: "top", margin: 0, isTextBox: true }
 );
-s.addNotes("3:35-4:15 — Nhấn vào cặp Heavy/Spike: đây là chỗ thể hiện tư duy thiết kế, không phải chỉ lập trình.");
+s.addNotes("3:35-4:15 — Nhấn vào cặp Heavy/Spike: đây là chỗ thể hiện tư duy thiết kế, không phải chỉ lập trình. Chỉ vào ảnh bên phải: game hiện sẵn bảng phân tích khi nhìn vào vật, nên người chơi đọc được loại vật và điện tích trước khi bấm — luật khó nhưng thông tin luôn đủ.");
 
 // =====================================================================
 // 8. §4 CHẾ ĐỘ QUÁ TẢI — slide quan trọng nhất
@@ -441,7 +448,7 @@ s.addText(
   { x: L + 0.18, y: 4.38, w: 5.05, h: 0.5, fontFace: F, fontSize: 11, italic: true, color: MUTED, valign: "top", margin: 0, isTextBox: true }
 );
 
-picImg(s, { x: 6.1, y: 2.95, w: 3.45, h: 2.05, path: "img/shot_hud.png", ar: 1914 / 1059 });
+picImg(s, { x: 6.1, y: 2.95, w: 3.45, h: 2.05, path: "img/shot_hud.png", ar: 1920 / 1080 });
 s.addNotes("4:15-5:35 — SLIDE QUAN TRỌNG NHẤT. Nói chậm. Nếu hội đồng chỉ nhớ một điều, phải là điều này.");
 
 // =====================================================================
@@ -608,8 +615,8 @@ head(s, "7. Kết quả đạt được");
 
 stat(s, { x: L, y: TOP, w: 2.2, h: 1.1, value: "85", label: "khung hình/giây, bản build 1920x1080", color: DARK });
 stat(s, { x: 2.85, y: TOP, w: 2.2, h: 1.1, value: "16 ms", label: "độ trễ tới máy chủ khu vực asia", size: 26, color: DARK });
-stat(s, { x: 5.25, y: TOP, w: 2.05, h: 1.1, value: "53", label: "tệp mã nguồn tự viết", color: DARK });
-stat(s, { x: 7.5, y: TOP, w: 2.05, h: 1.1, value: "4", label: "chương báo cáo, 53 trang", color: DARK });
+stat(s, { x: 5.25, y: TOP, w: 2.05, h: 1.1, value: "54", label: "tệp mã nguồn tự viết", color: DARK });
+stat(s, { x: 7.5, y: TOP, w: 2.05, h: 1.1, value: "4", label: "chương báo cáo, 54 trang", color: DARK });
 
 card(s, { x: L, y: 2.22, w: 4.45, h: 2.78 });
 s.addText("TÍNH NĂNG ĐÃ HOÀN THÀNH", { x: L + 0.18, y: 2.32, w: 4.1, h: 0.28, fontFace: F, fontSize: 12, bold: true, color: DARK, margin: 0, isTextBox: true });
@@ -732,7 +739,7 @@ const arch = [
   ["Vật thể", "MagneticObject (gộp cả bốn loại trong một lớp, phân biệt bằng enum), MagneticAura, CombatVFX", RED],
   ["Điều phối trận", "GameManager (vòng round, Overtime, vùng chết), ControlZone, ShopManager", DARK],
   ["Mạng", "NetworkRunnerHandler (khởi tạo Fusion, tạo và vào phòng), RoomPlayer, NetworkInputData", NAVY],
-  ["Giao diện", "HUDController, MatchResultPanel, LoadingScreen, ControlsOverlay, SettingsUI, RadialMenuController", MUTED],
+  ["Giao diện", "HUDController + HUDSkin, MatchResultPanel, LoadingScreen, ControlsOverlay, SettingsUI, RadialMenuController", MUTED],
 ];
 for (let i = 0; i < 5; i++) {
   const cy = 1.07 + i * 0.7;
@@ -741,7 +748,7 @@ for (let i = 0; i < 5; i++) {
   s.addText(arch[i][0], { x: L + 0.46, y: cy, w: 1.55, h: 0.63, fontFace: F, fontSize: 11.5, bold: true, color: DARK, valign: "middle", margin: 0, isTextBox: true });
   s.addText(arch[i][1], { x: L + 2.0, y: cy, w: 6.95, h: 0.63, fontFace: F, fontSize: 10.5, color: INK, valign: "middle", margin: 0, isTextBox: true });
 }
-s.addText("53 tệp mã nguồn, khoảng 24.000 dòng do học viên tự viết — chưa tính thư viện Photon và các gói bên thứ ba.", {
+s.addText("54 tệp mã nguồn, khoảng 25.000 dòng do học viên tự viết — chưa tính thư viện Photon và các gói bên thứ ba.", {
   x: L, y: 4.6, w: 8.2, h: 0.24, fontFace: F, fontSize: 9.5, italic: true, color: MUTED, margin: 0, isTextBox: true,
 });
 

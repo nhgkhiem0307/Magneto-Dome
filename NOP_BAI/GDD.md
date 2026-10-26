@@ -186,7 +186,7 @@ Nhờ vậy lực văng có thể mạnh tay mà không gây ức chế.
 
 | Vật phẩm | Giá | Hiệu ứng |
 |---|---|---|
-| **Giáp Cách Điện** | $150 | Hấp thụ điện thay cơ thể (`maxArmor 30`, `+10`/lần mua). Không nằm trong Radial Menu. Reset mỗi round |
+| **Giáp Cách Điện** | $150 | Hấp thụ điện thay cơ thể (`maxArmor 45`, `+15`/lần mua). Không nằm trong Radial Menu. Reset mỗi round |
 | **Nước Tăng Lực** | $100 | Giảm 15% hồi chiêu Dash trong 15 giây |
 | **Bộ Xả Điện** | $100 | Xả tối đa 20 điểm điện, không quá 50% lượng đang mang |
 | **Chai Xăng Tẩy Chế** | $150 | Chuột trái vào một vật **Normal** → biến thành thùng TNT |
@@ -295,13 +295,13 @@ Lý do: bốn loại vật thể chia sẻ khoảng 90% logic (điện tích, va
 
 **Giao diện** — `Assets/Scripts/MenuUI/`
 
-`HUDController` · `ShopUI` · `ShopItemButton` · `SettingsUI` · `SpectatorController` · `RoomItemUI` · `ButtonClickSound` · `Billboard` · `MatchResultPanel` (bảng kết quả trận) · `LoadingScreen` · `ControlsOverlay` (bảng phím F1) · `PingDisplay` · `DeathScreen` (màn hình khi chết) · `MenuBackdrop` (nền menu 3D) · `LobbyView` (phòng chờ dạng thẻ) · `ModePicker` (chọn 1v1/2v2 khi ghép trận) · `BuffScreenFX` (hiệu ứng màn hình khi dùng vật phẩm buff)
+`HUDController` · `ShopUI` · `ShopItemButton` · `SettingsUI` · `SpectatorController` · `RoomItemUI` · `ButtonClickSound` · `Billboard` · `MatchResultPanel` (bảng kết quả trận) · `LoadingScreen` · `ControlsOverlay` (bảng phím F1) · `PingDisplay` · `DeathScreen` (màn hình khi chết) · `MenuBackdrop` (nền menu 3D) · `LobbyView` (phòng chờ dạng thẻ) · `ModePicker` (chọn 1v1/2v2 khi ghép trận) · `BuffScreenFX` (hiệu ứng màn hình khi dùng vật phẩm buff) · `HUDSkin` (giao diện HUD kính tối viền neon, dựng bằng mã lúc chạy) · `MagneticObjectInspector` (bảng phân tích vật thể dưới tâm ngắm)
 
-Tổng cộng **53 tệp** mã nguồn gameplay tự viết, khoảng 24.000 dòng.
+Tổng cộng **54 tệp** mã nguồn gameplay tự viết, khoảng 25.000 dòng.
 
 **Công cụ Editor**
 
-`EnvironmentScatter` — rải trang trí hàng loạt bằng raycast, có vùng cấm mọc · `MagneticObjectInspector` — giao diện Inspector cho vật thể · `PhotoFlyCamera` — camera bay tự do để chụp ảnh · `BuildNop` — build bản nộp bằng một lệnh.
+`EnvironmentScatter` — rải trang trí hàng loạt bằng raycast, có vùng cấm mọc · `PhotoFlyCamera` — camera bay tự do để chụp ảnh · `BuildNop` — build bản nộp bằng một lệnh.
 
 ---
 
@@ -328,10 +328,12 @@ Tổng cộng **53 tệp** mã nguồn gameplay tự viết, khoảng 24.000 dò
 - **Không lộ giới hạn bản đồ:** rào chắn chỉ tan bên ngoài mép đảo nên không thấy đầu tường; biển mây có thêm đáy mây mềm tan vào chân trời nên nhìn ra không thấy chỗ mây hết
 - Sương mù Exponential Squared, màu khớp chân trời
 - **Màn hình chính** dùng cảnh 3D thật của hòn đảo làm nền, camera bay vòng chậm, tông màu xanh riêng cho menu
+- **HUD** kiểu kính tối góc vát, viền và quầng neon: bảng điểm hai đội, thanh điện tích 24 vạch (đổi màu, nhấp nháy từ 80%) kèm hệ số lực văng, vòng màu quanh tâm ngắm báo cực găng, 3 ô đạn Z/X/C
+- **Bảng phân tích vật thể** (kính công nghệ): nhìn vào vật thì 4 góc khung ôm lấy vật + thẻ thông tin (loại, điện tích, điện nạp khi trúng, khoảng cách), chữ hiện dần như máy gõ, đổi ngay khi vật được nạp điện. Khung chỉ trải trong vùng quanh tâm ngắm nên vật to không che màn hình
 
 ## 6.3. Cài đặt
 
-Slider Master / BGM / SFX · Slider độ nhạy chuột · Dropdown độ phân giải · Toggle Fullscreen. Lưu vào `PlayerPrefs`, nhớ giữa các lần chơi và tự theo sang scene trận. Mở bảng Settings thì **tạm ẩn mọi giao diện phía sau** cho đỡ rối mắt. Nút **Quit Game** thoát hẳn game, có bảng hỏi lại phủ tối màn hình (nút Huỷ được chọn sẵn để lỡ tay bấm Enter không thoát nhầm).
+Slider Master / BGM / SFX · Slider độ nhạy chuột · Dropdown độ phân giải · Toggle Fullscreen. Lưu vào `PlayerPrefs`, nhớ giữa các lần chơi và tự theo sang scene trận. Mở game là **áp lại đúng độ phân giải đã chọn** (Unity tự nhớ độ phân giải lần chạy trước, có thể lệch với lựa chọn trong Settings — sửa 25/10). Mở bảng Settings thì **tạm ẩn mọi giao diện phía sau** cho đỡ rối mắt. Nút **Quit Game** thoát hẳn game, có bảng hỏi lại phủ tối màn hình (nút Huỷ được chọn sẵn để lỡ tay bấm Enter không thoát nhầm).
 
 ## 6.4. Yêu cầu phi chức năng
 

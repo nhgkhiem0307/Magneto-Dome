@@ -162,6 +162,18 @@ Tên người đăng và số hiệu đọc từ đường dẫn tải gốc *(k
 | `start.mp3` | *"Game Start"* — người đăng mã số 49447089 | 317318 |
 | `useitem.mp3` | *"Camera Release Sound from Exposure"* — conmsutton2016 | 236390 |
 
+**Nhạc nền TRAILER** *(25/10 — không nằm trong game, file ở `Trailer_Footage/music/` ngoài repo)*:
+
+| File | Tên gốc — người đăng | Số hiệu |
+|---|---|---|
+| `jonasblakewood-upbeat-rock-upbeat-rock-music-573489.mp3` | *"Upbeat Rock"* — **JonasBlakewood** | 573489 |
+
+Ghi nguồn đúng dòng Pixabay cung cấp (giấy phép Pixabay không bắt buộc, nhưng ghi cho minh bạch — đặt ở mô tả video khi đăng):
+
+> Music by [JonasBlakewood](https://pixabay.com/vi/users/jonasblakewood-48502311/?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=573489) from [Pixabay](https://pixabay.com/music//?utm_source=link-attribution&utm_medium=referral&utm_campaign=music&utm_content=573489)
+
+Bản chữ thường (không link): *Music by JonasBlakewood from Pixabay.*
+
 > **Bài cũ đã bị gỡ bỏ (28/09):** trước đó nhạc trận là *"In Flight"* của **Alegend** tải từ
 > **freetouse.com**. Đọc kỹ điều khoản thì giấy phép miễn phí của họ **cấm dùng trong
 > "Digital Products"**, mà game chính là một Digital Product — chỉ gói trả phí mới được.
@@ -200,6 +212,11 @@ Ghi rõ ở đây vì đây là **điểm cộng cho bạn**, đừng để lẫ
 **Ngoại lệ trong mục này:** font **Poppins** (`Resources/UI kit/Font/`) là của Google Fonts,
 giấy phép **SIL Open Font License (OFL)** — miễn phí kể cả dùng thương mại. Đây là font đi
 mượn, không phải tự làm, nên vẫn phải khai báo.
+
+**Tiếng hiệu ứng trailer** *(24/10, `TrailerBuilder/edit/sfx/`)*: whoosh, boom, hit, riser, zap, subdrop và nhạc tạm
+đều **tổng hợp bằng code** (`sfx.py`, numpy) — tự tạo, không phải tài nguyên bên thứ ba. Hình trailer: clip quay từ chính
+game bằng OBS + 3 cảnh toàn đảo render từ game (25/10) — dùng chung các asset đã khai ở trên. Nhạc nền trailer:
+*"Upbeat Rock"* — JonasBlakewood (Pixabay 573489), đã khai ở mục 4.
 
 **Poster** *(19/10, `PosterBuilder/`)*: ảnh nền render thẳng từ game nên dùng chung các asset đã khai ở
 trên (model nhân vật, đá, cây, bầu trời). Chữ dùng **Poppins** (logo) và **Be Vietnam Pro** (chữ có dấu —

@@ -145,6 +145,11 @@ public class HUDController : MonoBehaviour
 
     void Awake()
     {
+        // GIAO DIỆN BẢN MỚI (20/10): dựng lại phần nhìn bằng code rồi trỏ các ô bên dưới sang
+        // object mới - xem HUDSkin. Phải gọi TRƯỚC mọi thứ, vì phần còn lại của Awake đọc các ô đó.
+        // Bỏ dòng này là quay về HUD cũ trong scene.
+        HUDSkin.Apply(this);
+
         // Không gán tay thì mặc định khung nền là object cha của dòng chữ.
         // Lấy ở Awake (chạy 1 lần lúc khởi tạo) chứ không lấy trong Update, vì khi
         // khung nền bị tắt đi rồi thì transform.parent vẫn đọc được, nhưng lấy 1 lần
@@ -525,7 +530,9 @@ public class HUDController : MonoBehaviour
             float? remaining = gm.PhaseTimer.RemainingTime(gm.Runner);
 
             // Pha chiến đấu không giới hạn thời gian nên không có gì để đếm
-            timerText.text = remaining.HasValue ? Mathf.CeilToInt(remaining.Value).ToString() : "";
+            // Từ 1 phút trở lên thì ghi phút:giây ("4:18") - đọc "258" phải nhẩm mới ra còn bao lâu
+            int secs = remaining.HasValue ? Mathf.CeilToInt(remaining.Value) : 0;
+            timerText.text = !remaining.HasValue ? "" : secs >= 60 ? $"{secs / 60}:{secs % 60:00}" : secs.ToString();
 
             ApplyTimerUrgency(gm, remaining);
         }

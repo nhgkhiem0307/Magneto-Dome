@@ -56,7 +56,8 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 | `maxCharge` | **100** | Inspector | Điện tích tối đa |
 | `knockbackAtMaxCharge` | **4** | Inspector | Hệ số lực văng khi đầy điện |
 | `chargeGainMultiplier` | **1.5** | Inspector | Nhân MỌI lượng điện nhận vào |
-| `maxArmor` | **30** | Inspector | Giáp tối đa |
+| `armorPerPurchase` | **15** | Inspector | Giáp cộng thêm mỗi lần mua Shield Armor. Nâng 10 → 15 ngày 20/10 |
+| `maxArmor` | **45** | Inspector | Giáp tối đa (3 lần mua). Nâng 30 → 45 ngày 20/10 |
 | `spawnProtectDuration` | **2** | code | Bất tử sau hồi sinh (giây) |
 | `chargeCriticalRatio` | **0.8** | code | Ngưỡng cảnh báo quá tải |
 
@@ -90,7 +91,7 @@ Sửa số ở đây KHÔNG làm game đổi theo. Tác dụng của nó là:
 | `pullForce` | **49** | Inspector | Tốc độ hút vật về tay, m/s. Nâng 36 → 49 ngày 10/10 (+35%). ⚠️ Ô này còn nhân vào cú phản đòn khi hút nhầm Spike — xem `spikePullBoost` |
 | `spikePullBoost` | **1.5** | Inspector | Hút nhầm bóng gai thì nó lao ngược lại với lực `pullForce × 1.5`. Từ 10/10 là `49 × 1.5 = 73.5` (trước 54) — cú phạt Spike mạnh lên 35% theo pullForce, **có chủ ý** |
 | `pushSpeed` | **60** | Inspector | Tốc độ đẩy vật (chuột trái, vật cùng dấu). Nâng 50 → 60 ngày 16/10 (+20%) |
-| `pushLiftOffset` | **0.5** | Inspector | Trước khi đẩy, nâng vật **TỚI** độ cao này (m) tính từ mặt đất, để bay qua gờ đất. Vật đang nảy trên không, đã cao sẵn thì không nâng thêm. Đổi 0.3 → 0.5 ngày 16/10 |
+| `pushLiftOffset` | **0.5** | Inspector | Trước khi đẩy, nâng vật **TỚI** độ cao này (m) tính từ mặt đất, để bay qua gờ đất. Vật đang nảy trên không, đã cao sẵn thì không nâng thêm. Vật **lún trong đất** được nhấc ra hẳn khỏi đất trước (25/10, `LiftToClearGround`). Đổi 0.3 → 0.5 ngày 16/10 |
 | `pushUpwardBias` | **0.033** | Inspector | Cú đẩy chếch lên một góc **cố định ~1.9°**, nhìn lên hay xuống cũng vậy. Hạ 0.055 → 0.033 (= 3/5) ngày 16/10. Trước 16/10 góc này đổi theo hướng nhìn: nhìn dốc xuống thì chếch tới ~30° — đã sửa |
 | `fireSpeed` | **54** | Inspector | Tốc độ bắn vật đang cầm (chuột phải). Nâng 45 → 54 ngày 16/10 (+20%). Từ 19/10 chỉ bắn được khi vật **CÙNG dấu** với găng |
 | `neutralPushSpeed` | **7** | code *(ô mới 19/10)* | Chuột phải vào vật đang cầm **chưa có điện**: đẩy nhẹ ra trước (m/s), không phải bắn |

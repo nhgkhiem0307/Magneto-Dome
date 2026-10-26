@@ -10,9 +10,9 @@
 > | 2 tảng đá nạp điện sẵn + đóng băng | ✅ đã xoá thiết lập |
 > | 3 tảng đá bị dời chỗ | ✅ đã trả về toạ độ cũ |
 > | `fallRespawnDelay` | ✅ đã về 20 trên cả 4 prefab cây *(10/10)* |
-> | **Bỏ tick `Development Build`** | ⬜ **CÒN LẠI — làm lúc build bản nộp** |
+> | **Bỏ tick `Development Build`** | ✅ `BuildNop.Build` tự tắt mỗi lần build *(bản 25/10 18:18 build bằng nó)* |
 > | **Tắt object `PhotoCamera` trong TestScene** | ✅ đã xoá khỏi scene 09/10 |
-> | **Dọn thư mục build + nén lại zip** | ⬜ **CÒN LẠI — xem mục 7** |
+> | **Dọn thư mục build + nén lại zip** | ✅ 25/10 18:18 — đã bỏ `BurstDebugInformation_DoNotShip`, `Build_Nop.zip` 215 MB. **Sửa code sau ngày này thì build + nén lại** |
 
 ---
 
@@ -142,19 +142,19 @@ Sáu file theo đúng tên chính thức của trường, đã kiểm không cò
 | File | Trạng thái |
 |---|---|
 | BM01 Phiếu đăng ký Project | ✅ đã điền |
-| BM02 Đề cương chi tiết | ✅ đã điền, kèm bảng tiến độ 12 tuần |
+| BM02 Đề cương chi tiết | ✅ **làm lại 26/10 theo mẫu mới** (8 trang), bảng tiến độ 12 tuần 06/07 → 28/09/2026 |
 | BM04 Nhận xét GVHD | ✅ điền sẵn thông tin học viên, phần nhận xét để trống |
 | BM05 Nhận xét GV phản biện | ✅ điền sẵn thông tin học viên |
-| BM06 Báo cáo tốt nghiệp | ✅ 10/10 ảnh, 0 ô đỏ |
-| BM08 Final Project (slide) | ✅ 20 slide |
+| BM06 Báo cáo tốt nghiệp | ✅ 11 ảnh *(26/10 thêm Hình 3.10)*, 0 ô đỏ, số trang đúng quy định (Chương 1 = trang 1) |
+| BM08 Final Project (slide) | ✅ 19 slide (15 chính + 4 phụ), 11 ảnh *(26/10 thêm ảnh bảng phân tích ở slide 7)* |
 
-⬜ **Còn thiếu: BM03 Phiếu theo dõi Project** — chủ project chưa rõ cách làm, chưa đụng tới.
+✅ **BM03 Phiếu theo dõi Project** — làm 26/10 từ mẫu của khoa (2 trang), chờ cô ký. **Bộ PDF in** ở `../TAILIEUCANIN/` kèm `HUONG_DAN_IN.txt`.
 
-⬜ **Tên GVHD để trống dạng `………`** ở 5 chỗ: BM01, BM02, bìa báo cáo (2 trang), Lời cảm ơn, slide bìa.
-Có tên thì tìm chuỗi `………` thay hàng loạt.
+✅ **Tên GVHD** *(cô Phạm Thị Hằng, chốt 14/10)* đã có ở bìa báo cáo (2 trang), Lời cảm ơn, slide bìa. BM01/BM02 không có ô
+ghi tên GVHD — chỉ có ô ký (để trống cho cô ký). Chuỗi `………` còn lại trong BM01 là ô "Hạn nộp lại" để cô ghi, **đừng điền**. *(kiểm 26/10)*
 
-⬜ **Hai danh mục trong báo cáo chưa sinh** — xem hướng dẫn ngay trong trang
-`DANH MỤC CÁC HÌNH VẼ` và `DANH MỤC CÁC BẢNG`. Sinh xong nhớ `Ctrl+A` rồi `F9` để cập nhật mục lục.
+✅ **Hai danh mục trong báo cáo đã sinh** (Danh mục hình có đủ Hình 2.1 → 3.9, kiểm 26/10). Sửa nội dung báo cáo xong
+nhớ `Ctrl+A` rồi `F9` để cập nhật số trang.
 
 ---
 
@@ -174,7 +174,7 @@ Danh sách cần rà rồi mới xoá:
 | Thứ | Vì sao cân nhắc xoá | Kiểm gì trước khi xoá |
 |---|---|---|
 | ~~`BaoCao_MagnetoDome.docx` ở thư mục gốc~~ | ✅ **đã xoá 12/10** — đối chiếu mã băm thấy giống hệt bản trong `NOP_BAI/` | — |
-| `C:\mdtmp\` **(97 MB)** | ⬜ **CÒN LẠI — bạn tự xoá.** Toàn file trung gian của quá trình làm việc. Đã giữ lại 3 sơ đồ báo cáo vào `SlideBuilder/img/baocao_*.png` trước khi dọn | Không còn gì cần giữ |
+| `C:\mdtmp\` **(~3 GB, 26/10)** | ⬜ **CÒN LẠI — bạn tự xoá.** Toàn file trung gian. Đã giữ lại 3 sơ đồ báo cáo vào `SlideBuilder/img/baocao_*.png`. Phần nặng nhất là `C:\mdtmp	railer\` (2,5 GB): ảnh gốc từng khung của cảnh trailer — 3 cảnh đảo đã ghép thành MP4 ở `Trailer_Footage/cinematic/` | Giữ `trailer\s1_island`, `s1_pushin`, `s7_bg` nếu muốn ghép lại MP4 chất lượng khác; còn lại xoá được |
 | `Assets/_Recovery/` | 8 bản backup scene, ~26 MB | **KHÔNG XOÁ** khi chưa nộp xong — phao cứu sinh nếu scene hỏng |
 | `Assets/Resources/` 70 MB vô chủ | Xem mục 8 | Chỉ làm sau khi nộp, vì phải nhập lại 530 MB |
 

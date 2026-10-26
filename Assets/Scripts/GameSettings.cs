@@ -168,9 +168,44 @@ public static class GameSettings
     private static void ApplyOnStartup()
     {
         Screen.fullScreen = Fullscreen;
+        ApplySavedResolution();
 
         // Chạy ở đây nên có hiệu lực NGAY, không cần gắn thêm object nào vào scene
         // và cũng không cần người chơi vào Settings bấm gì cả.
         ApplyFrameCap();
+    }
+
+    /// <summary>
+    /// Áp lại ĐỘ PHÂN GIẢI người chơi đã chọn trong Settings (khoá res_width / res_height do
+    /// SettingsUI ghi).
+    ///
+    /// SỬA 25/10 — lỗi "game mờ mờ, cả chữ cũng mờ": Unity TỰ LƯU độ phân giải đang chạy vào
+    /// registry lúc tắt game, và lần mở sau dùng lại số đó. Chạy game một lần với tham số
+    /// -screen-width 1280 -screen-height 720 (lúc Claude chạy thử giao diện 20/10) là từ đó game
+    /// cứ mở toàn màn hình 1280x720 rồi kéo giãn lên màn 2560x1440 -> mờ cả hình lẫn chữ.
+    /// Tệ hơn: bảng Settings hiển thị con số người chơi chọn lần trước (2560x1440) chứ không phải
+    /// số đang chạy thật, nên nhìn vào không biết là sai.
+    /// Giờ lúc khởi động áp lại đúng số đã chọn -> Settings ghi gì thì game chạy đúng như vậy.
+    ///
+    /// Chỉ áp khi màn hình hiện tại CÓ độ phân giải đó (mang game sang máy màn nhỏ hơn thì giữ
+    /// nguyên, không ép số không hỗ trợ). Không chạy trong Editor - ở đó cỡ khung do Game view quyết định.
+    /// </summary>
+    private static void ApplySavedResolution()
+    {
+#if !UNITY_EDITOR
+        int w = PlayerPrefs.GetInt("res_width", 0);
+        int h = PlayerPrefs.GetInt("res_height", 0);
+        if (w <= 0 || h <= 0) return;                       // chưa từng chọn trong Settings
+        if (Screen.width == w && Screen.height == h) return; // đã đúng sẵn
+
+        foreach (Resolution r in Screen.resolutions)
+        {
+            if (r.width == w && r.height == h)
+            {
+                Screen.SetResolution(w, h, Fullscreen);
+                return;
+            }
+        }
+#endif
     }
 }

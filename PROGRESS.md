@@ -191,6 +191,124 @@
 >   (8) Room List: "SEARCHING FOR ROOMS..." lúc chờ, "NO OPEN ROOMS" + gợi ý khi trống (`SetRoomListEmptyState`).
 >   (9) Logo menu (2 chỗ trong MenuScene): "1V1 · 2V2 MAGNETIC ARENA".
 >   Đã build lại `Build_Nop` + zip 214MB (20/10, có đủ 7 bản sửa).
+> · **HUD MỚI (20/10, tối) — `HUDSkin.cs`:** chủ project thấy HUD cũ "phèn". Phong cách chốt: **kính tối góc vát như
+>   menu + điểm nhấn neon** (viền sáng, quầng màu sau số). Dựng hoàn toàn bằng code lúc chạy, trỏ các ô của
+>   `HUDController` sang object mới, HUD cũ trong scene chỉ bị ẩn. Gồm: khung tỉ số có cánh màu đội + đồng hồ
+>   **phút:giây** + "ROUND n"; thanh chiếm khu đỏ/xanh lấp dần vào giữa, quầng lớn theo tiến độ; tâm ngắm mảnh +
+>   **vòng màu cực găng** (thay ô vuông cũ) + viên dấu +/−, loé một nhịp khi đổi cực; khung CHARGE góc dưới trái với
+>   thanh 24 vạch xiên, số % đổi màu trắng → vàng → đỏ và đập nhịp từ 80%, viên hệ số văng xN; thanh giáp + viên
+>   nước tăng lực phía trên; 3 ô đạn có phím Z/X/C, ô trống mờ đi; tiền vàng có quầng. Dòng "ROUND WON!" đổi sang
+>   kính tối + viền. Quầng neon tự vẽ, cố ý KHÔNG dùng Glow của TextMeshPro (biến thể shader dễ bị build lược bỏ).
+>   Đã chạy thử bản build, kiểm từng vùng bằng ảnh chụp. Slide 18 + GDD: 53 → **54 tệp**, ~25.000 dòng.
+> · **Giáp buff (20/10):** mỗi lần mua +10 → **+15**, trần 30 → **45** (`Player.prefab`). ⚠️ **Báo cáo Phụ lục A bảng A.2
+>   dòng "Giáp tối đa" vẫn ghi 30** — lúc sửa, file đang mở trong Word nên chưa ghi được; đổi tay thành 45.
+>   → *Đã sửa luôn cùng ngày khi Word đóng: ghi "45 (mỗi lần mua +15)".*
+> · **CHUẨN BỊ IN + KIỂM THEO QUY ĐỊNH CỦA TRƯỜNG (26/10):** cô tổng hợp: BM01 không in lại; BM02 in lại theo MẪU MỚI (7–8 trang);
+>   BM03 in; BM04 + BM05 đóng chung BM06; BM06 1 màu + 3 photo, bìa cứng; poster A1. Tải mẫu từ link cô gửi + thư mục Drive "Mẫu"
+>   (BM02 mẫu "Gánh Rong", BM03, hướng dẫn trình bày BM06, mẫu bìa). Kết quả:
+>   - **BM06 sửa theo hướng dẫn trình bày:** số trang trước đây đánh từ trang bìa → tách section, 13 trang đầu không số (mục lục
+>     ghi La Mã), Chương 1 = trang 1; danh mục viết tắt xếp A→Z; bỏ "Bảng 0.1"; tài liệu tham khảo xếp thứ tự từ điển + khuôn
+>     Internet (ngày trích dẫn) + xoá dòng ghi chú nháp sót; trang giữ chỗ Nhận xét GVHD dài 2 trang = BM04. Đã đạt sẵn: font,
+>     cỡ chữ đề mục, giãn dòng 1,5, lề, thứ tự quyển, chú thích bảng trên / hình dưới, ≤ 50 trang (phần chính 37).
+>   - **BM04, BM05:** xoá dòng trống cuối làm dư 1 trang trắng (BM04 3→2, BM05 2→1).
+>   - **BM02 làm lại** bằng chính file mẫu (nhân bản đoạn mẫu, thay chữ — `C:\mdtmp\in	ao_bm02_bm03.py`), 8 trang; **BM03 mới** 2 trang;
+>     cùng bảng tiến độ 12 tuần (06/07 → 28/09/2026). Chân trang mẫu ghi tổng số trang gõ tay ("/3") → thay bằng trường NUMPAGES.
+>   - **`../TAILIEUCANIN/`**: 5 PDF (BM02, BM03, BM06 đã ghép BM04/BM05 đúng vị trí, trang bìa cứng, poster A1 594×841) + `HUONG_DAN_IN.txt`.
+>   - **Chốt: đóng kèm BM01 (bản đã ký) + BM03 + BM02 (bản đã ký) sau phụ lục** — theo hướng dẫn của trường (chủ project xác nhận).
+>     Slide: "53 trang" → 54. Thêm **Hình 3.10** (bảng phân tích vật thể, cùng ảnh slide 7) sau Hình 3.9 → 11 hình, vẫn 54 trang.
+>     Sửa câu nháp sót trước Bảng 3.7 ("Các ô còn trống cần được đo lại…" — bảng đã đủ số). Thêm BM01 dự phòng vào thư mục in.
+>     Chủ project chọn: KHÔNG thêm trích dẫn [n] vào thân bài; ngày ký BM02 để trống viết tay.
+>   - **Phát hiện khi chuẩn bị commit:** `ProjectSettings/DynamicsManager.asset` bị script test 25/10 đổi `m_SimulationMode` 0 → 2 (bẫy #22).
+>     Không ảnh hưởng trận (Fusion tự chạy vật lý) nhưng đã trả về 0 + **build lại `Build_Nop` + zip 215 MB (26/10)**.
+>   Sao lưu bản trước khi sửa: `C:\mdtmpackup	ruoc_in_2610\`.
+> · **RÀ SOÁT TÀI LIỆU + HÌNH (26/10):** đối chiếu mọi tài liệu với các thay đổi từ commit 603868d. Đã sửa: GDD (cả bản `NOP_BAI/`)
+>   ghi sai `MagneticObjectInspector` là "công cụ Editor" → chuyển sang nhóm giao diện, thêm `HUDSkin`, thêm mô tả HUD mới + bảng
+>   phân tích vật thể (6.2) + tự áp lại độ phân giải (6.3); slide 5 còn "~20.000 dòng" lệch với slide 18 "25.000" → đếm lại thật
+>   (54 tệp ngoài Editor, ~25.700 dòng) → **~25.000**, sinh lại `.pptx` (19 slide, 10 ảnh, giống bản cũ); `NOP_BAI/CREDITS.md`
+>   chép từ trước 19/10, thiếu mục poster + nhạc trailer → chép lại từ bản gốc; CLAUDE.md bảng tài liệu (trailer 49,6s, 18 clip);
+>   ROLLBACK: Development Build / dọn build + zip / tên GVHD / danh mục hình đều đã xong; nén lại `NOP_BAI.zip` (40,8 MB).
+>   Hình báo cáo + slide: 10 ảnh đều chụp 20/10 với HUD mới, không ảnh nào lỗi thời. Chưa có ảnh nào khoe bảng phân tích vật
+>   thể (làm 24/10) → **đã thêm vào slide 7 (Ammo Types)**: bảng thu sang trái, ảnh `SlideBuilder/img/shot_scan.png` (cắt từ
+>   clip quay trailer, giây 1,3) + chú thích bên phải, ghi chú người nói thêm 1 câu. Vẫn 19 slide, ảnh 10 → 11. Kiểm bằng ảnh
+>   xuất từ PowerPoint: không chữ nào đè nhau. Nén lại `NOP_BAI.zip` (43,7 MB). GDD không có ảnh (Markdown thuần).
+> · **DỰNG TRAILER BẢN ĐẦU TỪ CLIP THẬT (25/10):** chủ project quay 18 clip OBS (thiếu `17_best`) + chọn nhạc *"Upbeat Rock"* —
+>   JonasBlakewood (Pixabay 573489, đã ghi `CREDITS.md`). Gán clip theo giờ quay + nội dung (bảng `CLIPS`, giữ tên file gốc);
+>   clip thêm "can xăng → cây TNT → nổ" dùng thay `17_best`. Cắt tự động đoạn bảng Settings cuối mỗi clip (dò theo độ tối).
+>   Nhạc đo lại: 130 BPM (beats.py ước sai 130,73), drop 94,18s = phách 16, cú kết thật 134,8s = phách 104 → trailer kéo dài
+>   **107,5 phách = 49,6s** để kết đúng lúc bài tự kết (màn logo 19,5 phách, hình + chữ tối dần 1,6s cuối). Thêm `MUSIC_SPEED`
+>   (±12,5%) + quy tắc đoạn kết vào TRAILER_SCRIPT Mục 4. Sửa lỗi ffmpeg kẹt chéo ở bước phủ chữ (17 đầu vào ảnh → bộ lọc
+>   `movie`). Bản nháp nhanh `Trailer_Footage/MagnetoDome_Trailer_DRAFT_fast.mp4` đã soát: 49,6s, 1488 khung, tiếng kết tắt
+>   dần −46 dB đúng lúc hết video, không trùng hình. Bản thật 1080p60: `Trailer_Footage/MagnetoDome_Trailer.mp4`.
+>   Góp ý "âm thanh hơi sucks, có tiếng giống TNT": bỏ 12 boom + zap + hit + gần hết whoosh tổng hợp, va chạm chỉ dùng tiếng
+>   game thật; mờ 15ms hai đầu mỗi đoạn tiếng clip. Trộn lại tiếng + ghép với hình cũ (không dựng lại hình). Nhạc rõ hơn ~4 dB.
+>   Góp ý "cái kết thiếu màu, dễ bỏ qua logo": màn logo thêm 4 lớp (nền xanh đậm + quầng đỏ/xanh hai cực + lưới lục giác,
+>   đường sức từ đỏ→xanh có dấu +/−, vòng sóng xung kích, vệt sáng ngang), MAGNETO quầng đỏ/xanh. Phủ lại lên hình 1080p cũ.
+>   Góp ý "nhiều chữ rung rung": do chữ phóng chậm liên tục mà ffmpeg làm tròn điểm ảnh → bỏ hết, chữ đứng yên sau khi
+>   xuất hiện; riêng cụm logo đung đưa nhẹ mượt dưới 1 điểm ảnh (`sway=True`). Đo: logo bước ≤0,35px/khung, tiêu đề đứng yên 0px.
+> · **SỬA LỖI GAME MỜ (25/10):** cả hình lẫn chữ mờ vì game chạy toàn màn hình **1280×720** trên màn 2560×1440 — do Claude chạy thử
+>   giao diện 20/10 bằng tham số `-screen-width 1280 -screen-height 720`, Unity lưu lại số đó, lúc trả cài đặt chỉ trả cờ toàn màn hình.
+>   Settings vẫn hiện 2560×1440 (đọc khoá riêng) nên không ai nhận ra. Thêm `GameSettings.ApplySavedResolution()`: khởi động là áp lại
+>   độ phân giải đã chọn trong Settings. Bẫy #21. ⚠ Lúc build lại, Claude lỡ xoá thư mục `Build_Nop` + zip **trong khi chủ project đang
+>   mở 2 bản game từ đó** → bản mở sau báo "Could not reach matchmaking!" (log: thiếu `System.Configuration.dll` — Mono chỉ nạp file
+>   này lúc kết nối mạng lần đầu, file đã bị xoá) + mất tiếng click. Không phải lỗi game. **Đã build lại `Build_Nop` + zip 215MB
+>   (25/10 18:18)**, có bản sửa độ phân giải + bản sửa đẩy đá, đã kiểm có đủ `System.Configuration.dll`.
+>   📌 Bài học cho Claude: trước khi xoá `Build_Nop` phải kiểm `Get-Process Magneto-Dome` — đang chạy thì báo chủ project tắt trước.
+> · **SỬA LỖI ĐẨY ĐÁ NẰM TRÊN ĐẤT BỊ NẢY LÊN / VĂNG LỆCH (25/10):** lỗi cũ lặp lại. Gốc: hàm đo khoảng hở dưới đá bắn tia từ
+>   ĐÁY đá xuống, đá lún trong đất thì tia xuất phát trong đất → không thấy đất → không nhấc → đẩy 125 m/s lúc còn ghim → lực
+>   gỡ kẹt bắn đá lung tung. Thay `GroundGap` bằng `LiftToClearGround` (dò từ trên đỉnh vật xuống 5 điểm + thử chồng lấn bằng
+>   `ComputePenetration`, nhấc thêm tới khi sạch, trần 3m; chỉ xét phần đáy vật). **Đã test bằng PhysX trong Unity batch**
+>   (38 vật thật của TestScene × 4 mức lún × 3 hướng): đường bay trống thì cách cũ nảy 14–48 lần, cách mới 0 lần nảy / 0 lần
+>   lệch. Lượt 2 theo yêu cầu: **3 × 150 lần ngẫu nhiên** (12 loại vật, chỗ đặt / xoay / nghiêng / lún / hướng ngẫu nhiên, có và
+>   không rào chắn): đường trống cách cũ nảy 24–45 lần mỗi lượt, cách mới 0 / 0 / 1 (lần đó là đá chạm sát tảng bên cạnh — va chạm
+>   thật). Hai lượt test bắt được 5 lỗi của chính bản sửa (cây bị nhấc 3m vì tán; ngưỡng phần đáy theo tỉ lệ gom nhầm tán cây
+>   nghiêng; tia ở góc hộp bao trúng đá bên cạnh; đá lún quá nửa thân không được nhấc; nhấc đâm vào tán cây thấp), đã sửa hết.
+>   Chưa thử trong trận thật có mạng. Bẫy #20 trong CLAUDE.md.
+>   Có trong bản build 25/10 18:18 (bản 17:59 trước đó đã bị thay).
+> · **TRAILER: QUAY TOÀN BỘ BẰNG OBS (25/10):** chủ project thấy cảnh render có nhân vật "nhìn giả giả" (nhân vật dựng
+>   bằng máy không có animation) → bỏ hết 10 cảnh render có nhân vật + xoá `TrailerDirector.cs` / `TrailerRun.cs` /
+>   `encode.py`. **Giữ 3 cảnh toàn đảo** (không nhân vật) ở `Trailer_Footage/cinematic/` (ghép lại từ ảnh gốc
+>   `C:\mdtmp	railer\`). `TRAILER_SCRIPT.md` viết lại từ đầu: 17 clip OBS **góc nhìn thứ nhất**, quay bằng **2 bản game
+>   trên 1 máy** (2 cửa sổ 1920×1080 trên màn 2560×1440, OBS Window Capture kiểu Windows 10 quay được cửa sổ bị che →
+>   quay được **góc người bị đánh** khi đang chơi máy kia). Vẫn 48s / 6 đoạn / chữ tiếng Anh / giọng ARENA CONTROL.
+>   **Bộ dựng xử lý clip dài ngắn tuỳ ý** (`plan_shot`): tự dò tiếng va chạm trong clip (`pick` = first / last / loudest /
+>   hit2 / mid), đặt đúng phách `hit`; thiếu thì tự làm chậm tới x0.5 (tiếng chậm theo `atempo`), vẫn thiếu thì giữ khung;
+>   cảnh báo khi hai cảnh trùng đoạn clip; cảnh tuỳ chọn có `alt`; `--check` in bảng + ảnh `check.jpg` đúng khoảnh khắc;
+>   hiệu ứng `@hit`. Đã thử bằng clip giả (va chạm đúng phách, sai < 1 khung). ⚠ **Chưa dựng lại được bản nháp**: từ
+>   chiều 25/10 **Windows Smart App Control chặn numpy/Pillow** (`DLL load failed ... Application Control policy`).
+> · **KỊCH BẢN TRAILER VIẾT LẠI + BỘ DỰNG TỰ ĐỘNG (24/10):** `TRAILER_SCRIPT.md` viết lại cho 2 người đọc (chủ project +
+>   AI edit chạy lệnh): 48s, 128 BPM, chữ tiếng Anh, hype kiểu Valorant/Apex, giọng ARENA CONTROL (Combat / Match point /
+>   Victory), bảng thời gian từng cảnh, 8 cảnh OBS cần quay (tên file + thao tác), tiêu chí chọn nhạc Pixabay, Mục 7 là
+>   lời giao việc chép nguyên cho AI. `TrailerBuilder/edit/`: `timeline.py` (dữ liệu, đơn vị phách) · `build_trailer.py`
+>   (ffmpeg + numpy + Pillow: cú đập, loé, rung, tách màu, Ken Burns, chữ đập / trượt, màn logo, trộn 5 lớp tiếng có
+>   ducking) · `sfx.py` (tiếng trailer tổng hợp bằng code) · `beats.py` (dò BPM + drop). Bản nháp đã dựng (thẻ giữ chỗ +
+>   nhạc tạm): `Trailer_Footage/MagnetoDome_Trailer_DRAFT.mp4`. Bẫy gặp: làm tròn khung từng cảnh làm trôi nhịp → tính
+>   theo mốc tuyệt đối; `tpad` phải đứng trước `setpts`.
+> · **Sửa chữ lem + bảng phân tích vật thể (24/10):** (1) chữ nhỏ có ô xám quanh ("Duel · 2 players") là do atlas font
+>   Poppins chỉ đệm 2px → dựng lại 4 font với đệm 6px, giữ nguyên GUID (bẫy #19). Ảnh hưởng tốt tới MỌI chữ Poppins
+>   cỡ nhỏ (phòng chờ, HUD mới, Shop...). (2) Bỏ bảng chữ nổi trên đỉnh vật, thay bằng **bảng phân tích kiểu kính công
+>   nghệ** (`MagneticObjectInspector` + lớp `ScanOverlay`): 4 góc khung màu loại vật ôm lấy vật, khung thu vào khi khoá
+>   mục tiêu; thẻ khung nhạt "SCAN // OBJECT" + loại vật + điện tích + "CHARGE +20 · 5.0 m", chữ hiện dần như máy gõ,
+>   vạch quét chạy dọc thẻ. **Chống che màn hình:** khung chỉ trải tối đa 640×420 quanh điểm nhìn, bỏ phần vật chìm
+>   dưới đất; vật quá to/quá gần thì co về ô cố định sát tâm ngắm; thẻ luôn trong vùng giữa, không đè HUD. Ẩn khi chết
+>   hoặc mở bảng. Ô `useScanOverlay` (Inspector) tắt đi = về bảng chữ cũ. Kiểm bằng ảnh chụp 3 khoảng cách.
+>   Chỉnh theo yêu cầu cùng ngày: góc khung dày 4px × dài 30px, pha trắng + viền tối (bản đầu quá nhạt); thẻ phóng 1.2×.
+>   Lượt chỉnh 2 (sau bản build 24/10): (a) đứng sát vật to → khung **nở ra ôm vật** (trước co về ô nhỏ cố định), chỉ
+>   giới hạn trong cửa sổ ~72% bề ngang × nửa vùng an toàn quanh điểm nhìn; (b) **đang nhìn mà vật được nạp điện / đổi
+>   thành TNT → chữ đổi ngay** + thẻ loé một nhịp (trước chỉ cập nhật khi đổi mục tiêu); (c) mượt hơn: điểm nhìn tính lại
+>   mỗi khung hình từ hướng camera (thay điểm trúng tia 20 lần/giây), vị trí và cỡ khung làm mượt riêng, thẻ trượt khi
+>   đổi bên, script chạy sau camera (`DefaultExecutionOrder 5000`). Đã build lại `Build_Nop` + zip 215MB (24/10, có lượt chỉnh 2).
+>   Đã build lại `Build_Nop` + zip 215MB (24/10, có đủ: chữ hết lem, bảng phân tích, HUD mới, giáp 15/45).
+> · **RENDER CẢNH TRAILER (22/10):** 13 file MP4 1080p60 ở `../Trailer_Footage/` — đảo (2 kiểu), hút đá, đá lao vào
+>   ống kính, đấm văng khỏi đảo rơi xuyên mây, cú đấm, đá nổ hất văng, nền logo; cảnh hành động có bản chậm 4×.
+>   Cách làm: `TestScene` chạy Play trong batch mode (không cửa sổ, không chuột/phím), `Time.captureFramerate = 60`
+>   → mượt tuyệt đối. Nhân vật / đá là bản sao chỉ có hình, dọn đá + bụi quanh vùng quay. Đá nạp điện chỉ có viền
+>   (đúng game). Script ở `TrailerBuilder/` (ngoài `Assets/`). Chủ project tự quay cảnh góc nhìn thứ nhất có HUD.
+> · **Chụp lại ảnh cho báo cáo + slide (20/10, HUD mới, 1920×1080):** báo cáo thay **Hình 3.3** (menu), **3.4** (phòng
+>   chờ), **3.6** (HUD: điện 45%, x2.4, nước tăng lực, đang chiếm khu), **3.7** (cầm đá), **3.8** (Shop), **3.9** (bảng F1);
+>   khung 4 ảnh toàn màn hình chỉnh về đúng 16:9; vẫn 53 trang, đã cập nhật mục lục. Slide 6 + 8 thay `img/shot_hut.png`,
+>   `img/shot_hud.png`. Tên người chơi trong ảnh đổi thành "Khiem". Để HUD có điện tích mà không cần đối thủ, đã thêm TẠM
+>   cờ `-photoCharge` vào `PlayerHealth` → chụp xong **đã gỡ** + build lại. Bản sao báo cáo trước khi thay: `C:\mdtmpackup\`.
+>   Hình 3.5 (toàn cảnh đảo) vẫn là ảnh cũ — không có HUD nên không cần chụp lại.
 > · **Đã build lại `Build_Nop` + zip 214MB (20/10)** — có luật bắn theo điện tích, TNT mới, tiền thưởng x2. Đã push.
 > · **POSTER XONG (19/10):** `NOP_BAI/Poster_MagnetoDome_A1.pdf` + `.png`, A1 dọc 200 dpi (in được A0).
 >   Ảnh nền **render thẳng từ game** (TestScene, model nhân vật thật, hiệu ứng `CombatVFX` thật): đỏ đấm văng
@@ -1301,7 +1419,7 @@ Xem **CLAUDE.md mục 5** — 7 bẫy đã gặp kèm cách chữa (CharacterCon
 
 ## 5. Bản đồ code
 
-*(Đối chiếu thư mục thật 17/10 — 53 tệp ngoài `Editor/`.)*
+*(Đối chiếu thư mục thật 20/10 — 54 tệp ngoài `Editor/`, ~25.000 dòng.)*
 
 ```
 Assets/
@@ -1330,6 +1448,7 @@ Assets/
     ├── MenuUI/               HUDController · ShopUI · ShopItemButton · SettingsUI · SpectatorController
     │                         RoomItemUI · MatchResultPanel · LoadingScreen · ControlsOverlay · PingDisplay
     │                         DeathScreen · MenuBackdrop · LobbyView · ModePicker · BuffScreenFX
+    │                         HUDSkin ← giao diện HUD mới dựng bằng code, HUDController vẫn giữ logic (20/10)
     │                         Billboard · ButtonClickSound · CinematicCamera · PhotoFlyCamera
     └── Dummy/                DummyGravity · DummyMagnetTarget  (bù nhìn tập bắn, đã gỡ khỏi TestScene)
 ```

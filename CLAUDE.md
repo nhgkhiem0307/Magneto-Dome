@@ -107,7 +107,9 @@ Assets/
     │   ├── InventorySystem.cs           # Túi đồ: lưu GameObject thật đã bị ẩn đi
     │   ├── PlayerHotbarController.cs    # Z/X/C rút đạn Normal/Heavy/TNT (tạm) từ túi
     │   ├── RadialMenuController.cs      # UI vòng tròn giữ Tab, chọn theo góc chuột
-    │   └── PlayerInteract.cs
+    │   ├── PlayerInteract.cs
+    │   └── MagneticObjectInspector.cs   # Soi vật dưới tâm ngắm (cục bộ, không mạng). Từ 24/10 hiện BẢNG PHÂN TÍCH kiểu
+    │                                    #   kính công nghệ (lớp ScanOverlay cùng file): 4 góc khung ôm vật + thẻ thông tin
     ├── Item/
     │   ├── MagneticObject.cs            # Điện tích, 4 loại vật thể, va chạm, nổ TNT
     │   ├── MagneticAura.cs              # Hiệu ứng hào quang theo điện tích
@@ -127,8 +129,11 @@ Assets/
     │   │                            #   phòng, Host bấm thẻ để chuyển đội, nút 1V1/2V2, nút KICK. Trên RoomLobbyPanel
     │   ├── ModePicker.cs            # (16/10) Bảng hỏi "1v1 hay 2v2?" khi bấm Ghép Trận. Tự dựng bằng code,
     │   │                            #   không gắn vào scene — NetworkRunnerHandler gọi ModePicker.Show()
-    │   └── BuffScreenFX.cs          # (17/10) Hiệu ứng trên màn hình khi tự dùng Nước tăng lực / Bộ xả điện.
-    │                                #   Tự dựng bằng code; InventorySystem gọi qua bộ đếm mạng ConsumableUseCount
+    │   ├── BuffScreenFX.cs          # (17/10) Hiệu ứng trên màn hình khi tự dùng Nước tăng lực / Bộ xả điện.
+    │   │                            #   Tự dựng bằng code; InventorySystem gọi qua bộ đếm mạng ConsumableUseCount
+    │   └── HUDSkin.cs               # (20/10) GIAO DIỆN HUD mới: kính tối góc vát + viền/quầng neon. Dựng bằng code
+    │                                #   lúc chạy rồi trỏ các ô của HUDController sang object mới; HUD cũ trong scene
+    │                                #   bị ẨN chứ không xoá. Bỏ dòng HUDSkin.Apply() trong HUDController.Awake() = về bản cũ
     └── Dummy/
         ├── DummyGravity.cs              # Bản sao FPSMovement cho bù nhìn tập bắn
         └── DummyMagnetTarget.cs
@@ -614,23 +619,25 @@ rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
 | `GDD.md` | Tài liệu thiết kế game | Nộp kèm |
 | `CREDITS.md` | Khai báo tài nguyên bên thứ ba và giấy phép | Nộp kèm, hội đồng hay hỏi |
 | `VOICE_BRIEF.md` | Chỉ đạo giọng ARENA CONTROL, prompt ElevenLabs | Khi làm thêm câu thoại |
-| `TRAILER_SCRIPT.md` | Kịch bản trailer, cách quay, chính sách HUD | Khi quay trailer |
+| `TRAILER_SCRIPT.md` | Kịch bản trailer **49,6s** (quay toàn bộ bằng OBS, 2 bản game trên 1 máy), danh sách clip cần quay + 18 clip đã quay, nhạc *Upbeat Rock* (JonasBlakewood, 130 BPM) và quy tắc đoạn kết, lời giao việc cho AI edit. Bản dựng: `../Trailer_Footage/MagnetoDome_Trailer.mp4` | Khi quay / dựng trailer |
 | `ROLLBACK_TRUOC_KHI_NOP.md` | Mọi thứ phải trả lại trước khi nộp | **Đọc trước khi build bản nộp** |
 | `VIEC_CAN_LAM.md` | **Danh sách việc còn lại**, ngắn gọn, kèm hướng dẫn build bản nộp từng bước | Chủ project — **mở ra đầu tiên** |
-| `NOP_BAI/[ĐT-QĐ04-BM06] Báo cáo tốt nghiệp.docx` | Báo cáo 53 trang *(Word đếm, 14/10)*, 4 chương + 2 phụ lục, 10 hình, 16 bảng. Có Danh mục hình/bảng tự sinh — sửa nội dung xong nhớ `Ctrl+A` → `F9` | Nộp chính |
+| `NOP_BAI/[ĐT-QĐ04-BM06] Báo cáo tốt nghiệp.docx` | Báo cáo **54 trang** *(26/10)*: 13 trang đầu không đánh số (section 1) + Chương 1 = trang 1 → 41 (section 2) — đúng quy định của Học viện. 4 chương + 2 phụ lục, **11 hình** *(26/10 thêm Hình 3.10 bảng phân tích vật thể)*, 15 bảng. Có Danh mục hình/bảng tự sinh — sửa nội dung xong nhớ `Ctrl+A` → `F9` | Nộp chính |
 | `NOP_BAI/[ĐT-QĐ04-BM08] Final Project.pptx` | 15 slide bảo vệ + 4 slide phụ cuối *(Timeline, Balance Sheet, Code Architecture, Credits — từ 15/10 không còn ghi chữ "Dự phòng" trên slide)*. Tiêu đề kiểu pha Việt–Anh. **Không có slide demo** — demo trực tiếp bằng game (bỏ 15/10), ghi chú cách demo nằm ở slide 12 | Buổi bảo vệ |
 | `SlideBuilder/` | **Script sinh ra file .pptx.** Sửa slide thì sửa ở đây rồi chạy lại | Xem `SlideBuilder/README.md` |
 | `NOP_BAI/Poster_MagnetoDome_A1.pdf` | Poster A1 dọc *(19/10)*. Ảnh nền render từ game | In / trưng bày |
+| `TrailerBuilder/` | **Bộ dựng trailer tự động** (`edit/`, 24/10, viết lại 25/10) — sửa `edit/timeline.py` rồi chạy `edit/build_trailer.py` (`--check` để soát). Clip quay tay dài ngắn tuỳ ý: tự dò tiếng va chạm, đặt đúng phách, tự làm chậm khi thiếu. Nguyên liệu ở `../Trailer_Footage/` (ngoài repo): `obs/` (clip OBS góc nhìn thứ nhất, giữ tên gốc — bảng `CLIPS` trong `timeline.py`), `cinematic/` (3 cảnh toàn đảo render sẵn, không nhân vật), `music/`. Script render cũ đã xoá 25/10 | Xem `TrailerBuilder/README.md` |
 | `PosterBuilder/` | **Script sinh ra poster** (`make_poster.py`) + ảnh nền + font. Sửa chữ ở đây rồi chạy lại. `PosterShot.cs` trong đó cố ý nằm ngoài `Assets/` | Xem `PosterBuilder/README.md` |
-| `NOP_BAI/` | **Thư mục nộp bài** — gom đủ 6 biểu mẫu theo tên chính thức của trường | Nộp cho Bộ Môn |
+| `NOP_BAI/` | **Thư mục nộp bài** — gom đủ biểu mẫu theo tên chính thức của trường | Nộp cho Bộ Môn |
+| `../TAILIEUCANIN/` | **Bộ PDF sẵn sàng in** *(26/10)*: BM02, BM03, BM06 (đã ghép BM04 + BM05 đúng vị trí) + trang bìa cứng, poster A1, kèm `HUONG_DAN_IN.txt` (số bản, khổ, giấy). **Chốt 26/10: cuối cuốn báo cáo đóng kèm BM01 + BM03 + BM02 bản đã ký** (theo hướng dẫn của trường). Sửa báo cáo/biểu mẫu thì xuất PDF lại | Mang đi in |
 
 **Bộ biểu mẫu của trường** *(mẫu gốc ở Drive của khoa, bản đã điền nằm trong `NOP_BAI/`)*:
 
 | Mã | Tên | Ai điền |
 |---|---|---|
 | BM01 | Phiếu đăng ký Project | Học viên — ✅ đã điền |
-| BM02 | Đề cương chi tiết | Học viên — ✅ **cập nhật từ bản gốc của chủ project**, không phải từ bài mẫu |
-| BM03 | Phiếu theo dõi Project | Học viên + GVHD ký từng tuần — ⬜ **chưa làm** |
+| BM02 | Đề cương chi tiết | Học viên — ✅ **làm lại 26/10 theo MẪU MỚI cô gửi** (khuôn đề tài "Gánh Rong", 8 trang): mục đích, FR/NFR, nội dung nghiên cứu (1)–(5), dàn ý = mục lục báo cáo thật, bảng tiến độ 12 tuần 06/07 → 28/09/2026. Ngày ký để trống viết tay |
+| BM03 | Phiếu theo dõi Project | Học viên + GVHD ký từng tuần — ✅ **làm 26/10 từ mẫu trong Drive của khoa**, cùng bảng 12 tuần với BM02, 2 trang. Chờ cô ký |
 | BM04 | Nhận xét của GVHD | GVHD viết — ✅ đã điền sẵn thông tin học viên |
 | BM05 | Nhận xét của GV phản biện | GV phản biện viết — ✅ đã điền sẵn thông tin học viên |
 | BM06 | Báo cáo tốt nghiệp | Học viên — ✅ chỉ còn **một bản duy nhất** trong `NOP_BAI/` |
@@ -804,6 +811,51 @@ Sprite thẻ phòng chờ (`lobby-ui-kit/sprites/card.png`) có ~13px trong su�
 cao 54 thì phần nhìn thấy chỉ còn ~32 — chữ tràn ra ngoài khung, vạch trang trí nằm ngoài mép.
 → Cách chữa: `Image.pixelsPerUnitMultiplier = 2` (viền + góc vát thu còn một nửa) và đặt khung cao hơn. Dùng lại sprite
 này ở đâu thì nhớ: kích thước đặt ≠ kích thước nhìn thấy.
+
+**19. Chữ TextMeshPro cỡ nhỏ bị lem ô xám quanh chữ = khoảng đệm atlas quá nhỏ** *(gặp 24/10)*
+Font Poppins (`Resources/UI/UI kit/Font/`) được dựng với **padding 2** — mỗi chữ trong tấm ảnh chữ chỉ cách nhau
+2 điểm ảnh, nên chữ nhỏ (cỡ < 20) bị ăn lấn vùng của chữ bên cạnh → ô xám mờ quanh "p", "l", "y" như có bóng đổ.
+→ Cách chữa: dựng lại atlas với **padding 6** (tấm ảnh 512 → 1024). Đã làm cho Medium / Bold / Black / Regular bằng
+script tạm, **chép đè lên đúng object cũ** nên GUID + fileID giữ nguyên, mọi chữ trong scene vẫn trỏ đúng. Bản cũ ở
+`C:\mdtmpackuponts\`. Tạo font asset mới thì để padding ≥ 10% cỡ lấy mẫu.
+
+**20. Tia dò (Raycast) XUẤT PHÁT TỪ BÊN TRONG một collider thì KHÔNG bắt được collider đó** *(bẫy VẬT LÝ — sửa 25/10)*
+Triệu chứng: đẩy (chuột trái, cùng dấu) một tảng đá đang nằm trên đất thì thỉnh thoảng đá **nảy thẳng lên** hoặc
+**văng góc ngẫu nhiên** thay vì bay đi.
+→ Nguyên nhân: hàm cũ `GroundGap` đo khoảng hở dưới đá bằng tia bắn **từ đáy đá xuống**. Đá nằm **lún** vào đất thì
+đáy ở dưới mặt đất → tia bắt đầu bên trong đất → không thấy đất → báo "hở 5m" → **không nhấc đá lên**. Đá được đặt vận
+tốc ngang 125 m/s trong lúc còn ghim dưới đất → lực gỡ kẹt của PhysX (cùng họ bẫy #8) đá nó đi theo hướng tuỳ chỗ chồng lấn.
+→ Cách chữa: `PlayerMagnetController.LiftToClearGround()` — dò đất **từ TRÊN đỉnh vật xuống** tại 5 điểm trong hình chiếu
+**phần đáy** của vật, rồi thử đặt vật ở chỗ mới bằng `Physics.ComputePenetration`: còn chồng lấn **bên dưới** thì nhấc thêm từng
+nấc 0,15m (trần 3m); cuối cùng hạ bớt nếu đỉnh vật đâm vào thứ phía trên. Các điều kiện rút ra khi test, thiếu cái nào cũng sai:
+- Chỉ xét **phần đáy**: collider có đáy cách điểm thấp nhất **≤ 0,6m** (không theo tỉ lệ chiều cao — cây nghiêng thì tán hạ thấp).
+  Cây có từ tính có khối tán rộng 6m — dò dưới tán thì đỉnh tảng đá nằm dưới mép tán bị tưởng là đất, cây bị nhấc lên trần 3m.
+- Chỉ tin tia **thực sự đi qua thân vật**: góc hộp bao của vật xoay nghiêng chìa ra ngoài hình thật, tia ở đó trúng đá bên cạnh.
+- Chồng lấn mà nhấc tới trần vẫn không gỡ được (rào chắn, thân cây đứng cạnh) thì **không phải đất**, bỏ qua.
+- Mốc lọc "đất" là **đỉnh phần đáy + 0,5m**, không phải tâm vật — đá nhỏ lún quá nửa thân thì mặt đất cao hơn tâm.
+- **Đừng nhấc đâm vào thứ phía trên**: khối tán cây Tree9 chỉ cách đất ~1,5m, đá nằm dưới tán mà nhấc đủ 0,5m là lồng vào tán.
+→ **Đã test 25/10** bằng script batch tạm (đã xoá): 38 vật thật trong `TestScene`, lún thêm 0 / 0,15 / 0,3 / 0,5m, 3 hướng,
+mô phỏng PhysX 0,2s. Tính riêng các lần đường bay trống: cách cũ nảy lên 14–48 lần (càng lún càng tệ, độ nhấc về 0), cách
+mới **0 lần nảy, 0 lần lệch**. Đá rải sẵn trên map vốn đã lún trung bình ~0,17m — nên lỗi xảy ra cả khi chơi bình thường.
+Lượt 2: **3 × 150 lần ngẫu nhiên** (12 loại vật, đặt chỗ ngẫu nhiên trên đảo, xoay 360° + nghiêng ±20°, lún 0–0,6m, hướng ngẫu
+nhiên, có/không rào chắn): đường bay trống thì cách cũ nảy 24–45 lần mỗi lượt, cách mới 0 / 0 / 1 (lần duy nhất là đá đang
+chạm sát tảng bên cạnh bị đẩy thẳng vào nó — va chạm thật). Độ nhấc lớn nhất 1,22m.
+→ **Bài học chung:** muốn tìm mặt đất dưới một vật có thể đang lún, luôn bắn tia **từ chỗ chắc chắn ở ngoài** (trên đỉnh vật).
+
+**21. Unity TỰ LƯU độ phân giải đang chạy lúc tắt game — một lần chạy với tham số là "dính" mãi** *(gặp 25/10)*
+Triệu chứng: bản build mờ mờ, **cả chữ cũng mờ**, trong khi bảng Settings vẫn ghi 2560×1440.
+→ Nguyên nhân: lúc chạy thử giao diện 20/10, Claude mở game với `-screen-width 1280 -screen-height 720`. Unity ghi độ phân giải
+đang chạy vào registry (`Screenmanager Resolution Width/Height`) khi thoát, lần sau mở lại dùng số đó → toàn màn hình 1280×720 kéo
+giãn lên màn 2560×1440. Bảng Settings đọc khoá riêng `res_width/res_height` (số người chơi chọn) nên vẫn hiện 2560×1440 — nhìn không ra.
+→ Cách chữa: `GameSettings.ApplySavedResolution()` — lúc khởi động áp lại `res_width/res_height` nếu màn hình có độ phân giải đó.
+→ **Bài học:** chạy bản build bằng tham số dòng lệnh (`-screen-*`) để test thì phải trả lại CẢ độ phân giải trong registry, không chỉ cờ
+toàn màn hình. Mờ toàn bộ kể cả chữ UI (Canvas Overlay không qua hậu kỳ) → nghi độ phân giải trước, đừng đi chỉnh khử răng cưa.
+
+**22. Script Editor chạy batch đổi cài đặt Unity (`Physics.simulationMode`…) → Unity LƯU LUÔN vào `ProjectSettings/` khi thoát** *(gặp 26/10)*
+Script test đẩy đá (batch, 25/10) đặt `Physics.simulationMode = Script` để tự gọi `Physics.Simulate`. Unity ghi giá trị đó vào
+`ProjectSettings/DynamicsManager.asset` (`m_SimulationMode` 0 → 2) lúc tắt, và hai bản build sau đó mang theo. Không hỏng trận đấu chỉ nhờ
+`RunnerSimulatePhysics3D` của Fusion tự giành quyền chạy vật lý khi vào phòng — nhưng là thay đổi ngoài ý muốn → đã `git checkout` + build lại.
+→ **Bài học:** script test tạm đổi cài đặt toàn cục thì phải TRẢ LẠI ở cuối script, và chạy `git status ProjectSettings` sau mỗi lượt batch.
 
 **15. `line` là từ khoá dành riêng của HLSL — đừng đặt làm tên biến trong shader** *(gặp 14/10)*
 Báo lỗi khó hiểu: `syntax error: unexpected token 'line'`. Đó là kiểu dữ liệu của geometry shader.

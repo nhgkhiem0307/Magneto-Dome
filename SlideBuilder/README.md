@@ -22,6 +22,7 @@ nhiêu lần ảnh vẫn còn.
 | `icon.png` | 1 — bìa, logo game |
 | `shot_dao.png` | 3 — toàn cảnh đảo |
 | `shot_hut.png` | 6 — góc nhìn thứ nhất, hút vật thể |
+| `shot_scan.png` | 7 — bảng phân tích vật thể (khung ôm tảng Heavy + thẻ SCAN). Cắt từ clip quay trailer `Magneto-Dome 2026-10-25 19-54-54.mp4` giây 1,3, thu về 1920×1080 *(26/10)* |
 | `shot_hud.png` | 8 — cận cảnh HUD |
 
 Muốn đổi ảnh thì **thay file trong `img/`** rồi chạy lại script, không động vào `.pptx`.

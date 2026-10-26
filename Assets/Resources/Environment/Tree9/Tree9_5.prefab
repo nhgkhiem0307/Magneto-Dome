@@ -141,6 +141,7 @@ MonoBehaviour:
   hitCooldown: 0.6
   bounceRiseDamp: 0.2
   bulletGravityMultiplier: 0.5
+  afterBulletGravityMultiplier: 2.5
   groundNormalThreshold: 0.5
   groundHitSpeedRetain: 0.85
   startPolarity: 0
@@ -157,6 +158,8 @@ MonoBehaviour:
   explosionRadius: 6
   tntProximityRadius: 5.2
   explosionForce: 15
+  explosionPlayerKnockback: 180
+  explosionKnockbackEdge: 0.4
   debrisForceMultiplier: 4
   debrisBecomesBullet: 1
   tntDamage: 35

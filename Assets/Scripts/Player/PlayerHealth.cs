@@ -81,10 +81,10 @@ public class PlayerHealth : NetworkBehaviour
 
     [Header("Giáp Cách Điện")]
     [Tooltip("Lượng giáp cộng thêm mỗi lần mua Shield Armor.")]
-    public float armorPerPurchase = 10f;
+    public float armorPerPurchase = 15f;
 
     [Tooltip("Trần giáp. Mua thêm khi đã đầy thì không có tác dụng gì.")]
-    public float maxArmor = 30f;
+    public float maxArmor = 45f;
 
     [Header("Băng gạc Nano - nay là Bộ Xả Điện")]
     [Tooltip("Lượng điện tích tối đa xả được trong một lần dùng.")]
