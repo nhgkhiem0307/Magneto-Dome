@@ -3,7 +3,11 @@
 > Ghi cho session sau. Đọc file này trước, rồi đọc [CLAUDE.md](CLAUDE.md) để nắm đặc tả và quy tắc.
 > **Cập nhật:** 14/10/2026 · **Deadline:** hạn 12/10 đã được lùi — **chưa biết ngày mới**
 
-> ### 📋 DANH SÁCH VIỆC CÒN LẠI ĐÃ CHUYỂN SANG [VIEC_CAN_LAM.md](VIEC_CAN_LAM.md) *(từ 14/10)*
+> 📁 **26/10: tài liệu đồ án (NOP_BAI, GDD, BALANCE, VIEC_CAN_LAM, ROLLBACK, TRAILER_SCRIPT, VOICE_BRIEF,
+> SlideBuilder, PosterBuilder, TrailerBuilder, IconPreview) đã chuyển sang `../TaiLieu_DoAn/`.** Đường dẫn cũ
+> trong nhật ký dưới đây (`NOP_BAI/...`, `SlideBuilder/...`) giờ tính từ thư mục đó.
+
+> ### 📋 DANH SÁCH VIỆC CÒN LẠI ĐÃ CHUYỂN SANG [VIEC_CAN_LAM.md](../TaiLieu_DoAn/VIEC_CAN_LAM.md) *(từ 14/10)*
 > File này giữ **nhật ký**, file kia giữ **việc phải làm** — đừng chép danh sách việc vào đây nữa.
 >
 > **Đã xong 14/10:** báo cáo có Danh mục bảng (16) + Danh mục hình (10) tự sinh kèm số trang,
@@ -211,7 +215,7 @@
 >     Internet (ngày trích dẫn) + xoá dòng ghi chú nháp sót; trang giữ chỗ Nhận xét GVHD dài 2 trang = BM04. Đã đạt sẵn: font,
 >     cỡ chữ đề mục, giãn dòng 1,5, lề, thứ tự quyển, chú thích bảng trên / hình dưới, ≤ 50 trang (phần chính 37).
 >   - **BM04, BM05:** xoá dòng trống cuối làm dư 1 trang trắng (BM04 3→2, BM05 2→1).
->   - **BM02 làm lại** bằng chính file mẫu (nhân bản đoạn mẫu, thay chữ — `C:\mdtmp\in	ao_bm02_bm03.py`), 8 trang; **BM03 mới** 2 trang;
+>   - **BM02 làm lại** bằng chính file mẫu (nhân bản đoạn mẫu, thay chữ — `C:\mdtmp\in\tao_bm02_bm03.py`), 8 trang; **BM03 mới** 2 trang;
 >     cùng bảng tiến độ 12 tuần (06/07 → 28/09/2026). Chân trang mẫu ghi tổng số trang gõ tay ("/3") → thay bằng trường NUMPAGES.
 >   - **`../TAILIEUCANIN/`**: 5 PDF (BM02, BM03, BM06 đã ghép BM04/BM05 đúng vị trí, trang bìa cứng, poster A1 594×841) + `HUONG_DAN_IN.txt`.
 >   - **Chốt: đóng kèm BM01 (bản đã ký) + BM03 + BM02 (bản đã ký) sau phụ lục** — theo hướng dẫn của trường (chủ project xác nhận).
@@ -220,7 +224,19 @@
 >     Chủ project chọn: KHÔNG thêm trích dẫn [n] vào thân bài; ngày ký BM02 để trống viết tay.
 >   - **Phát hiện khi chuẩn bị commit:** `ProjectSettings/DynamicsManager.asset` bị script test 25/10 đổi `m_SimulationMode` 0 → 2 (bẫy #22).
 >     Không ảnh hưởng trận (Fusion tự chạy vật lý) nhưng đã trả về 0 + **build lại `Build_Nop` + zip 215 MB (26/10)**.
->   Sao lưu bản trước khi sửa: `C:\mdtmpackup	ruoc_in_2610\`.
+>   Sao lưu bản trước khi sửa: `C:\mdtmp\backup\truoc_in_2610\`.
+>   - **Lượt 2 (26/10 tối) — theo tin nhắn của cô + mẫu bìa:** BM06 chỉ trang bìa in bìa cứng, còn lại in màu; 3 bản photo trắng
+>     đen KHÔNG bìa cứng; BM01–BM05 in màu bình thường; BM04, BM05 đóng sau Lời cam kết, trước Mục lục. Đã làm:
+>     **bìa + bìa lót thay bằng chính file mẫu bìa của trường** (trước đây căn giữa hết; cỡ 12 + giãn dòng đơn gắn thẳng vào từng
+>     đoạn, không thì kiểu Normal 13/1,5 của báo cáo đè lên làm mỗi bìa tràn 2 trang). Tên danh mục theo đúng chữ mẫu: "DANH MỤC
+>     CÁC KÝ HIỆU, CÁC CHỮ VIẾT TẮT", "DANH MỤC CÁC HÌNH VẼ, ĐỒ THỊ". **23 bảng rộng 15,87 cm lấn lề phải → thu về 15,5 cm**
+>     (sửa XML `tblW`/`gridCol`; Word COM chỉnh từng cột thì treo 45 phút). Vẫn 54 trang.
+>     `../TAILIEUCANIN/` làm lại: `1_TAP_BM06_THEO_THU_TU_DONG_CUON.pdf` **66 trang** (báo cáo + BM04/BM05 bên trong + BM01, BM03,
+>     BM02 ở cuối), `1a_` trang bìa riêng, `2_BM01..BM05` in rời, `3_Poster_A1.pdf`; `HUONG_DAN_IN.txt` viết lại theo lời cô, có
+>     bảng số trang. Script ghép: `C:\mdtmp\in\ghep_cuon.py`.
+>     ⚠️ Word tự động hoá bị treo vì hộp thoại ẩn ("lần trước mở file này gây lỗi nghiêm trọng" — do tắt Word giữa chừng), sau đó
+>     mở file ở chế độ chỉ đọc nên `Save()` hiện hộp Lưu thành. Cách chữa: xoá mục `Resiliency\DocumentRecovery` của đúng file +
+>     file `.asd`; xuất PDF rồi `SaveAs2` ra file tạm, chép đè lên bản gốc.
 > · **RÀ SOÁT TÀI LIỆU + HÌNH (26/10):** đối chiếu mọi tài liệu với các thay đổi từ commit 603868d. Đã sửa: GDD (cả bản `NOP_BAI/`)
 >   ghi sai `MagneticObjectInspector` là "công cụ Editor" → chuyển sang nhóm giao diện, thêm `HUDSkin`, thêm mô tả HUD mới + bảng
 >   phân tích vật thể (6.2) + tự áp lại độ phân giải (6.3); slide 5 còn "~20.000 dòng" lệch với slide 18 "25.000" → đếm lại thật
@@ -307,7 +323,7 @@
 >   chờ), **3.6** (HUD: điện 45%, x2.4, nước tăng lực, đang chiếm khu), **3.7** (cầm đá), **3.8** (Shop), **3.9** (bảng F1);
 >   khung 4 ảnh toàn màn hình chỉnh về đúng 16:9; vẫn 53 trang, đã cập nhật mục lục. Slide 6 + 8 thay `img/shot_hut.png`,
 >   `img/shot_hud.png`. Tên người chơi trong ảnh đổi thành "Khiem". Để HUD có điện tích mà không cần đối thủ, đã thêm TẠM
->   cờ `-photoCharge` vào `PlayerHealth` → chụp xong **đã gỡ** + build lại. Bản sao báo cáo trước khi thay: `C:\mdtmpackup\`.
+>   cờ `-photoCharge` vào `PlayerHealth` → chụp xong **đã gỡ** + build lại. Bản sao báo cáo trước khi thay: `C:\mdtmp\backup\`.
 >   Hình 3.5 (toàn cảnh đảo) vẫn là ảnh cũ — không có HUD nên không cần chụp lại.
 > · **Đã build lại `Build_Nop` + zip 214MB (20/10)** — có luật bắn theo điện tích, TNT mới, tiền thưởng x2. Đã push.
 > · **POSTER XONG (19/10):** `NOP_BAI/Poster_MagnetoDome_A1.pdf` + `.png`, A1 dọc 200 dpi (in được A0).

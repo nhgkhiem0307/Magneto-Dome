@@ -7,6 +7,10 @@ Ngôn ngữ làm việc: **tiếng Việt** (cả trao đổi lẫn comment tron
 > File CLAUDE.md này chứa *đặc tả và quy tắc* (ít thay đổi).
 > File PROGRESS.md chứa *tiến độ* (cập nhật liên tục). Đọc cả hai trước khi bắt tay vào việc.
 >
+> 📁 **Từ 26/10 tài liệu đồ án đã tách khỏi folder game** → `../TaiLieu_DoAn/` (cạnh folder này).
+> Trong folder game chỉ còn `CLAUDE.md`, `PROGRESS.md`, `CREDITS.md`. Mọi đường dẫn tài liệu ở Mục 6
+> (`GDD.md`, `BALANCE.md`, `NOP_BAI/`, `SlideBuilder/`…) đều tính từ `../TaiLieu_DoAn/`.
+>
 > 📋 **Sửa bất cứ thứ gì thì phải cập nhật tài liệu liên quan ngay** — bảng tra cứu
 > "sửa cái gì → sửa file nào" nằm ở **Mục 6**, kèm danh sách toàn bộ tài liệu của project.
 
@@ -26,7 +30,7 @@ Ngôn ngữ làm việc: **tiếng Việt** (cả trao đổi lẫn comment tron
 | Phạm vi bắt buộc | Gameplay hoàn chỉnh + thắng/thua + UI + hình ảnh + âm thanh |
 
 ### Về file GDD.md
-GDD *(`GDD.md` ở thư mục gốc — trước đây là `GDD.txt`)* là bản nháp **hơi sơ sài và không bắt buộc phải bám sát**. Khi GDD mâu thuẫn với thực tế code hoặc với quyết định gần đây của chủ project, **ưu tiên quyết định của chủ project**. Các mục đã chốt được ghi lại ở Mục 4 bên dưới — dùng mục đó làm chuẩn.
+GDD *(`../TaiLieu_DoAn/GDD.md` — trước đây là `GDD.txt` ở thư mục gốc)* là bản nháp **hơi sơ sài và không bắt buộc phải bám sát**. Khi GDD mâu thuẫn với thực tế code hoặc với quyết định gần đây của chủ project, **ưu tiên quyết định của chủ project**. Các mục đã chốt được ghi lại ở Mục 4 bên dưới — dùng mục đó làm chuẩn.
 
 ---
 
@@ -615,23 +619,23 @@ rồi **nói rõ trong câu trả lời là đã cập nhật file nào**.
 |---|---|---|
 | `CLAUDE.md` | Đặc tả và quy tắc. **Ít thay đổi** | Claude, mỗi phiên |
 | `PROGRESS.md` | Tiến độ, nhật ký công việc. **Thay đổi liên tục** | Claude, mỗi phiên |
-| `BALANCE.md` | Toàn bộ con số cân bằng, kèm nơi chỉnh | Chủ project khi cân bằng game |
-| `GDD.md` | Tài liệu thiết kế game | Nộp kèm |
+| `../TaiLieu_DoAn/BALANCE.md` | Toàn bộ con số cân bằng, kèm nơi chỉnh | Chủ project khi cân bằng game |
+| `../TaiLieu_DoAn/GDD.md` | Tài liệu thiết kế game | Nộp kèm |
 | `CREDITS.md` | Khai báo tài nguyên bên thứ ba và giấy phép | Nộp kèm, hội đồng hay hỏi |
-| `VOICE_BRIEF.md` | Chỉ đạo giọng ARENA CONTROL, prompt ElevenLabs | Khi làm thêm câu thoại |
-| `TRAILER_SCRIPT.md` | Kịch bản trailer **49,6s** (quay toàn bộ bằng OBS, 2 bản game trên 1 máy), danh sách clip cần quay + 18 clip đã quay, nhạc *Upbeat Rock* (JonasBlakewood, 130 BPM) và quy tắc đoạn kết, lời giao việc cho AI edit. Bản dựng: `../Trailer_Footage/MagnetoDome_Trailer.mp4` | Khi quay / dựng trailer |
-| `ROLLBACK_TRUOC_KHI_NOP.md` | Mọi thứ phải trả lại trước khi nộp | **Đọc trước khi build bản nộp** |
-| `VIEC_CAN_LAM.md` | **Danh sách việc còn lại**, ngắn gọn, kèm hướng dẫn build bản nộp từng bước | Chủ project — **mở ra đầu tiên** |
-| `NOP_BAI/[ĐT-QĐ04-BM06] Báo cáo tốt nghiệp.docx` | Báo cáo **54 trang** *(26/10)*: 13 trang đầu không đánh số (section 1) + Chương 1 = trang 1 → 41 (section 2) — đúng quy định của Học viện. 4 chương + 2 phụ lục, **11 hình** *(26/10 thêm Hình 3.10 bảng phân tích vật thể)*, 15 bảng. Có Danh mục hình/bảng tự sinh — sửa nội dung xong nhớ `Ctrl+A` → `F9` | Nộp chính |
-| `NOP_BAI/[ĐT-QĐ04-BM08] Final Project.pptx` | 15 slide bảo vệ + 4 slide phụ cuối *(Timeline, Balance Sheet, Code Architecture, Credits — từ 15/10 không còn ghi chữ "Dự phòng" trên slide)*. Tiêu đề kiểu pha Việt–Anh. **Không có slide demo** — demo trực tiếp bằng game (bỏ 15/10), ghi chú cách demo nằm ở slide 12 | Buổi bảo vệ |
-| `SlideBuilder/` | **Script sinh ra file .pptx.** Sửa slide thì sửa ở đây rồi chạy lại | Xem `SlideBuilder/README.md` |
-| `NOP_BAI/Poster_MagnetoDome_A1.pdf` | Poster A1 dọc *(19/10)*. Ảnh nền render từ game | In / trưng bày |
-| `TrailerBuilder/` | **Bộ dựng trailer tự động** (`edit/`, 24/10, viết lại 25/10) — sửa `edit/timeline.py` rồi chạy `edit/build_trailer.py` (`--check` để soát). Clip quay tay dài ngắn tuỳ ý: tự dò tiếng va chạm, đặt đúng phách, tự làm chậm khi thiếu. Nguyên liệu ở `../Trailer_Footage/` (ngoài repo): `obs/` (clip OBS góc nhìn thứ nhất, giữ tên gốc — bảng `CLIPS` trong `timeline.py`), `cinematic/` (3 cảnh toàn đảo render sẵn, không nhân vật), `music/`. Script render cũ đã xoá 25/10 | Xem `TrailerBuilder/README.md` |
-| `PosterBuilder/` | **Script sinh ra poster** (`make_poster.py`) + ảnh nền + font. Sửa chữ ở đây rồi chạy lại. `PosterShot.cs` trong đó cố ý nằm ngoài `Assets/` | Xem `PosterBuilder/README.md` |
-| `NOP_BAI/` | **Thư mục nộp bài** — gom đủ biểu mẫu theo tên chính thức của trường | Nộp cho Bộ Môn |
-| `../TAILIEUCANIN/` | **Bộ PDF sẵn sàng in** *(26/10)*: BM02, BM03, BM06 (đã ghép BM04 + BM05 đúng vị trí) + trang bìa cứng, poster A1, kèm `HUONG_DAN_IN.txt` (số bản, khổ, giấy). **Chốt 26/10: cuối cuốn báo cáo đóng kèm BM01 + BM03 + BM02 bản đã ký** (theo hướng dẫn của trường). Sửa báo cáo/biểu mẫu thì xuất PDF lại | Mang đi in |
+| `../TaiLieu_DoAn/VOICE_BRIEF.md` | Chỉ đạo giọng ARENA CONTROL, prompt ElevenLabs | Khi làm thêm câu thoại |
+| `../TaiLieu_DoAn/TRAILER_SCRIPT.md` | Kịch bản trailer **49,6s** (quay toàn bộ bằng OBS, 2 bản game trên 1 máy), danh sách clip cần quay + 18 clip đã quay, nhạc *Upbeat Rock* (JonasBlakewood, 130 BPM) và quy tắc đoạn kết, lời giao việc cho AI edit. Bản dựng: `../Trailer_Footage/MagnetoDome_Trailer.mp4` | Khi quay / dựng trailer |
+| `../TaiLieu_DoAn/ROLLBACK_TRUOC_KHI_NOP.md` | Mọi thứ phải trả lại trước khi nộp | **Đọc trước khi build bản nộp** |
+| `../TaiLieu_DoAn/VIEC_CAN_LAM.md` | **Danh sách việc còn lại**, ngắn gọn, kèm hướng dẫn build bản nộp từng bước | Chủ project — **mở ra đầu tiên** |
+| `../TaiLieu_DoAn/NOP_BAI/[ĐT-QĐ04-BM06] Báo cáo tốt nghiệp.docx` | Báo cáo **54 trang** *(26/10)*: 13 trang đầu không đánh số (section 1) + Chương 1 = trang 1 → 41 (section 2) — đúng quy định của Học viện. 4 chương + 2 phụ lục, **11 hình** *(26/10 thêm Hình 3.10 bảng phân tích vật thể)*, 15 bảng (rộng 15,5 cm, vừa vùng chữ). **Bìa + bìa lót dựng từ chính file mẫu bìa của trường** *(26/10)*. Có Danh mục hình/bảng tự sinh — sửa nội dung xong nhớ `Ctrl+A` → `F9` | Nộp chính |
+| `../TaiLieu_DoAn/NOP_BAI/[ĐT-QĐ04-BM08] Final Project.pptx` | 15 slide bảo vệ + 4 slide phụ cuối *(Timeline, Balance Sheet, Code Architecture, Credits — từ 15/10 không còn ghi chữ "Dự phòng" trên slide)*. Tiêu đề kiểu pha Việt–Anh. **Không có slide demo** — demo trực tiếp bằng game (bỏ 15/10), ghi chú cách demo nằm ở slide 12 | Buổi bảo vệ |
+| `../TaiLieu_DoAn/SlideBuilder/` | **Script sinh ra file .pptx.** Sửa slide thì sửa ở đây rồi chạy lại | Xem `SlideBuilder/README.md` |
+| `../TaiLieu_DoAn/NOP_BAI/Poster_MagnetoDome_A1.pdf` | Poster A1 dọc *(19/10)*. Ảnh nền render từ game | In / trưng bày |
+| `../TaiLieu_DoAn/TrailerBuilder/` | **Bộ dựng trailer tự động** (`edit/`, 24/10, viết lại 25/10) — sửa `edit/timeline.py` rồi chạy `edit/build_trailer.py` (`--check` để soát). Clip quay tay dài ngắn tuỳ ý: tự dò tiếng va chạm, đặt đúng phách, tự làm chậm khi thiếu. Nguyên liệu ở `../Trailer_Footage/` (ngoài repo): `obs/` (clip OBS góc nhìn thứ nhất, giữ tên gốc — bảng `CLIPS` trong `timeline.py`), `cinematic/` (3 cảnh toàn đảo render sẵn, không nhân vật), `music/`. Script render cũ đã xoá 25/10 | Xem `TrailerBuilder/README.md` |
+| `../TaiLieu_DoAn/PosterBuilder/` | **Script sinh ra poster** (`make_poster.py`) + ảnh nền + font. Sửa chữ ở đây rồi chạy lại. `PosterShot.cs` trong đó cố ý nằm ngoài `Assets/` | Xem `PosterBuilder/README.md` |
+| `../TaiLieu_DoAn/NOP_BAI/` | **Thư mục nộp bài** — gom đủ biểu mẫu theo tên chính thức của trường | Nộp cho Bộ Môn |
+| `../TAILIEUCANIN/` | **Bộ PDF sẵn sàng in** *(26/10, theo lời cô)*: `1_TAP_BM06_THEO_THU_TU_DONG_CUON.pdf` 66 trang = báo cáo + BM04/BM05 (sau Lời cam kết, trước Mục lục) + BM01, BM03, BM02 ở cuối (theo hướng dẫn của trường) → **1 cuốn màu, chỉ trang bìa là bìa cứng + 3 cuốn photo trắng đen không bìa cứng**; `1a_` trang bìa riêng; `2_BM01..BM05` in rời in màu; `3_Poster_A1.pdf`; `HUONG_DAN_IN.txt`. Sửa báo cáo/biểu mẫu thì xuất PDF lại rồi chạy `C:\mdtmp\in\ghep_cuon.py` | Mang đi in |
 
-**Bộ biểu mẫu của trường** *(mẫu gốc ở Drive của khoa, bản đã điền nằm trong `NOP_BAI/`)*:
+**Bộ biểu mẫu của trường** *(mẫu gốc ở Drive của khoa, bản đã điền nằm trong `../TaiLieu_DoAn/NOP_BAI/`)*:
 
 | Mã | Tên | Ai điền |
 |---|---|---|
@@ -817,7 +821,7 @@ Font Poppins (`Resources/UI/UI kit/Font/`) được dựng với **padding 2** �
 2 điểm ảnh, nên chữ nhỏ (cỡ < 20) bị ăn lấn vùng của chữ bên cạnh → ô xám mờ quanh "p", "l", "y" như có bóng đổ.
 → Cách chữa: dựng lại atlas với **padding 6** (tấm ảnh 512 → 1024). Đã làm cho Medium / Bold / Black / Regular bằng
 script tạm, **chép đè lên đúng object cũ** nên GUID + fileID giữ nguyên, mọi chữ trong scene vẫn trỏ đúng. Bản cũ ở
-`C:\mdtmpackuponts\`. Tạo font asset mới thì để padding ≥ 10% cỡ lấy mẫu.
+`C:\mdtmp\backup\fonts\`. Tạo font asset mới thì để padding ≥ 10% cỡ lấy mẫu.
 
 **20. Tia dò (Raycast) XUẤT PHÁT TỪ BÊN TRONG một collider thì KHÔNG bắt được collider đó** *(bẫy VẬT LÝ — sửa 25/10)*
 Triệu chứng: đẩy (chuột trái, cùng dấu) một tảng đá đang nằm trên đất thì thỉnh thoảng đá **nảy thẳng lên** hoặc
